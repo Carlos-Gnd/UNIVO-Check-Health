@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Badge } from '@/shared/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Search, Mail, GraduationCap } from 'lucide-react';
-import { getStudents, getAttendance } from '../utils/data';
+import { getStudents } from '../services/students.service';
+import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { Student } from '../types';
 import {
   Table,
@@ -13,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from './ui/table';
+} from '@/shared/components/ui/table';
 
 export function Students() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -24,7 +25,6 @@ export function Students() {
     const loadedStudents = getStudents();
     const attendance = getAttendance();
 
-    // Calculate stats for each student
     const stats: Record<string, any> = {};
     loadedStudents.forEach(student => {
       const studentAttendance = attendance.filter(a => a.studentId === student.id);

@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  Clock,
-  TrendingUp,
-  Calendar
-} from 'lucide-react';
-import { getStudents, getPractices, getAttendance } from '../utils/data';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Users, CheckCircle, XCircle, Clock, TrendingUp, Calendar } from 'lucide-react';
+import { getStudents } from '@/modules/students/services/students.service';
+import { getPractices } from '@/modules/practices/services/practices.service';
+import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format } from 'date-fns';
 
@@ -31,7 +26,6 @@ export function Dashboard() {
     const todayRecords = attendance.filter(a => a.date === today);
     const presentToday = todayRecords.filter(a => a.status === 'present' || a.status === 'late').length;
 
-    // Calculate attendance rate
     const totalAttendance = attendance.length;
     const presentCount = attendance.filter(a => a.status === 'present' || a.status === 'late').length;
     const rate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
@@ -43,7 +37,6 @@ export function Dashboard() {
       attendanceRate: rate,
     });
 
-    // Recent activity
     const recent = attendance
       .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())
       .slice(0, 5)
@@ -139,7 +132,6 @@ export function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Attendance Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Asistencias Semanales</CardTitle>
@@ -159,7 +151,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Status Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Estado de Hoy</CardTitle>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
 import { MapPin, User, Calendar, Clock } from 'lucide-react';
-import { getPractices, getAttendance, getStudents } from '../utils/data';
+import { getPractices } from '../services/practices.service';
+import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { Practice } from '../types';
 import { format } from 'date-fns';
 
@@ -13,14 +14,12 @@ export function Practices() {
   useEffect(() => {
     const loadedPractices = getPractices();
     const attendance = getAttendance();
-    const students = getStudents();
 
-    // Calculate stats for each practice
     const stats: Record<string, any> = {};
     loadedPractices.forEach(practice => {
       const practiceAttendance = attendance.filter(a => a.practiceId === practice.id);
       const uniqueStudents = new Set(practiceAttendance.map(a => a.studentId));
-      
+
       stats[practice.id] = {
         totalAttendance: practiceAttendance.length,
         activeStudents: uniqueStudents.size,
@@ -78,7 +77,6 @@ export function Practices() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Location */}
                 <div className="flex items-start gap-3">
                   <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
@@ -87,7 +85,6 @@ export function Practices() {
                   </div>
                 </div>
 
-                {/* Supervisor */}
                 <div className="flex items-start gap-3">
                   <User className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
@@ -96,7 +93,6 @@ export function Practices() {
                   </div>
                 </div>
 
-                {/* Schedule */}
                 <div className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
@@ -105,7 +101,6 @@ export function Practices() {
                   </div>
                 </div>
 
-                {/* Dates */}
                 <div className="flex items-start gap-3">
                   <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
@@ -116,7 +111,6 @@ export function Practices() {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div className="pt-4 border-t border-gray-200">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-3 bg-blue-50 rounded-lg">
