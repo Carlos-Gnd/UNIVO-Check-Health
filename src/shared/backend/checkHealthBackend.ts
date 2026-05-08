@@ -169,7 +169,20 @@ const getRoleAssignments = () => {
 
 export const assignAccessLevel = (email: string): { role: UserRole; access: string[] } => {
   const normalizedEmail = email.trim().toLowerCase();
-  const role = getRoleAssignments()[normalizedEmail] ?? 'Estudiante';
+  const domain = normalizedEmail.split('@')[1];
+  
+  // Asignación por dominio (HU-04)
+  let role: UserRole = 'Estudiante';
+  
+  if (domain === 'coordinador.univo.edu.sv' || normalizedEmail === COORD_EMAIL) {
+    role = 'Coordinador';
+  } else if (domain === 'docente.univo.edu.sv') {
+    role = 'Docente';
+  } else if (domain === 'hospital.edu.sv') {
+    role = 'Representante de sede';
+  } else if (domain === 'admin.univo.edu.sv') {
+    role = 'Administrador';
+  }
 
   return {
     role,
