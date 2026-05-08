@@ -13,6 +13,24 @@ Este sistema permite:
 
 Actualmente, la app funciona con **datos locales (mock/localStorage)** para revisión académica. Más adelante se integrará backend y base de datos.
 
+## Backend local Sprint 1 (Carlos)
+
+Se agrego base de datos local para tareas de Sprint 1 con imagen de Supabase Postgres.
+
+```bash
+docker compose up -d
+```
+
+El script de inicializacion corre automaticamente desde:
+
+```txt
+supabase/sql/001_init_checkhealth.sql
+```
+
+Documentacion:
+- `docs/backend/sprint1-carlos.md`
+- `docs/qa/sprint1-casos-carlos.md`
+
 ## Demo local rápida
 
 1. Instalar dependencias:
@@ -136,5 +154,4 @@ git checkout -b feature/nombre-feature
 - La información actual se guarda localmente en navegador.
 - Al limpiar almacenamiento local, los datos pueden perderse.
 - Proyecto orientado a avance académico y revisión funcional inicial.
-
 
