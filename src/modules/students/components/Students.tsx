@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
-import { Search, Mail, GraduationCap } from 'lucide-react';
+import { Search, Mail, GraduationCap, History, X } from 'lucide-react';
 import { getStudents } from '../services/students.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { Student } from '../types';
+import { AttendanceHistory } from './AttendanceHistory';
 import {
   Table,
   TableBody,
@@ -20,6 +22,8 @@ export function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [studentStats, setStudentStats] = useState<Record<string, any>>({});
+  // T-06.3: estudiante seleccionado para ver historial
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   useEffect(() => {
     const loadedStudents = getStudents();
@@ -31,12 +35,7 @@ export function Students() {
       const present = studentAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
       const total = studentAttendance.length;
       const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-
-      stats[student.id] = {
-        totalAttendance: total,
-        presentCount: present,
-        rate: rate,
-      };
+      stats[student.id] = { totalAttendance: total, presentCount: present, rate };
     });
 
     setStudents(loadedStudents);
@@ -49,14 +48,8 @@ export function Students() {
     student.career.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   const getAttendanceColor = (rate: number) => {
     if (rate >= 90) return 'bg-green-100 text-green-800';
@@ -121,13 +114,14 @@ export function Students() {
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t">
                   <span className="text-xs text-gray-500">Asistencia</span>
-                  <Badge className={getAttendanceColor(stats.rate)}>
-                    {stats.rate}%
-                  </Badge>
+                  <Badge className={getAttendanceColor(stats.rate)}>{stats.rate}%</Badge>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {stats.totalAttendance} registros totales
-                </div>
+                <div className="text-xs text-gray-500">{stats.totalAttendance} registros totales</div>
+                {/* T-06.3: botón historial */}
+                <Button variant="outline" size="sm" className="w-full" onClick={() => setSelectedStudent(student)}>
+                  <History className="w-4 h-4 mr-2" />
+                  Ver historial
+                </Button>
               </CardContent>
             </Card>
           );
@@ -138,9 +132,7 @@ export function Students() {
       <Card className="hidden lg:block">
         <CardHeader>
           <CardTitle>Lista de Estudiantes</CardTitle>
-          <CardDescription>
-            {filteredStudents.length} estudiantes encontrados
-          </CardDescription>
+          <CardDescription>{filteredStudents.length} estudiantes encontrados</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -152,12 +144,13 @@ export function Students() {
                 <TableHead>Email</TableHead>
                 <TableHead>Asistencias</TableHead>
                 <TableHead className="text-right">Tasa</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No se encontraron estudiantes
                   </TableCell>
                 </TableRow>
@@ -182,9 +175,14 @@ export function Students() {
                       <TableCell>{student.email}</TableCell>
                       <TableCell>{stats.totalAttendance}</TableCell>
                       <TableCell className="text-right">
-                        <Badge className={getAttendanceColor(stats.rate)}>
-                          {stats.rate}%
-                        </Badge>
+                        <Badge className={getAttendanceColor(stats.rate)}>{stats.rate}%</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {/* T-06.3: botón historial */}
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(student)} className="text-blue-600 hover:text-blue-800">
+                          <History className="w-4 h-4 mr-1" />
+                          Historial
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -194,6 +192,21 @@ export function Students() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* T-06.3: Panel de historial del estudiante seleccionado */}
+      {selectedStudent && (
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-2 top-2 z-10 text-gray-400 hover:text-gray-600"
+            onClick={() => setSelectedStudent(null)}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+          <AttendanceHistory studentId={selectedStudent.id} studentName={selectedStudent.name} />
+        </div>
+      )}
     </div>
   );
 }
