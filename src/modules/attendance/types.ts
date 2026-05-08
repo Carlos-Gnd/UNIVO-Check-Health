@@ -1,3 +1,9 @@
+export interface DeviceInfo {
+  browser: string;
+  gpsAccuracy: number | null;
+  connectionType: string;
+}
+
 export interface Attendance {
   id: string;
   studentId: string;
@@ -15,6 +21,7 @@ export interface Attendance {
   reviewStatus?: 'clear' | 'pending_review';
   suspiciousReason?: string;
   deviceId?: string;
+  deviceInfo?: DeviceInfo;
 }
 
 export interface AttendanceRecord extends Attendance {
