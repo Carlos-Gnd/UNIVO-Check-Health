@@ -1,6 +1,17 @@
-create extension if not exists pgcrypto;
-
 create schema if not exists app;
+
+create or replace function app.new_uuid()
+returns uuid
+language sql
+as $$
+  select (
+    substr(md5(random()::text || clock_timestamp()::text), 1, 8) || '-' ||
+    substr(md5(random()::text || clock_timestamp()::text), 9, 4) || '-' ||
+    '4' || substr(md5(random()::text || clock_timestamp()::text), 14, 3) || '-' ||
+    substr('89ab', floor(random() * 4 + 1)::int, 1) || substr(md5(random()::text || clock_timestamp()::text), 18, 3) || '-' ||
+    substr(md5(random()::text || clock_timestamp()::text), 21, 12)
+  )::uuid
+$$;
 
 create table if not exists app.system_config (
   key text primary key,
@@ -15,7 +26,7 @@ on conflict (key) do nothing;
 create type app.user_role as enum ('STUDENT', 'DOCENTE', 'COORDINADOR', 'REPRESENTANTE_SEDE', 'ADMIN');
 
 create table if not exists app.users (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default app.new_uuid(),
   student_code varchar(9) not null unique,
   full_name text,
   email text not null unique,
@@ -24,7 +35,7 @@ create table if not exists app.users (
 );
 
 create table if not exists app.campuses (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default app.new_uuid(),
   name text not null unique,
   latitude numeric(9,6) not null,
   longitude numeric(9,6) not null,
