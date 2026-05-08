@@ -65,10 +65,14 @@ pnpm preview
 
 ## Credenciales temporales (solo frontend)
 
-- Correo: `David@gmail.com`
-- Contraseña: `david123`
+- Encargado:
+  - Correo: `david@gmail.com`
+  - Contraseña: `david123`
+- Decano:
+  - Correo: `decano@gmail.com`
+  - Contraseña: `decano123`
 
-Estas credenciales son provisionales para revisión. No hay autenticación real con servidor todavía.
+
 
 ## Stack tecnológico
 
@@ -79,6 +83,8 @@ Estas credenciales son provisionales para revisión. No hay autenticación real 
 - Componentes UI (shadcn/radix + utilidades)
 - date-fns
 - sonner (notificaciones)
+- recharts (gráficas)
+- zustand (estado global para módulo Decano)
 
 ## Estructura principal
 
@@ -88,6 +94,10 @@ src/
     App.tsx
     routes.tsx
   modules/
+    dean/
+      pages/
+      store/
+      types.ts
     dashboard/
       components/
     attendance/
@@ -116,12 +126,32 @@ src/
     tailwind.css
     theme.css
   main.tsx
+  data/
+    deanMockData.ts
 ```
+
+## Rutas principales por rol
+
+- Encargado:
+  - `/`
+  - `/checkin`
+  - `/students`
+  - `/practices`
+  - `/reports`
+- Decano:
+  - `/dean/dashboard`
+  - `/dean/students`
+  - `/dean/locations`
 
 ## Estado actual
 
 - Login responsive implementado.
 - Sidebar y navegación responsive.
+- Soporte de 2 roles en login temporal (`Encargado` y `Decano`).
+- Módulo Decano agregado con:
+  - Dashboard (estadísticas, riesgo y cumplimiento por sede).
+  - Gestión de alumnos (filtros, tabla ordenable, paginación, modal detalle).
+  - Gestión de sedes (cards, filtros y modal detalle).
 - Vista de reportes adaptada:
   - Tabla en desktop.
   - Tarjetas en móvil/tablet.
@@ -141,13 +171,6 @@ git checkout -b feature/nombre-feature
 3. Abrir Pull Request hacia `main`.
 4. Pedir revisión de al menos 1 compañero antes de merge.
 
-## Próximos pasos sugeridos
-
-- Integrar backend (API REST o similar).
-- Mover autenticación a servidor (JWT/sesiones).
-- Conectar base de datos (estudiantes, prácticas, asistencias).
-- Agregar validaciones de negocio y roles.
-- Implementar pruebas (unitarias/integración).
 
 ## Notas importantes
 
