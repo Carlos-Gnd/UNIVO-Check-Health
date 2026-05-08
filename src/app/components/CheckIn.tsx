@@ -6,9 +6,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
-import { getStudents, getPractices, getAttendance, addAttendance, updateAttendance } from '../utils/data';
+import { getStudents, getPractices, getAttendance } from '../utils/data';
+import { getTrustedPracticeLocation, registerStudentCheckIn, registerStudentCheckOut } from '../backend/checkHealthBackend';
 import { Student, Practice, Attendance } from '../types';
 import { format } from 'date-fns';
+
+const DEVICE_ID_STORAGE_KEY = 'checkhealth-device-id';
+
+const getDeviceId = () => {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+
+  if (existing) {
+    return existing;
+  }
+
+  const deviceId = `device_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
+  return deviceId;
+};
 
 export function CheckIn() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -37,9 +52,6 @@ export function CheckIn() {
       return;
     }
 
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const now = new Date().toISOString();
-
     // Check if already checked in today
     const existing = todayAttendance.find(
       a => a.studentId === selectedStudent && a.practiceId === selectedPractice
@@ -50,17 +62,19 @@ export function CheckIn() {
       return;
     }
 
-    const newAttendance: Attendance = {
-      id: Date.now().toString(),
+    const result = registerStudentCheckIn({
       studentId: selectedStudent,
       practiceId: selectedPractice,
-      checkIn: now,
-      date: today,
-      status: 'present',
       notes: notes || undefined,
-    };
+      location: getTrustedPracticeLocation(selectedPractice),
+      deviceId: getDeviceId(),
+    });
 
-    addAttendance(newAttendance);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+
     loadData();
     
     const student = students.find(s => s.id === selectedStudent);
@@ -73,8 +87,24 @@ export function CheckIn() {
   };
 
   const handleCheckOut = (attendanceId: string) => {
-    const now = new Date().toISOString();
-    updateAttendance(attendanceId, { checkOut: now });
+    const attendance = todayAttendance.find(a => a.id === attendanceId);
+
+    if (!attendance) {
+      toast.error('No se encontro el registro activo');
+      return;
+    }
+
+    const result = registerStudentCheckOut({
+      attendanceId,
+      location: getTrustedPracticeLocation(attendance.practiceId),
+      deviceId: getDeviceId(),
+    });
+
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+
     loadData();
     toast.success('Check-out registrado exitosamente');
   };

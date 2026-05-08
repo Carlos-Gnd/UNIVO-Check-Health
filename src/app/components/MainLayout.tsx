@@ -16,12 +16,14 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
 import { initializeData } from '../utils/data';
+import { assignAccessLevel, generateSessionCredentials } from '../backend/checkHealthBackend';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 
 const AUTH_STORAGE_KEY = 'checkhealth-auth';
+const SESSION_STORAGE_KEY = 'checkhealth-current-session';
 const TEMP_EMAIL = 'david@gmail.com';
 const TEMP_PASSWORD = 'david123';
 
@@ -31,6 +33,7 @@ export function MainLayout() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(AUTH_STORAGE_KEY) === 'true');
+  const [currentRole, setCurrentRole] = useState(() => assignAccessLevel(TEMP_EMAIL).role);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -67,6 +70,9 @@ export function MainLayout() {
     }
 
     localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+    const session = generateSessionCredentials(email, 'coordinator-david');
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    setCurrentRole(session.role);
     setIsAuthenticated(true);
     setPassword('');
     toast.success('Bienvenido al dashboard de encargado');
@@ -75,6 +81,7 @@ export function MainLayout() {
 
   const handleLogout = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
     setIsAuthenticated(false);
     setIsMobileMenuOpen(false);
     setEmail('');
@@ -289,7 +296,7 @@ export function MainLayout() {
           <div className="p-4 border-t border-gray-200 space-y-3">
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg">
               <p className="text-sm font-semibold text-gray-900">Dr. David</p>
-              <p className="text-xs text-gray-600">Encargado</p>
+              <p className="text-xs text-gray-600">{currentRole}</p>
             </div>
             <Button onClick={handleLogout} variant="outline" className="w-full justify-start">
               <LogOut className="w-4 h-4 mr-2" />
@@ -324,7 +331,7 @@ export function MainLayout() {
               <div className="mt-6 pt-4 border-t border-gray-200 space-y-3">
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg">
                   <p className="text-sm font-semibold text-gray-900">Dr. David</p>
-                  <p className="text-xs text-gray-600">Encargado</p>
+                  <p className="text-xs text-gray-600">{currentRole}</p>
                 </div>
                 <Button onClick={handleLogout} variant="outline" className="w-full justify-start">
                   <LogOut className="w-4 h-4 mr-2" />
