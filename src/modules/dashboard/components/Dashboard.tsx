@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Users, CheckCircle, XCircle, Clock, TrendingUp, Calendar } from 'lucide-react';
+import { Badge } from '@/shared/components/ui/badge';
+import { Users, CheckCircle, XCircle, Clock, TrendingUp, Calendar, AlertTriangle, ShieldAlert, Activity } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
@@ -14,6 +15,14 @@ export function Dashboard() {
     totalPractices: 0,
     todayAttendance: 0,
     attendanceRate: 0,
+  });
+
+  // T-07.5: indicadores clave del ciclo
+  const [cycleIndicators, setCycleIndicators] = useState({
+    overallCompliance: 0,
+    atRiskStudents: [] as { name: string; rate: number; id: string }[],
+    practicesWithIncidents: [] as { name: string; incidents: number }[],
+    lastUpdated: '',
   });
 
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -40,17 +49,39 @@ export function Dashboard() {
         attendanceRate: rate,
       });
 
+      // T-07.5: calcular indicadores clave
+      const studentRates = students.map(s => {
+        const sa = attendance.filter(a => a.studentId === s.id);
+        const present = sa.filter(a => a.status === 'present' || a.status === 'late').length;
+        const r = sa.length > 0 ? Math.round((present / sa.length) * 100) : 0;
+        return { id: s.id, name: s.name, rate: r };
+      });
+
+      const atRisk = studentRates.filter(s => s.rate < 75).sort((a, b) => a.rate - b.rate);
+
+      const practiceIncidents = practices.map(p => {
+        const pa = attendance.filter(a => a.practiceId === p.id && (a.status === 'absent' || a.status === 'late'));
+        return { name: p.name.length > 30 ? p.name.slice(0, 30) + '…' : p.name, incidents: pa.length };
+      }).filter(p => p.incidents > 0).sort((a, b) => b.incidents - a.incidents);
+
+      const overallCompliance = studentRates.length > 0
+        ? Math.round(studentRates.reduce((acc, s) => acc + s.rate, 0) / studentRates.length)
+        : 0;
+
+      setCycleIndicators({
+        overallCompliance,
+        atRiskStudents: atRisk,
+        practicesWithIncidents: practiceIncidents,
+        lastUpdated: format(new Date(), 'HH:mm'),
+      });
+
       const recent = attendance
         .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())
         .slice(0, 5)
         .map(a => {
           const student = students.find(s => s.id === a.studentId);
           const practice = practices.find(p => p.id === a.practiceId);
-          return {
-            ...a,
-            studentName: student?.name || 'Unknown',
-            practiceName: practice?.name || 'Unknown',
-          };
+          return { ...a, studentName: student?.name || 'Unknown', practiceName: practice?.name || 'Unknown' };
         });
 
       setRecentActivity(recent);
@@ -59,22 +90,16 @@ export function Dashboard() {
 
     loadDashboardData();
     const intervalId = window.setInterval(loadDashboardData, 30000);
-
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const statusData = [
-    { name: 'Presente', value: stats.todayAttendance, color: '#10b981' },
-    { name: 'Ausente', value: Math.max(0, stats.totalStudents - stats.todayAttendance), color: '#ef4444' },
-  ];
+  const complianceColor = cycleIndicators.overallCompliance >= 85
+    ? 'text-green-600' : cycleIndicators.overallCompliance >= 70
+    ? 'text-yellow-600' : 'text-red-600';
 
-  const weeklyData = [
-    { day: 'Lun', asistencias: 15 },
-    { day: 'Mar', asistencias: 18 },
-    { day: 'Mié', asistencias: 16 },
-    { day: 'Jue', asistencias: 20 },
-    { day: 'Vie', asistencias: 14 },
-  ];
+  const complianceBg = cycleIndicators.overallCompliance >= 85
+    ? 'bg-green-50 border-green-200' : cycleIndicators.overallCompliance >= 70
+    ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200';
 
   return (
     <div className="space-y-6">
@@ -89,9 +114,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Estudiantes
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Estudiantes</CardTitle>
             <Users className="w-4 h-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -99,12 +122,9 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">Activos en prácticas</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Asistencias Hoy
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Asistencias Hoy</CardTitle>
             <CheckCircle className="w-4 h-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -112,12 +132,9 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">Registros completados</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Prácticas Activas
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Prácticas Activas</CardTitle>
             <Calendar className="w-4 h-4 text-purple-600" />
           </CardHeader>
           <CardContent>
@@ -125,12 +142,9 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">En este semestre</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Tasa de Asistencia
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Tasa de Asistencia</CardTitle>
             <TrendingUp className="w-4 h-4 text-cyan-600" />
           </CardHeader>
           <CardContent>
@@ -139,6 +153,122 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* T-07.5: Tarjetas de indicadores clave del ciclo */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-600" />
+            Indicadores Clave del Ciclo
+          </h3>
+          <span className="text-xs text-gray-400">Actualizado a las {cycleIndicators.lastUpdated}</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Cumplimiento general */}
+          <Card className={`border ${complianceBg}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Cumplimiento General
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-4xl font-bold ${complianceColor}`}>
+                {cycleIndicators.overallCompliance}%
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${
+                    cycleIndicators.overallCompliance >= 85 ? 'bg-green-500'
+                    : cycleIndicators.overallCompliance >= 70 ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                  }`}
+                  style={{ width: `${cycleIndicators.overallCompliance}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {cycleIndicators.overallCompliance >= 85 ? '✓ Cumplimiento satisfactorio'
+                  : cycleIndicators.overallCompliance >= 70 ? '⚠ Requiere atención'
+                  : '✗ Cumplimiento crítico'}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Estudiantes en riesgo */}
+          <Card className={`border ${cycleIndicators.atRiskStudents.length > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                Estudiantes en Riesgo
+                {cycleIndicators.atRiskStudents.length > 0 && (
+                  <Badge className="bg-red-100 text-red-700 ml-auto">{cycleIndicators.atRiskStudents.length}</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cycleIndicators.atRiskStudents.length === 0 ? (
+                <div className="flex flex-col items-center py-3 text-green-600">
+                  <CheckCircle className="w-8 h-8 mb-1" />
+                  <p className="text-sm font-medium">Sin estudiantes en riesgo</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cycleIndicators.atRiskStudents.slice(0, 3).map(s => (
+                    <div key={s.id} className="flex items-center justify-between">
+                      <p className="text-sm text-gray-800 truncate flex-1">{s.name.split(' ').slice(0, 2).join(' ')}</p>
+                      <Badge className="bg-red-100 text-red-700 shrink-0 ml-2">{s.rate}%</Badge>
+                    </div>
+                  ))}
+                  {cycleIndicators.atRiskStudents.length > 3 && (
+                    <p className="text-xs text-gray-400 text-center">+{cycleIndicators.atRiskStudents.length - 3} más</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Prácticas con más incidencias */}
+          <Card className={`border ${cycleIndicators.practicesWithIncidents.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-orange-500" />
+                Incidencias por Práctica
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cycleIndicators.practicesWithIncidents.length === 0 ? (
+                <div className="flex flex-col items-center py-3 text-green-600">
+                  <CheckCircle className="w-8 h-8 mb-1" />
+                  <p className="text-sm font-medium">Sin incidencias registradas</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cycleIndicators.practicesWithIncidents.slice(0, 3).map((p, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <p className="text-sm text-gray-800 truncate flex-1">{p.name}</p>
+                      <Badge className="bg-orange-100 text-orange-700 shrink-0 ml-2">{p.incidents}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+
+  const statusData = [
+    { name: 'Presente', value: stats.todayAttendance, color: '#10b981' },
+    { name: 'Ausente', value: Math.max(0, stats.totalStudents - stats.todayAttendance), color: '#ef4444' },
+  ];
+
+  const weeklyData = [
+    { day: 'Lun', asistencias: 15 },
+    { day: 'Mar', asistencias: 18 },
+    { day: 'Mié', asistencias: 16 },
+    { day: 'Jue', asistencias: 20 },
+    { day: 'Vie', asistencias: 14 },
+  ];
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
