@@ -14,6 +14,7 @@ import { Student } from '@/modules/students/types';
 import { Practice } from '@/modules/practices/types';
 import { Attendance } from '../types';
 import { format } from 'date-fns';
+import confetti from 'canvas-confetti';
 
 const DEVICE_ID_STORAGE_KEY = 'checkhealth-device-id';
 
@@ -78,10 +79,21 @@ export function CheckIn() {
       return;
     }
 
+    // Efecto visual instantáneo (HU-11)
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#2563eb', '#06b6d4', '#10b981']
+    });
+
     loadData();
 
     const student = students.find(s => s.id === selectedStudent);
-    toast.success(`Check-in registrado para ${student?.name}`);
+    toast.success(`Check-in registrado para ${student?.name}`, {
+      duration: 3000,
+      icon: <CheckCircle className="w-5 h-5 text-green-500" />
+    });
 
     setSelectedStudent('');
     setSelectedPractice('');
