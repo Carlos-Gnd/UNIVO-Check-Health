@@ -109,14 +109,19 @@ const distanceInMeters = (from: GeoPoint, to: GeoPoint) => {
   return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 };
 
-const createToken = (prefix: string) => {
-  const randomValues = new Uint32Array(4);
-  crypto.getRandomValues(randomValues);
-  return `${prefix}_${Array.from(randomValues).map((value) => value.toString(16)).join('')}_${Date.now().toString(36)}`;
+const createToken = (payload: any, type: 'short' | 'long') => {
+  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const body = btoa(JSON.stringify({ 
+    ...payload, 
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor((type === 'short' ? Date.now() + SHORT_SESSION_MINUTES * 60 * 1000 : Date.now() + LONG_SESSION_DAYS * 24 * 60 * 60 * 1000) / 1000)
+  }));
+  const signature = simpleHash(`${header}.${body}.secret_RS256_mock`);
+  return `${header}.${body}.${signature}`;
 };
 
-const createCredential = (type: SessionCredential['type'], now: Date): SessionCredential => ({
-  token: createToken(type === 'short' ? 'sh' : 'lg'),
+const createCredential = (userId: string, type: SessionCredential['type'], now: Date): SessionCredential => ({
+  token: createToken({ sub: userId, type }, type),
   expiresAt: (type === 'short' ? addMinutes(now, SHORT_SESSION_MINUTES) : addDays(now, LONG_SESSION_DAYS)).toISOString(),
   type,
 });
@@ -169,7 +174,16 @@ const getRoleAssignments = () => {
 
 export const assignAccessLevel = (email: string): { role: UserRole; access: string[] } => {
   const normalizedEmail = email.trim().toLowerCase();
-  const role = getRoleAssignments()[normalizedEmail] ?? 'Estudiante';
+  const domain = normalizedEmail.split('@')[1];
+  
+  // Asignación por dominio (HU-04 integrado en HU-03 por continuidad)
+  let role: UserRole = 'Estudiante';
+  
+  if (domain === 'coordinador.univo.edu.sv' || normalizedEmail === COORD_EMAIL) {
+    role = 'Coordinador';
+  } else if (domain === 'docente.univo.edu.sv') {
+    role = 'Docente';
+  }
 
   return {
     role,
@@ -186,8 +200,8 @@ export const generateSessionCredentials = (email: string, userId = email.trim().
     email: normalizedEmail,
     role: accessLevel.role,
     access: accessLevel.access,
-    shortLived: createCredential('short', now),
-    longLived: createCredential('long', now),
+    shortLived: createCredential(userId, 'short', now),
+    longLived: createCredential(userId, 'long', now),
     createdAt: now.toISOString(),
   };
   const sessions = readBackendStorage<UserSession[]>(BACKEND_STORAGE_KEYS.SESSIONS, []);
