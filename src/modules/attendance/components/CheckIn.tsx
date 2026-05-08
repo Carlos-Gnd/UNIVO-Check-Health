@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Textarea } from './ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Textarea } from '@/shared/components/ui/textarea';
 import { toast } from 'sonner';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
-import { getStudents, getPractices, getAttendance } from '../utils/data';
-import { getTrustedPracticeLocation, registerStudentCheckIn, registerStudentCheckOut } from '../backend/checkHealthBackend';
-import { Student, Practice, Attendance } from '../types';
+import { getStudents } from '@/modules/students/services/students.service';
+import { getPractices } from '@/modules/practices/services/practices.service';
+import { getAttendance } from '../services/attendance.service';
+import { getTrustedPracticeLocation, registerStudentCheckIn, registerStudentCheckOut } from '@/shared/backend/checkHealthBackend';
+import { Student } from '@/modules/students/types';
+import { Practice } from '@/modules/practices/types';
+import { Attendance } from '../types';
 import { format } from 'date-fns';
 
 const DEVICE_ID_STORAGE_KEY = 'checkhealth-device-id';
@@ -40,7 +44,7 @@ export function CheckIn() {
   const loadData = () => {
     setStudents(getStudents());
     setPractices(getPractices());
-    
+
     const today = format(new Date(), 'yyyy-MM-dd');
     const attendance = getAttendance();
     setTodayAttendance(attendance.filter(a => a.date === today));
@@ -52,7 +56,6 @@ export function CheckIn() {
       return;
     }
 
-    // Check if already checked in today
     const existing = todayAttendance.find(
       a => a.studentId === selectedStudent && a.practiceId === selectedPractice
     );
@@ -76,11 +79,10 @@ export function CheckIn() {
     }
 
     loadData();
-    
+
     const student = students.find(s => s.id === selectedStudent);
     toast.success(`Check-in registrado para ${student?.name}`);
-    
-    // Reset form
+
     setSelectedStudent('');
     setSelectedPractice('');
     setNotes('');

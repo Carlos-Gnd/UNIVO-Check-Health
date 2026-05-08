@@ -1,5 +1,9 @@
-import { addAttendance, getAttendance, getPractices, getStudents, saveToStorage, updateAttendance } from '../utils/data';
-import { Attendance, GeoPoint, Practice, SessionCredential, UserRole, UserSession } from '../types';
+import { addAttendance, getAttendance, updateAttendance } from '@/modules/attendance/services/attendance.service';
+import { Attendance, GeoPoint } from '@/modules/attendance/types';
+import { getPractices } from '@/modules/practices/services/practices.service';
+import { Practice } from '@/modules/practices/types';
+import { getStudents } from '@/modules/students/services/students.service';
+import { SessionCredential, UserRole, UserSession } from './types';
 
 type SiteCoverage = GeoPoint & {
   radiusMeters: number;

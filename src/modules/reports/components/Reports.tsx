@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Label } from './ui/label';
-import { Button } from './ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Label } from '@/shared/components/ui/label';
+import { Button } from '@/shared/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Download, Filter } from 'lucide-react';
-import { getStudents, getPractices, getAttendance } from '../utils/data';
-import { AttendanceRecord } from '../types';
+import { getStudents } from '@/modules/students/services/students.service';
+import { getPractices } from '@/modules/practices/services/practices.service';
+import { getAttendance } from '@/modules/attendance/services/attendance.service';
+import { AttendanceRecord } from '@/modules/attendance/types';
 import { format } from 'date-fns';
 import {
   Table,
@@ -15,7 +17,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from './ui/table';
+} from '@/shared/components/ui/table';
 
 export function Reports() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -49,7 +51,7 @@ export function Reports() {
       };
     });
 
-    setAttendanceRecords(records.sort((a, b) => 
+    setAttendanceRecords(records.sort((a, b) =>
       new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()
     ));
   };
@@ -96,18 +98,17 @@ export function Reports() {
 
   const calculateDuration = (checkIn: string, checkOut?: string) => {
     if (!checkOut) return 'En curso';
-    
+
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diff = end.getTime() - start.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     return `${hours}h ${minutes}m`;
   };
 
   const handleExport = () => {
-    // Simple CSV export
     const headers = ['Fecha', 'Estudiante', 'Práctica', 'Entrada', 'Salida', 'Duración', 'Estado'];
     const rows = filteredRecords.map(r => [
       format(new Date(r.date), 'dd/MM/yyyy'),

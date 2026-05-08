@@ -67,18 +67,35 @@ Estas credenciales son provisionales para revisión. No hay autenticación real 
 ```txt
 src/
   app/
+    App.tsx
+    routes.tsx
+  modules/
+    dashboard/
+      components/
+    attendance/
+      components/
+      services/
+      types.ts
+    students/
+      components/
+      services/
+      types.ts
+    practices/
+      components/
+      services/
+      types.ts
+    reports/
+      components/
+  shared/
     components/
       MainLayout.tsx      # Layout principal + login temporal
-      Dashboard.tsx
-      CheckIn.tsx
-      Students.tsx
-      Practices.tsx
-      Reports.tsx
-    routes.tsx            # Rutas de la app
-    utils/data.ts         # Persistencia local y datos mock
-    types/index.ts        # Tipos de dominio
+      NotFound.tsx
+      ui/                 # Componentes reutilizables
+    utils/
+      storage.ts
   styles/
     index.css
+    tailwind.css
     theme.css
   main.tsx
 ```
@@ -90,6 +107,7 @@ src/
 - Vista de reportes adaptada:
   - Tabla en desktop.
   - Tarjetas en móvil/tablet.
+- Arquitectura monolítica modular aplicada (`modules` + `shared`).
 - Nombre de paquete actualizado a:
   - `@check-health/my-make-file`
 
@@ -119,10 +137,4 @@ git checkout -b feature/nombre-feature
 - Al limpiar almacenamiento local, los datos pueden perderse.
 - Proyecto orientado a avance académico y revisión funcional inicial.
 
-## Repositorio
 
-Repositorio destino:
-
-```txt
-https://github.com/ReneAraniva/UNIVO-Check-Health-.git
-```

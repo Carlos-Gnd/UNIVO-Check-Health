@@ -1,9 +1,9 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
-import { 
-  LayoutDashboard, 
-  ClipboardCheck, 
-  Users, 
-  Stethoscope, 
+import {
+  LayoutDashboard,
+  ClipboardCheck,
+  Users,
+  Stethoscope,
   BarChart3,
   Menu,
   X,
@@ -15,8 +15,10 @@ import {
   Activity,
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
-import { initializeData } from '../utils/data';
-import { assignAccessLevel, generateSessionCredentials } from '../backend/checkHealthBackend';
+import { initStudents } from '@/modules/students/services/students.service';
+import { initPractices } from '@/modules/practices/services/practices.service';
+import { initAttendance } from '@/modules/attendance/services/attendance.service';
+import { assignAccessLevel, generateSessionCredentials } from '@/shared/backend/checkHealthBackend';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -39,7 +41,9 @@ export function MainLayout() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      initializeData();
+      initStudents();
+      initPractices();
+      initAttendance();
     }
   }, [isAuthenticated]);
 
