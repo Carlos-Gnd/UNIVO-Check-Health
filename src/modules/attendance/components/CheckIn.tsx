@@ -5,7 +5,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { toast } from 'sonner';
-import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, TrendingUp } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '../services/attendance.service';
@@ -14,7 +14,6 @@ import {
   registerStudentCheckIn,
   registerStudentCheckOut,
   checkLocationVsPractice,
-  getStudentHoursProgress,
 } from '@/shared/backend/checkHealthBackend';
 import { Student } from '@/modules/students/types';
 import { Practice } from '@/modules/practices/types';
@@ -84,68 +83,16 @@ function LocationRadarMap({
       <circle cx={cx} cy={cy} r={SIZE / 2 - 2} fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
       <line x1={cx} y1={8} x2={cx} y2={SIZE - 8} stroke="#e2e8f0" strokeWidth="0.5" />
       <line x1={8} y1={cy} x2={SIZE - 8} y2={cy} stroke="#e2e8f0" strokeWidth="0.5" />
-      {/* Anillo de referencia 2× */}
       <circle cx={cx} cy={cy} r={DISPLAY_RADIUS * 2} fill="none" stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="4 3" />
-      {/* Área permitida */}
       <circle cx={cx} cy={cy} r={DISPLAY_RADIUS} fill="rgba(34,197,94,0.12)" stroke="#22c55e" strokeWidth="1.5" />
-      {/* Pin de la sede */}
       <circle cx={cx} cy={cy} r={6} fill="#3b82f6" />
       <circle cx={cx} cy={cy} r={3} fill="white" />
-      {/* Posición del estudiante */}
       <circle cx={dotX} cy={dotY} r={8} fill={isInside ? '#22c55e' : '#ef4444'} stroke="white" strokeWidth="2" />
-      {/* Etiqueta de radio */}
       <text x={cx + DISPLAY_RADIUS + 3} y={cy - 2} fontSize="8" fill="#64748b">{radiusMeters}m</text>
-      {/* Estado */}
       <text x={cx} y={SIZE - 6} textAnchor="middle" fontSize="9" fill={isInside ? '#16a34a' : '#dc2626'}>
         {isInside ? 'Dentro del área permitida' : `A ${distance} m del área`}
       </text>
     </svg>
-  );
-}
-
-// T-06.2: Indicador circular de progreso de horas (verde/amarillo/rojo según avance)
-function HoursProgressRing({
-  completedHours,
-  requiredHours,
-}: {
-  completedHours: number;
-  requiredHours: number;
-}) {
-  const pct = Math.min(100, requiredHours > 0 ? (completedHours / requiredHours) * 100 : 0);
-  const r = 34;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - pct / 100);
-  const color = pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
-  const label = pct >= 75 ? 'Al día' : pct >= 50 ? 'A tiempo justo' : 'En riesgo';
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width="88" height="88" viewBox="0 0 88 88">
-        <circle cx="44" cy="44" r={r} fill="none" stroke="#e5e7eb" strokeWidth="7" />
-        <circle
-          cx="44"
-          cy="44"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="7"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform="rotate(-90 44 44)"
-          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-        />
-        <text x="44" y="40" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#111827">
-          {completedHours.toFixed(0)}h
-        </text>
-        <text x="44" y="54" textAnchor="middle" fontSize="8" fill="#6b7280">
-          de {requiredHours}h
-        </text>
-      </svg>
-      <span className="text-xs font-semibold" style={{ color }}>
-        {label}
-      </span>
-    </div>
   );
 }
 
@@ -170,11 +117,6 @@ export function CheckIn() {
   // T-03.6 — reloj del servidor (sincronizado, no almacenado en browser)
   const [serverTime, setServerTime] = useState(new Date());
 
-  // T-06.2 — progreso de horas por estudiante
-  const [hoursProgress, setHoursProgress] = useState<
-    Record<string, { completedHours: number; requiredHours: number }>
-  >({});
-
   const loadData = useCallback(() => {
     setStudents(getStudents());
     setPractices(getPractices());
@@ -183,30 +125,9 @@ export function CheckIn() {
     setTodayAttendance(attendance.filter((a) => a.date === today));
   }, []);
 
-  // T-06.2 — carga progreso de horas de todos los estudiantes
-  const loadHoursProgress = useCallback(() => {
-    const all = getStudents();
-    const progress: Record<string, { completedHours: number; requiredHours: number }> = {};
-    all.forEach((s) => {
-      progress[s.id] = getStudentHoursProgress(s.id);
-    });
-    setHoursProgress(progress);
-  }, []);
-
   useEffect(() => {
     loadData();
-    loadHoursProgress();
-
-    // T-06.2 — se actualiza solo cuando el estudiante vuelve a la pantalla (no sondeo continuo)
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        loadData();
-        loadHoursProgress();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [loadData, loadHoursProgress]);
+  }, [loadData]);
 
   // T-03.6 — tick de 1 segundo usando hora real del servidor (no se persiste en browser)
   useEffect(() => {
@@ -291,7 +212,6 @@ export function CheckIn() {
     }
 
     loadData();
-    loadHoursProgress();
     const student = students.find((s) => s.id === selectedStudent);
     toast.success(`Check-in registrado para ${student?.name}`);
     setSelectedStudent('');
@@ -318,7 +238,6 @@ export function CheckIn() {
     }
 
     loadData();
-    loadHoursProgress();
     toast.success('Check-out registrado exitosamente');
   };
 
@@ -392,7 +311,7 @@ export function CheckIn() {
               />
             </div>
 
-            {/* T-03.5 — Mapa radar de cobertura (aparece al seleccionar práctica + GPS activo) */}
+            {/* T-03.5 — Mapa radar de cobertura */}
             {showRadar && locationCheck && userLocation && (
               <div className="rounded-lg border bg-gray-50 p-3">
                 <p className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
@@ -506,42 +425,6 @@ export function CheckIn() {
           </CardContent>
         </Card>
       </div>
-
-      {/* T-06.2 — Indicadores circulares de progreso de horas por estudiante */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
-            Progreso de Horas
-          </CardTitle>
-          <CardDescription>
-            Se actualiza al regresar a la pantalla · Verde ≥75% · Amarillo ≥50% · Rojo &lt;50%
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {students.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">Sin estudiantes registrados</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {students.map((student) => {
-                const progress = hoursProgress[student.id];
-                if (!progress) return null;
-                return (
-                  <div key={student.id} className="flex flex-col items-center gap-1">
-                    <HoursProgressRing
-                      completedHours={progress.completedHours}
-                      requiredHours={progress.requiredHours}
-                    />
-                    <p className="text-xs text-center text-gray-700 font-medium leading-tight">
-                      {student.name.split(' ').slice(0, 2).join(' ')}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Resumen del Día */}
       <Card>
