@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { toast } from 'sonner';
-import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '../services/attendance.service';
@@ -96,6 +97,45 @@ function LocationRadarMap({
   );
 }
 
+
+// T-03.7: Evento del feed en tiempo real
+function FeedEvent({ event }: {
+  event: {
+    studentName: string;
+    practiceName: string;
+    time: string;
+    type: 'checkin' | 'checkout';
+    isNew?: boolean;
+  };
+}) {
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${
+      event.isNew ? 'bg-blue-50 border-blue-200 animate-in slide-in-from-top-2' : 'bg-gray-50 border-transparent'
+    }`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+        event.type === 'checkin' ? 'bg-green-100' : 'bg-orange-100'
+      }`}>
+        {event.type === 'checkin'
+          ? <CheckCircle className="w-4 h-4 text-green-600" />
+          : <XCircle className="w-4 h-4 text-orange-600" />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 truncate">{event.studentName}</p>
+        <p className="text-xs text-gray-500 truncate">{event.practiceName}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-xs font-mono text-gray-500">{event.time}</p>
+        <Badge variant="outline" className={`text-xs mt-0.5 ${
+          event.type === 'checkin' ? 'text-green-700 border-green-200' : 'text-orange-700 border-orange-200'
+        }`}>
+          {event.type === 'checkin' ? 'Entrada' : 'Salida'}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
 export function CheckIn() {
   const [students, setStudents] = useState<Student[]>([]);
   const [practices, setPractices] = useState<Practice[]>([]);
@@ -116,6 +156,17 @@ export function CheckIn() {
 
   // T-03.6 — reloj del servidor (sincronizado, no almacenado en browser)
   const [serverTime, setServerTime] = useState(new Date());
+  // T-03.7: feed de eventos en tiempo real (máx 20)
+  const [feedEvents, setFeedEvents] = useState<Array<{
+    id: string;
+    studentName: string;
+    practiceName: string;
+    time: string;
+    type: 'checkin' | 'checkout';
+    isNew?: boolean;
+  }>>([]);
+  const feedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [feedOnline, setFeedOnline] = useState(navigator.onLine);
 
   const loadData = useCallback(() => {
     setStudents(getStudents());
@@ -174,13 +225,67 @@ export function CheckIn() {
     setLocationCheck(checkLocationVsPractice(selectedPractice, userLocation));
   }, [selectedPractice, userLocation]);
 
+
+  // T-03.7: reconexión automática + construcción del feed desde asistencias del día
+  useEffect(() => {
+    const handleOnline = () => setFeedOnline(true);
+    const handleOffline = () => setFeedOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // T-03.7: reconstruir feed cada vez que cambian las asistencias del día
+  useEffect(() => {
+    const events: typeof feedEvents = [];
+    todayAttendance.forEach((a) => {
+      const student = students.find((s) => s.id === a.studentId);
+      const practice = practices.find((p) => p.id === a.practiceId);
+      const name = student?.name ?? 'Desconocido';
+      const pname = practice?.name ?? 'Desconocido';
+      events.push({
+        id: a.id + '-in',
+        studentName: name,
+        practiceName: pname,
+        time: format(new Date(a.checkIn), 'HH:mm'),
+        type: 'checkin',
+      });
+      if (a.checkOut) {
+        events.push({
+          id: a.id + '-out',
+          studentName: name,
+          practiceName: pname,
+          time: format(new Date(a.checkOut), 'HH:mm'),
+          type: 'checkout',
+        });
+      }
+    });
+    events.sort((a, b) => b.time.localeCompare(a.time));
+    setFeedEvents(events.slice(0, 20));
+  }, [todayAttendance, students, practices]);
+
   const gpsUnavailable = !navigator.geolocation || locationError !== null;
   const canCheckIn =
     !gpsUnavailable &&
     userLocation !== null &&
     (locationCheck === null || locationCheck.isInside);
 
-  const handleCheckIn = () => {
+  // T-03.7: agrega un evento nuevo al feed con animación
+  const pushFeedEvent = (event: typeof feedEvents[0]) => {
+    setFeedEvents((prev) => {
+      const next = [{ ...event, isNew: true }, ...prev].slice(0, 20);
+      if (feedTimerRef.current) clearTimeout(feedTimerRef.current);
+      feedTimerRef.current = setTimeout(() => {
+        setFeedEvents((cur) => cur.map((e) => ({ ...e, isNew: false })));
+      }, 2000);
+      return next;
+    });
+  };
+
+    const handleCheckIn = () => {
     if (!selectedStudent || !selectedPractice) {
       toast.error('Por favor selecciona un estudiante y una práctica');
       return;
@@ -211,9 +316,19 @@ export function CheckIn() {
       return;
     }
 
-    loadData();
     const student = students.find((s) => s.id === selectedStudent);
+    const practice = practices.find((p) => p.id === selectedPractice);
+    const timeStr = format(new Date(), 'HH:mm');
+    loadData();
     toast.success(`Check-in registrado para ${student?.name}`);
+    // T-03.7: agregar al feed
+    pushFeedEvent({
+      id: Date.now().toString() + '-in',
+      studentName: student?.name ?? 'Desconocido',
+      practiceName: practice?.name ?? 'Desconocido',
+      time: timeStr,
+      type: 'checkin',
+    });
     setSelectedStudent('');
     setSelectedPractice('');
     setNotes('');
@@ -237,8 +352,19 @@ export function CheckIn() {
       return;
     }
 
+    const rec = todayAttendance.find((a) => a.id === attendanceId);
+    const studentName = students.find((s) => s.id === rec?.studentId)?.name ?? 'Desconocido';
+    const practiceName = practices.find((p) => p.id === rec?.practiceId)?.name ?? 'Desconocido';
     loadData();
     toast.success('Check-out registrado exitosamente');
+    // T-03.7: agregar checkout al feed
+    pushFeedEvent({
+      id: attendanceId + '-out',
+      studentName,
+      practiceName,
+      time: format(new Date(), 'HH:mm'),
+      type: 'checkout',
+    });
   };
 
   const activeCheckIns = todayAttendance
@@ -425,6 +551,48 @@ export function CheckIn() {
           </CardContent>
         </Card>
       </div>
+
+
+      {/* T-03.7: Feed de actividad en tiempo real del grupo */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                Actividad del Grupo — Tiempo Real
+              </CardTitle>
+              <CardDescription>
+                Últimos 20 eventos del día · Se actualiza automáticamente
+              </CardDescription>
+            </div>
+            <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${
+              feedOnline
+                ? 'text-green-600 bg-green-50 border-green-200'
+                : 'text-red-500 bg-red-50 border-red-200'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                feedOnline ? 'bg-green-500 animate-pulse' : 'bg-red-400'
+              }`} />
+              {feedOnline ? 'En vivo' : 'Sin conexión'}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {feedEvents.length === 0 ? (
+            <div className="text-center py-8 text-sm text-gray-400">
+              <ArrowRightLeft className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              No hay eventos hoy todavía
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {feedEvents.map((event) => (
+                <FeedEvent key={event.id} event={event} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Resumen del Día */}
       <Card>
