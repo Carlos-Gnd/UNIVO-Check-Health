@@ -4,7 +4,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import { Users, CheckCircle, XCircle, Clock, TrendingUp, Calendar, MapPin } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Clock, TrendingUp, Calendar, MapPin, AlertTriangle, ShieldAlert, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
@@ -53,6 +53,15 @@ export function Dashboard() {
   const [selectedStudent, setSelectedStudent] = useState<ActiveStudent | null>(null);
   const [expandedSede, setExpandedSede] = useState<string | null>(null);
 
+  // T-07.5: indicadores clave del ciclo
+  const [cycleIndicators, setCycleIndicators] = useState({
+    overallCompliance: 0,
+    atRiskStudents: [] as { id: string; name: string; rate: number }[],
+    practicesWithIncidents: [] as { name: string; incidents: number }[],
+    lastUpdated: '',
+  });
+  const [riskPanelOpen, setRiskPanelOpen] = useState(false);
+
   useEffect(() => {
     const loadDashboardData = () => {
       const students = getStudents();
@@ -87,13 +96,64 @@ export function Dashboard() {
           };
         });
 
+      // T-07.5: calcular indicadores clave del ciclo
+      const studentRates = students.map((s) => {
+        const sa = attendance.filter((a) => a.studentId === s.id);
+        const present = sa.filter((a) => a.status === 'present' || a.status === 'late').length;
+        const r = sa.length > 0 ? Math.round((present / sa.length) * 100) : 0;
+        return { id: s.id, name: s.name, rate: r };
+      });
+      const atRisk = studentRates.filter((s) => s.rate < 75).sort((a, b) => a.rate - b.rate);
+      const practiceIncidents = practices.map((p) => {
+        const pa = attendance.filter((a) => a.practiceId === p.id && (a.status === 'absent' || a.status === 'late'));
+        return { name: p.name.length > 30 ? p.name.slice(0, 30) + '…' : p.name, incidents: pa.length };
+      }).filter((p) => p.incidents > 0).sort((a, b) => b.incidents - a.incidents);
+      const overallCompliance = studentRates.length > 0
+        ? Math.round(studentRates.reduce((acc, s) => acc + s.rate, 0) / studentRates.length)
+        : 0;
+      setCycleIndicators({
+        overallCompliance,
+        atRiskStudents: atRisk,
+        practicesWithIncidents: practiceIncidents,
+        lastUpdated: format(new Date(), 'HH:mm'),
+      });
+
       setRecentActivity(recent);
       setActiveStudents(getActiveStudentsSnapshot());
     };
 
     loadDashboardData();
     const intervalId = window.setInterval(loadDashboardData, 30000);
-    return () => window.clearInterval(intervalId);
+    // T-07.5: los indicadores del ciclo se recalculan cada 5 minutos
+    const cycleIntervalId = window.setInterval(() => {
+      const students = getStudents();
+      const practices = getPractices();
+      const attendance = getAttendance();
+      const studentRates = students.map((s) => {
+        const sa = attendance.filter((a) => a.studentId === s.id);
+        const present = sa.filter((a) => a.status === 'present' || a.status === 'late').length;
+        const r = sa.length > 0 ? Math.round((present / sa.length) * 100) : 0;
+        return { id: s.id, name: s.name, rate: r };
+      });
+      const atRisk = studentRates.filter((s) => s.rate < 75).sort((a, b) => a.rate - b.rate);
+      const practiceIncidents = practices.map((p) => {
+        const pa = attendance.filter((a) => a.practiceId === p.id && (a.status === 'absent' || a.status === 'late'));
+        return { name: p.name.length > 30 ? p.name.slice(0, 30) + '…' : p.name, incidents: pa.length };
+      }).filter((p) => p.incidents > 0).sort((a, b) => b.incidents - a.incidents);
+      const overallCompliance = studentRates.length > 0
+        ? Math.round(studentRates.reduce((acc, s) => acc + s.rate, 0) / studentRates.length)
+        : 0;
+      setCycleIndicators({
+        overallCompliance,
+        atRiskStudents: atRisk,
+        practicesWithIncidents: practiceIncidents,
+        lastUpdated: format(new Date(), 'HH:mm'),
+      });
+    }, 300000);
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearInterval(cycleIntervalId);
+    };
   }, []);
 
   const statusData = [
@@ -139,6 +199,13 @@ export function Dashboard() {
     });
     return Object.entries(groups).map(([siteName, students]) => ({ siteName, students }));
   }, [filteredStudents]);
+
+  const complianceColor = cycleIndicators.overallCompliance >= 85
+    ? 'text-green-600' : cycleIndicators.overallCompliance >= 70
+    ? 'text-yellow-600' : 'text-red-600';
+  const complianceBg = cycleIndicators.overallCompliance >= 85
+    ? 'bg-green-50 border-green-200' : cycleIndicators.overallCompliance >= 70
+    ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200';
 
   return (
     <div className="space-y-6">
@@ -194,6 +261,167 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">Promedio general</p>
           </CardContent>
         </Card>
+      </div>
+
+
+      {/* T-07.5: Tarjetas de indicadores clave del ciclo */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-600" />
+            Indicadores Clave del Ciclo
+          </h3>
+          <span className="text-xs text-gray-400">
+            Actualizado a las {cycleIndicators.lastUpdated} · cada 5 min
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          {/* Cumplimiento general */}
+          <Card className={`border ${complianceBg}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Cumplimiento General
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-4xl font-bold ${complianceColor}`}>
+                {cycleIndicators.overallCompliance}%
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${
+                    cycleIndicators.overallCompliance >= 85 ? 'bg-green-500'
+                    : cycleIndicators.overallCompliance >= 70 ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                  }`}
+                  style={{ width: `${cycleIndicators.overallCompliance}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {cycleIndicators.overallCompliance >= 85 ? '✓ Cumplimiento satisfactorio'
+                  : cycleIndicators.overallCompliance >= 70 ? '⚠ Requiere atención'
+                  : '✗ Cumplimiento crítico'}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Estudiantes en riesgo — clic abre panel con lista y acceso a historial */}
+          <Card
+            className={`border cursor-pointer transition-shadow hover:shadow-md ${
+              cycleIndicators.atRiskStudents.length > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+            }`}
+            onClick={() => setRiskPanelOpen((prev) => !prev)}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                Estudiantes en Riesgo
+                {cycleIndicators.atRiskStudents.length > 0 && (
+                  <Badge className="bg-red-100 text-red-700 ml-auto">{cycleIndicators.atRiskStudents.length}</Badge>
+                )}
+                {riskPanelOpen
+                  ? <ChevronUp className="w-3 h-3 ml-auto text-gray-400" />
+                  : <ChevronDown className="w-3 h-3 ml-auto text-gray-400" />
+                }
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cycleIndicators.atRiskStudents.length === 0 ? (
+                <div className="flex flex-col items-center py-3 text-green-600">
+                  <CheckCircle className="w-8 h-8 mb-1" />
+                  <p className="text-sm font-medium">Sin estudiantes en riesgo</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {cycleIndicators.atRiskStudents.slice(0, 3).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between">
+                      <p className="text-sm text-gray-800 truncate flex-1">
+                        {s.name.split(' ').slice(0, 2).join(' ')}
+                      </p>
+                      <Badge className="bg-red-100 text-red-700 shrink-0 ml-2">{s.rate}%</Badge>
+                    </div>
+                  ))}
+                  {cycleIndicators.atRiskStudents.length > 3 && (
+                    <p className="text-xs text-gray-400 text-center mt-1">
+                      +{cycleIndicators.atRiskStudents.length - 3} más · clic para ver todos
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sedes con más incidencias */}
+          <Card className={`border ${
+            cycleIndicators.practicesWithIncidents.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-orange-500" />
+                Incidencias por Práctica
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cycleIndicators.practicesWithIncidents.length === 0 ? (
+                <div className="flex flex-col items-center py-3 text-green-600">
+                  <CheckCircle className="w-8 h-8 mb-1" />
+                  <p className="text-sm font-medium">Sin incidencias registradas</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {cycleIndicators.practicesWithIncidents.slice(0, 3).map((p, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <p className="text-sm text-gray-800 truncate flex-1">{p.name}</p>
+                      <Badge className="bg-orange-100 text-orange-700 shrink-0 ml-2">{p.incidents}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Panel expandible de estudiantes en riesgo con acceso a historial */}
+        {riskPanelOpen && cycleIndicators.atRiskStudents.length > 0 && (
+          <Card className="mt-3 border border-red-200 bg-red-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-700">
+                Lista completa — Estudiantes en Riesgo ({cycleIndicators.atRiskStudents.length})
+              </CardTitle>
+              <CardDescription>Asistencia menor al 75%</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {cycleIndicators.atRiskStudents.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <Users className="w-4 h-4 text-red-600" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">{s.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-red-100 text-red-700">{s.rate}%</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 border-red-200 text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          const params = new URLSearchParams({ student: s.id });
+                          window.location.href = `/students?${params.toString()}`;
+                        }}
+                      >
+                        Ver historial
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Charts */}
