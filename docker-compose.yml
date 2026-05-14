@@ -1,0 +1,22 @@
+services:
+  db:
+    image: supabase/postgres:15.8.1.048
+    container_name: univo-checkhealth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: checkhealth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "54322:5432"
+    volumes:
+      - checkhealth_db_data:/var/lib/postgresql/data
+      - ./supabase/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d checkhealth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  checkhealth_db_data:
