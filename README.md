@@ -6,16 +6,7 @@ Digitaliza el ciclo completo de prácticas mediante geofencing GPS, auditoría i
 
 ---
 
-## Estado del proyecto
-
-| Sprint | Período | Estado | HUs |
-|--------|---------|--------|-----|
-| Sprint 0 | Setup inicial | Completado | Repo, DB schema, wireframes |
-| **Sprint 1** | Mes 1 | **Completado** | HU-01 → HU-07 (34 SP) |
-| Sprint 2 | Mes 2 | Pendiente | HU-08 → HU-22 (62 SP) |
-| Sprint 3+ | Mes 3+ | Futuro | HU-23 → HU-49 |
-
-### Funcionalidades completadas (Sprint 1)
+### Funcionalidades completadas
 
 - **Autenticación** — Supabase Auth con validación de dominio `@univo.edu.sv`. Solo cuentas institucionales.
 - **RBAC** — Rol `ADMIN` (Decano) y `ENCARGADO` (Coordinador) asignados desde base de datos. Navegación diferenciada por rol.
@@ -30,7 +21,7 @@ Digitaliza el ciclo completo de prácticas mediante geofencing GPS, auditoría i
 
 ---
 
-## Configuración local (para todo el equipo)
+## Configuración local
 
 > El backend corre en **Supabase Cloud** — no se necesita Docker ni Supabase local.
 
@@ -52,8 +43,8 @@ git clone https://github.com/ReneAraniva/UNIVO-Check-Health-.git
 cd UNIVO-Check-Health-/Check-Health
 
 # 2. Crear el archivo de variables de entorno
-#    (pedir las credenciales a Carlos)
-cp .env.example .env.local   # o crear el archivo manualmente
+#    (pedir las credenciales)
+.env.local  
 
 # 3. Instalar dependencias
 pnpm install
@@ -155,10 +146,10 @@ Prefijos válidos: `feat:`, `fix:`, `docs:`, `refactor:`, `merge:`.
 
 | Nombre | Carné | Rol |
 |--------|-------|-----|
-| Carlos Alberto Granados Amaya | U20240579 | Scrum Master / Full-stack |
-| René Francisco Pacheco Araniva | U20240844 | Backend / Integraciones |
-| Nelson René Rodríguez Quintanilla | U20240270 | Backend / Supabase |
-| Verónica Nataly Morales Jiménez | U20220902 | Frontend / UI |
-| David Alexander Urias Blanco | U20240435 | Frontend / Reportes |
+| Carlos Alberto Granados Amaya | U20240579 |
+| René Francisco Pacheco Araniva | U20240844 |
+| Nelson René Rodríguez Quintanilla | U20240270 |
+| Verónica Nataly Morales Jiménez | U20220902 |
+| David Alexander Urias Blanco | U20240435 |
 
 Cátedra: **Diseño de Componentes Web** — Ing. José Adolfo Herrera Funes — UNIVO Ciclo I-2026.
