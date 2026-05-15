@@ -1,7 +1,21 @@
 import { loadFromStorage, saveToStorage } from '@/shared/utils/storage';
-import { Attendance } from '../types';
+import { Attendance, DeviceInfo } from '../types';
 
 const STORAGE_KEY = 'univo_attendance';
+
+export const getDeviceInfo = (): DeviceInfo => {
+  const ua = navigator.userAgent;
+  let browser = 'Desconocido';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Edg')) browser = 'Edge';
+
+  const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
+  const connectionType = nav.connection?.effectiveType ?? '';
+
+  return { browser, gpsAccuracy: null, connectionType };
+};
 
 const mockAttendance: Attendance[] = [
   {
