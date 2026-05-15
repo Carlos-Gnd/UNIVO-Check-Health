@@ -8,193 +8,130 @@ import { Download, Filter } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
-import { AttendanceRecord } from '@/modules/attendance/types';
+import type { AttendanceRecord } from '@/modules/attendance/types';
+import type { Student } from '@/modules/students/types';
+import type { Practice } from '@/modules/practices/types';
 import { format } from 'date-fns';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
 
 export function Reports() {
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<AttendanceRecord[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [practices, setPractices] = useState<Practice[]>([]);
   const [filterStudent, setFilterStudent] = useState('all');
   const [filterPractice, setFilterPractice] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [students, setStudents] = useState(getStudents());
-  const [practices, setPractices] = useState(getPractices());
 
   useEffect(() => {
-    loadAttendanceRecords();
+    const load = async () => {
+      const [s, p, a] = await Promise.all([getStudents(), getPractices(), getAttendance()]);
+      setStudents(s);
+      setPractices(p);
+      const mapped: AttendanceRecord[] = a
+        .map((att) => ({
+          ...att,
+          studentName: s.find((x) => x.id === att.studentId)?.name ?? 'Desconocido',
+          practiceName: p.find((x) => x.id === att.practiceId)?.name ?? 'Desconocido',
+        }))
+        .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime());
+      setRecords(mapped);
+    };
+    void load();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [filterStudent, filterPractice, filterStatus, attendanceRecords]);
+  const filtered = records.filter((r) => {
+    const byStudent = filterStudent === 'all' || r.studentId === filterStudent;
+    const byPractice = filterPractice === 'all' || r.practiceId === filterPractice;
+    const byStatus = filterStatus === 'all' || r.status === filterStatus;
+    return byStudent && byPractice && byStatus;
+  });
 
-  const loadAttendanceRecords = () => {
-    const attendance = getAttendance();
-    const students = getStudents();
-    const practices = getPractices();
-
-    const records: AttendanceRecord[] = attendance.map(a => {
-      const student = students.find(s => s.id === a.studentId);
-      const practice = practices.find(p => p.id === a.practiceId);
-      return {
-        ...a,
-        studentName: student?.name || 'Desconocido',
-        practiceName: practice?.name || 'Desconocido',
-      };
-    });
-
-    setAttendanceRecords(records.sort((a, b) =>
-      new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()
-    ));
-  };
-
-  const applyFilters = () => {
-    let filtered = [...attendanceRecords];
-
-    if (filterStudent !== 'all') {
-      filtered = filtered.filter(r => r.studentId === filterStudent);
-    }
-
-    if (filterPractice !== 'all') {
-      filtered = filtered.filter(r => r.practiceId === filterPractice);
-    }
-
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(r => r.status === filterStatus);
-    }
-
-    setFilteredRecords(filtered);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      present: 'bg-green-100 text-green-800',
-      late: 'bg-yellow-100 text-yellow-800',
-      absent: 'bg-red-100 text-red-800',
-      excused: 'bg-blue-100 text-blue-800',
-    };
-
-    const labels = {
-      present: 'Presente',
-      late: 'Tardanza',
-      absent: 'Ausente',
-      excused: 'Justificado',
-    };
-
-    return (
-      <Badge className={colors[status as keyof typeof colors]}>
-        {labels[status as keyof typeof labels]}
-      </Badge>
-    );
-  };
-
-  const calculateDuration = (checkIn: string, checkOut?: string) => {
+  const duration = (checkIn: string, checkOut?: string) => {
     if (!checkOut) return 'En curso';
-
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diff = end.getTime() - start.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    return `${hours}h ${minutes}m`;
+    const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return `${h}h ${m}m`;
   };
 
-  const handleExport = () => {
-    const headers = ['Fecha', 'Estudiante', 'Práctica', 'Entrada', 'Salida', 'Duración', 'Estado'];
-    const rows = filteredRecords.map(r => [
+  const statusBadge = (status: string) => {
+    const map: Record<string, { cls: string; label: string }> = {
+      present:  { cls: 'bg-green-100 text-green-800',  label: 'Presente' },
+      late:     { cls: 'bg-yellow-100 text-yellow-800', label: 'Tardanza' },
+      absent:   { cls: 'bg-red-100 text-red-800',      label: 'Ausente' },
+      excused:  { cls: 'bg-blue-100 text-blue-800',    label: 'Justificado' },
+    };
+    const { cls, label } = map[status] ?? { cls: 'bg-gray-100 text-gray-700', label: status };
+    return <Badge className={cls}>{label}</Badge>;
+  };
+
+  const exportCSV = () => {
+    const header = ['Fecha', 'Estudiante', 'Práctica', 'Entrada', 'Salida', 'Duración', 'Estado'];
+    const rows = filtered.map((r) => [
       format(new Date(r.date), 'dd/MM/yyyy'),
-      r.studentName,
-      r.practiceName,
+      r.studentName, r.practiceName,
       format(new Date(r.checkIn), 'HH:mm'),
       r.checkOut ? format(new Date(r.checkOut), 'HH:mm') : 'N/A',
-      calculateDuration(r.checkIn, r.checkOut),
+      duration(r.checkIn, r.checkOut),
       r.status,
     ]);
-
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const csv = [header, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `reporte-asistencias-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `reporte-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Reportes</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Análisis detallado de asistencias y registros
-          </p>
+          <p className="text-sm text-gray-600 mt-1">Análisis detallado de asistencias y registros</p>
         </div>
-        <Button onClick={handleExport} variant="outline" className="w-full sm:w-auto">
-          <Download className="w-4 h-4 mr-2" />
-          Exportar CSV
+        <Button onClick={exportCSV} variant="outline" className="w-full sm:w-auto shrink-0">
+          <Download className="w-4 h-4 mr-2" />Exportar CSV
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filtros */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filtros
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Filter className="w-4 h-4" />Filtros
           </CardTitle>
-          <CardDescription>Filtra los registros por diferentes criterios</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="filter-student">Estudiante</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="fs" className="text-xs uppercase tracking-wide text-gray-600">Estudiante</Label>
               <Select value={filterStudent} onValueChange={setFilterStudent}>
-                <SelectTrigger id="filter-student">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
+                <SelectTrigger id="fs"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.name}
-                    </SelectItem>
-                  ))}
+                  {students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filter-practice">Práctica</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="fp" className="text-xs uppercase tracking-wide text-gray-600">Práctica</Label>
               <Select value={filterPractice} onValueChange={setFilterPractice}>
-                <SelectTrigger id="filter-practice">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
+                <SelectTrigger id="fp"><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {practices.map((practice) => (
-                    <SelectItem key={practice.id} value={practice.id}>
-                      {practice.name}
-                    </SelectItem>
-                  ))}
+                  {practices.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filter-status">Estado</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="fst" className="text-xs uppercase tracking-wide text-gray-600">Estado</Label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger id="filter-status">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
+                <SelectTrigger id="fst"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="present">Presente</SelectItem>
@@ -208,62 +145,33 @@ export function Reports() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-semibold text-gray-900">{filteredRecords.length}</p>
-              <p className="text-sm text-gray-600 mt-1">Total Registros</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-semibold text-green-600">
-                {filteredRecords.filter(r => r.status === 'present').length}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">Presentes</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-semibold text-yellow-600">
-                {filteredRecords.filter(r => r.status === 'late').length}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">Tardanzas</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-semibold text-red-600">
-                {filteredRecords.filter(r => r.status === 'absent').length}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">Ausentes</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Resumen */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Registros', value: filtered.length, cls: 'text-gray-900' },
+          { label: 'Presentes', value: filtered.filter((r) => r.status === 'present').length, cls: 'text-green-600' },
+          { label: 'Tardanzas', value: filtered.filter((r) => r.status === 'late').length, cls: 'text-yellow-600' },
+          { label: 'Ausentes', value: filtered.filter((r) => r.status === 'absent').length, cls: 'text-red-600' },
+        ].map(({ label, value, cls }) => (
+          <Card key={label}>
+            <CardContent className="pt-5 pb-4 text-center">
+              <p className={`text-2xl sm:text-3xl font-semibold ${cls}`}>{value}</p>
+              <p className="text-xs text-gray-600 mt-1">{label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Attendance Table */}
+      {/* Tabla de registros */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Registros de Asistencia</CardTitle>
-          <CardDescription>
-            {filteredRecords.length} registros encontrados
-          </CardDescription>
+          <CardDescription>{filtered.length} registros encontrados</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          {/* Desktop: tabla */}
           <div className="hidden lg:block overflow-x-auto">
-            <Table>
+            <Table className="min-w-[750px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
@@ -276,28 +184,20 @@ export function Reports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecords.length === 0 ? (
+                {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      No se encontraron registros
-                    </TableCell>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">No se encontraron registros</TableCell>
                   </TableRow>
                 ) : (
-                  filteredRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        {format(new Date(record.date), 'dd/MM/yyyy')}
-                      </TableCell>
-                      <TableCell className="font-medium">{record.studentName}</TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {record.practiceName}
-                      </TableCell>
-                      <TableCell>{format(new Date(record.checkIn), 'HH:mm')}</TableCell>
-                      <TableCell>
-                        {record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '-'}
-                      </TableCell>
-                      <TableCell>{calculateDuration(record.checkIn, record.checkOut)}</TableCell>
-                      <TableCell>{getStatusBadge(record.status)}</TableCell>
+                  filtered.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="whitespace-nowrap">{format(new Date(r.date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell className="font-medium max-w-[160px] truncate">{r.studentName}</TableCell>
+                      <TableCell className="max-w-[180px] truncate text-sm text-gray-700">{r.practiceName}</TableCell>
+                      <TableCell className="font-mono text-xs">{format(new Date(r.checkIn), 'HH:mm')}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.checkOut ? format(new Date(r.checkOut), 'HH:mm') : '—'}</TableCell>
+                      <TableCell>{duration(r.checkIn, r.checkOut)}</TableCell>
+                      <TableCell>{statusBadge(r.status)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -305,41 +205,25 @@ export function Reports() {
             </Table>
           </div>
 
-          <div className="space-y-3 lg:hidden">
-            {filteredRecords.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No se encontraron registros
-              </div>
+          {/* Mobile/tablet: tarjetas */}
+          <div className="lg:hidden divide-y divide-gray-100">
+            {filtered.length === 0 ? (
+              <p className="text-center py-8 text-gray-500">No se encontraron registros</p>
             ) : (
-              filteredRecords.map((record) => (
-                <div key={record.id} className="rounded-lg border border-gray-200 p-4 bg-white">
+              filtered.map((r) => (
+                <div key={r.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{record.studentName}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{record.practiceName}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{r.studentName}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{r.practiceName}</p>
                     </div>
-                    {getStatusBadge(record.status)}
+                    {statusBadge(r.status)}
                   </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <p className="text-gray-500">Fecha</p>
-                      <p className="text-gray-900 font-medium">{format(new Date(record.date), 'dd/MM/yyyy')}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Duración</p>
-                      <p className="text-gray-900 font-medium">{calculateDuration(record.checkIn, record.checkOut)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Entrada</p>
-                      <p className="text-gray-900 font-medium">{format(new Date(record.checkIn), 'HH:mm')}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Salida</p>
-                      <p className="text-gray-900 font-medium">
-                        {record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '-'}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs text-gray-600">
+                    <div><span className="text-gray-400">Fecha </span>{format(new Date(r.date), 'dd/MM/yyyy')}</div>
+                    <div><span className="text-gray-400">Duración </span>{duration(r.checkIn, r.checkOut)}</div>
+                    <div><span className="text-gray-400">Entrada </span>{format(new Date(r.checkIn), 'HH:mm')}</div>
+                    <div><span className="text-gray-400">Salida </span>{r.checkOut ? format(new Date(r.checkOut), 'HH:mm') : '—'}</div>
                   </div>
                 </div>
               ))

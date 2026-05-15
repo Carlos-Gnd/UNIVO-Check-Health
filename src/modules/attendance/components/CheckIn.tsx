@@ -571,7 +571,7 @@ const handleCheckOut = async (attendanceId: string) => {
   const showRadar = Boolean(selectedPractice && userLocation && locationCheck);
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-gray-900">Registro de Asistencia</h2>
         <p className="text-sm text-gray-600 mt-1">
@@ -579,7 +579,7 @@ const handleCheckOut = async (attendanceId: string) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Formulario de check-in */}
         <Card>
           <CardHeader>

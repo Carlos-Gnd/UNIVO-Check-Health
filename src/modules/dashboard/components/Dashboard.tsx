@@ -438,16 +438,18 @@ export function Dashboard() {
             <CardDescription>Últimos 5 días</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="asistencias" fill="#3b82f6" name="Asistencias" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-[220px] sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="asistencias" fill="#3b82f6" name="Asistencias" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -457,7 +459,8 @@ export function Dashboard() {
             <CardDescription>Distribución de asistencias</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <div className="h-[220px] sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={statusData}
@@ -476,6 +479,7 @@ export function Dashboard() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -494,9 +498,9 @@ export function Dashboard() {
               </CardDescription>
             </div>
             {/* Filtros — afectan mapa e indicadores simultáneamente */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               <Select value={sedeFilter} onValueChange={(v) => { setSedeFilter(v); setExpandedSede(null); }}>
-                <SelectTrigger className="w-44 h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-40 h-8 text-xs">
                   <SelectValue placeholder="Sede" />
                 </SelectTrigger>
                 <SelectContent>
@@ -507,7 +511,7 @@ export function Dashboard() {
                 </SelectContent>
               </Select>
               <Select value={careerFilter} onValueChange={(v) => { setCareerFilter(v); setExpandedSede(null); }}>
-                <SelectTrigger className="w-44 h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-40 h-8 text-xs">
                   <SelectValue placeholder="Carrera" />
                 </SelectTrigger>
                 <SelectContent>
@@ -529,7 +533,7 @@ export function Dashboard() {
           ) : (
             <>
               {/* Mapa esquemático con sedes posicionadas geográficamente */}
-              <div className="relative h-64 rounded-lg overflow-hidden border bg-[#eef4ee] mb-4">
+              <div className="relative h-48 sm:h-64 rounded-lg overflow-hidden border bg-[#eef4ee] mb-4">
                 {/* Fondo topográfico simplificado */}
                 <svg
                   className="absolute inset-0 w-full h-full"
@@ -666,7 +670,7 @@ export function Dashboard() {
               activeStudents.map((student) => (
                 <div
                   key={`${student.studentId}-${student.practiceId}`}
-                  className="grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-4 md:grid-cols-[1.4fr_1fr_1fr]"
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg bg-gray-50 p-4"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-900">{student.studentName}</p>

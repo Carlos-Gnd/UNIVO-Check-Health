@@ -9,44 +9,36 @@ import { format } from 'date-fns';
 
 export function Practices() {
   const [practices, setPractices] = useState<Practice[]>([]);
-  const [practiceStats, setPracticeStats] = useState<Record<string, any>>({});
+  const [practiceStats, setPracticeStats] = useState<Record<string, { totalAttendance: number; activeStudents: number }>>({});
 
   useEffect(() => {
-    const loadedPractices = getPractices();
-    const attendance = getAttendance();
-
-    const stats: Record<string, any> = {};
-    loadedPractices.forEach(practice => {
-      const practiceAttendance = attendance.filter(a => a.practiceId === practice.id);
-      const uniqueStudents = new Set(practiceAttendance.map(a => a.studentId));
-
-      stats[practice.id] = {
-        totalAttendance: practiceAttendance.length,
-        activeStudents: uniqueStudents.size,
-      };
-    });
-
-    setPractices(loadedPractices);
-    setPracticeStats(stats);
+    const load = async () => {
+      const [loadedPractices, attendance] = await Promise.all([getPractices(), getAttendance()]);
+      const stats: Record<string, { totalAttendance: number; activeStudents: number }> = {};
+      loadedPractices.forEach((p) => {
+        const pa = attendance.filter((a) => a.practiceId === p.id);
+        stats[p.id] = {
+          totalAttendance: pa.length,
+          activeStudents: new Set(pa.map((a) => a.studentId)).size,
+        };
+      });
+      setPractices(loadedPractices);
+      setPracticeStats(stats);
+    };
+    void load();
   }, []);
 
-  const getStatusColor = (startDate: string, endDate: string) => {
+  const statusColor = (start: string, end: string) => {
     const now = new Date();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (now < start) return 'bg-blue-100 text-blue-800';
-    if (now > end) return 'bg-gray-100 text-gray-800';
+    if (now < new Date(start)) return 'bg-blue-100 text-blue-800';
+    if (now > new Date(end)) return 'bg-gray-100 text-gray-800';
     return 'bg-green-100 text-green-800';
   };
 
-  const getStatusText = (startDate: string, endDate: string) => {
+  const statusText = (start: string, end: string) => {
     const now = new Date();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (now < start) return 'Próxima';
-    if (now > end) return 'Finalizada';
+    if (now < new Date(start)) return 'Próxima';
+    if (now > new Date(end)) return 'Finalizada';
     return 'En Curso';
   };
 
@@ -54,73 +46,84 @@ export function Practices() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-gray-900">Prácticas</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Gestión de prácticas profesionales del área de salud
-        </p>
+        <p className="text-sm text-gray-600 mt-1">Gestión de prácticas profesionales del área de salud</p>
       </div>
 
-      {/* Practices Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {practices.map((practice) => {
-          const stats = practiceStats[practice.id] || { totalAttendance: 0, activeStudents: 0 };
+      {practices.length === 0 && (
+        <Card>
+          <CardContent className="py-12">
+            <p className="text-center text-gray-500">No hay prácticas registradas en este momento</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {practices.map((p) => {
+          const stats = practiceStats[p.id] ?? { totalAttendance: 0, activeStudents: 0 };
           return (
-            <Card key={practice.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{practice.name}</CardTitle>
-                    <CardDescription className="mt-2">{practice.description}</CardDescription>
+            <Card key={p.id} className="hover:shadow-lg transition-shadow flex flex-col">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base leading-tight">{p.name}</CardTitle>
+                    {p.description && (
+                      <CardDescription className="mt-1.5 text-xs line-clamp-2">{p.description}</CardDescription>
+                    )}
                   </div>
-                  <Badge className={getStatusColor(practice.startDate, practice.endDate)}>
-                    {getStatusText(practice.startDate, practice.endDate)}
+                  <Badge className={`${statusColor(p.startDate, p.endDate)} shrink-0`}>
+                    {statusText(p.startDate, p.endDate)}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{practice.location}</p>
+              <CardContent className="space-y-3 flex-1">
+                <div className="flex items-start gap-2.5">
+                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{p.location}</p>
                     <p className="text-xs text-gray-500">Ubicación</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{practice.supervisor}</p>
-                    <p className="text-xs text-gray-500">Supervisor</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{practice.schedule}</p>
-                    <p className="text-xs text-gray-500">Horario</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {format(new Date(practice.startDate), 'dd/MM/yyyy')} - {format(new Date(practice.endDate), 'dd/MM/yyyy')}
-                    </p>
-                    <p className="text-xs text-gray-500">Periodo</p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg">
-                      <p className="text-2xl font-semibold text-blue-900">{stats.activeStudents}</p>
-                      <p className="text-xs text-blue-600">Estudiantes</p>
+                {p.supervisor && (
+                  <div className="flex items-start gap-2.5">
+                    <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.supervisor}</p>
+                      <p className="text-xs text-gray-500">Supervisor</p>
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg">
-                      <p className="text-2xl font-semibold text-green-900">{stats.totalAttendance}</p>
-                      <p className="text-xs text-green-600">Asistencias</p>
+                  </div>
+                )}
+
+                {p.schedule && (
+                  <div className="flex items-start gap-2.5">
+                    <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">{p.schedule}</p>
+                      <p className="text-xs text-gray-500">Horario</p>
                     </div>
+                  </div>
+                )}
+
+                {p.startDate && p.endDate && (
+                  <div className="flex items-start gap-2.5">
+                    <Calendar className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {format(new Date(p.startDate), 'dd/MM/yyyy')} — {format(new Date(p.endDate), 'dd/MM/yyyy')}
+                      </p>
+                      <p className="text-xs text-gray-500">Período</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-3">
+                  <div className="text-center p-2.5 bg-blue-50 rounded-lg">
+                    <p className="text-xl font-semibold text-blue-900">{stats.activeStudents}</p>
+                    <p className="text-xs text-blue-600">Estudiantes</p>
+                  </div>
+                  <div className="text-center p-2.5 bg-green-50 rounded-lg">
+                    <p className="text-xl font-semibold text-green-900">{stats.totalAttendance}</p>
+                    <p className="text-xs text-green-600">Asistencias</p>
                   </div>
                 </div>
               </CardContent>
@@ -128,16 +131,6 @@ export function Practices() {
           );
         })}
       </div>
-
-      {practices.length === 0 && (
-        <Card>
-          <CardContent className="py-12">
-            <p className="text-center text-gray-500">
-              No hay prácticas registradas en este momento
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
