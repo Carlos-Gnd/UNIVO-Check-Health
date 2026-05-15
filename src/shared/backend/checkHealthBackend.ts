@@ -168,20 +168,6 @@ export const getTrustedPracticeLocation = (practiceId: string): GeoPoint => {
 
 const getOfficialServerTime = () => new Date();
 
-const getOfficialServerDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-};
-
-const getRoleAssignments = () => {
-  return readBackendStorage<Record<string, UserRole>>(BACKEND_STORAGE_KEYS.ROLE_ASSIGNMENTS, {
-    'david@gmail.com': 'Coordinador',
-  });
-};
-
 export const assignAccessLevel = (email: string): { role: UserRole; access: string[] } => {
   const normalizedEmail = email.trim().toLowerCase();
   const domain = normalizedEmail.split('@')[1];
@@ -469,6 +455,18 @@ export const getCoordinatorAlerts = () => {
   return readBackendStorage<CoordinatorAlert[]>(BACKEND_STORAGE_KEYS.COORDINATOR_ALERTS, []);
 };
 
+const REQUIRED_PRACTICE_HOURS = 480;
+
+export const getStudentHoursProgress = (studentId: string): { completedHours: number; requiredHours: number } => {
+  const hoursCache = getHoursCache();
+  const active = getActiveAttendance(studentId);
+  let completed = Number((hoursCache[studentId] ?? 0).toFixed(1));
+  if (active) {
+    const sessionHours =
+      (getOfficialServerTime().getTime() - new Date(active.checkIn).getTime()) / (1000 * 60 * 60);
+    completed = Number((completed + sessionHours).toFixed(1));
+  }
+  return { completedHours: completed, requiredHours: REQUIRED_PRACTICE_HOURS };
 export const checkLocationVsPractice = (
   practiceId: string,
   location: GeoPoint,

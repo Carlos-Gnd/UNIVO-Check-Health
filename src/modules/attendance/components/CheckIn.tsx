@@ -14,6 +14,7 @@ import {
   getTrustedPracticeLocation,
   registerStudentCheckIn,
   registerStudentCheckOut,
+  getStudentHoursProgress,
   checkLocationVsPractice,
 } from '@/shared/backend/checkHealthBackend';
 import { Student } from '@/modules/students/types';
@@ -31,6 +32,48 @@ const getDeviceId = () => {
   return deviceId;
 };
 
+// T-06.2: Indicador circular de progreso de horas (verde/amarillo/rojo según avance)
+function HoursProgressRing({
+  completedHours,
+  requiredHours,
+}: {
+  completedHours: number;
+  requiredHours: number;
+}) {
+  const pct = Math.min(100, requiredHours > 0 ? (completedHours / requiredHours) * 100 : 0);
+  const r = 34;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct / 100);
+  const color = pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  const label = pct >= 75 ? 'Al día' : pct >= 50 ? 'A tiempo justo' : 'En riesgo';
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r={r} fill="none" stroke="#e5e7eb" strokeWidth="7" />
+        <circle
+          cx="44"
+          cy="44"
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="7"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform="rotate(-90 44 44)"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+        <text x="44" y="40" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#111827">
+          {completedHours.toFixed(0)}h
+        </text>
+        <text x="44" y="54" textAnchor="middle" fontSize="8" fill="#6b7280">
+          de {requiredHours}h
+        </text>
+      </svg>
+      <span className="text-xs font-semibold" style={{ color }}>
+        {label}
+      </span>
 // T-03.6: Calcula tiempo transcurrido desde check-in usando hora del servidor
 function formatElapsed(checkInIso: string, now: Date): string {
   const ms = Math.max(0, now.getTime() - new Date(checkInIso).getTime());
@@ -144,6 +187,10 @@ export function CheckIn() {
   const [notes, setNotes] = useState('');
   const [todayAttendance, setTodayAttendance] = useState<Attendance[]>([]);
 
+  // T-06.2 — progreso de horas por estudiante
+  const [hoursProgress, setHoursProgress] = useState<
+    Record<string, { completedHours: number; requiredHours: number }>
+  >({});
   // T-03.5 — estado de ubicación GPS
   const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -176,6 +223,30 @@ export function CheckIn() {
     setTodayAttendance(attendance.filter((a) => a.date === today));
   }, []);
 
+  // T-06.2 — carga progreso de horas de todos los estudiantes
+  const loadHoursProgress = useCallback(() => {
+    const all = getStudents();
+    const progress: Record<string, { completedHours: number; requiredHours: number }> = {};
+    all.forEach((s) => {
+      progress[s.id] = getStudentHoursProgress(s.id);
+    });
+    setHoursProgress(progress);
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    loadHoursProgress();
+
+    // T-06.2 — se actualiza solo cuando el usuario vuelve a la pantalla, no sondeo constante
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        loadData();
+        loadHoursProgress();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [loadData, loadHoursProgress]);
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -320,6 +391,9 @@ export function CheckIn() {
     const practice = practices.find((p) => p.id === selectedPractice);
     const timeStr = format(new Date(), 'HH:mm');
     loadData();
+    loadHoursProgress();
+    const student = students.find((s) => s.id === selectedStudent);
+    toast.success(`Check-in registrado para ${student?.name}`);
     toast.success(`Check-in registrado para ${student?.name}`);
     // T-03.7: agregar al feed
     pushFeedEvent({
@@ -356,6 +430,7 @@ export function CheckIn() {
     const studentName = students.find((s) => s.id === rec?.studentId)?.name ?? 'Desconocido';
     const practiceName = practices.find((p) => p.id === rec?.practiceId)?.name ?? 'Desconocido';
     loadData();
+    loadHoursProgress();
     toast.success('Check-out registrado exitosamente');
     // T-03.7: agregar checkout al feed
     pushFeedEvent({
@@ -536,11 +611,7 @@ export function CheckIn() {
                         {formatElapsed(record.checkIn, serverTime)}
                       </p>
                     </div>
-                    <Button
-                      onClick={() => handleCheckOut(record.id)}
-                      size="sm"
-                      variant="outline"
-                    >
+                    <Button onClick={() => handleCheckOut(record.id)} size="sm" variant="outline">
                       <XCircle className="w-4 h-4 mr-1" />
                       Check-Out
                     </Button>
@@ -552,6 +623,37 @@ export function CheckIn() {
         </Card>
       </div>
 
+      {/* T-06.2 — Indicadores circulares de progreso de horas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-emerald-600" />
+            Progreso de Horas
+          </CardTitle>
+          <CardDescription>
+            Se actualiza al regresar a la pantalla · Verde ≥75% · Amarillo ≥50% · Rojo &lt;50%
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {students.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">Sin estudiantes registrados</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {students.map((student) => {
+                const progress = hoursProgress[student.id];
+                if (!progress) return null;
+                return (
+                  <div key={student.id} className="flex flex-col items-center gap-1">
+                    <HoursProgressRing
+                      completedHours={progress.completedHours}
+                      requiredHours={progress.requiredHours}
+                    />
+                    <p className="text-xs text-center text-gray-700 font-medium leading-tight">
+                      {student.name.split(' ').slice(0, 2).join(' ')}
+                    </p>
+                  </div>
+                );
+              })}
 
       {/* T-03.7: Feed de actividad en tiempo real del grupo */}
       <Card>
