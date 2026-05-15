@@ -1,69 +1,155 @@
 # UNIVO Check-Health
 
-Aplicación web para el **registro y control de asistencias** de prácticas del área de salud en la Universidad de Oriente (UNIVO).
+Sistema web para el **registro y control de asistencias** de prácticas clínicas del área de salud en la Universidad de Oriente (UNIVO), El Salvador.
 
-## Objetivo del proyecto
+Digitaliza el ciclo completo de prácticas mediante geofencing GPS, auditoría inmutable, dashboard ejecutivo y gestión de usuarios por roles.
 
-Digitalizar y auditar el ciclo completo de prácticas clínicas de la Facultad de Ciencias de la Salud, garantizando la integridad académica mediante:
+---
 
-- Verificación geográfica (Geofencing) para asegurar la presencia física.
-- Registro de evidencias fotográficas con metadatos EXIF.
-- Auditoría inmutable de registros de entrada y salida.
-- Dashboard ejecutivo para la coordinación y supervisión docente.
+### Funcionalidades completadas
 
-## Configuración del Entorno de Desarrollo
+- **Autenticación** — Supabase Auth con validación de dominio `@univo.edu.sv`. Solo cuentas institucionales.
+- **RBAC** — Rol `ADMIN` (Decano) y `ENCARGADO` (Coordinador) asignados desde base de datos. Navegación diferenciada por rol.
+- **Gestión de usuarios** — Panel para crear cuentas (nombre, carné, rol, carrera) sin afectar la sesión activa.
+- **Check-in / Check-out** — Validación de geofencing en tiempo real vía RPC `validate_checkin_area`. Registro de hora firmada por servidor.
+- **Dashboard** — Estadísticas globales, gráficas de asistencia (Recharts), mapa de sedes activas.
+- **Módulo Decano** — Dashboard con KPIs reales desde Supabase, lista de estudiantes con cumplimiento, CRUD completo de sedes con geofence.
+- **Historial de asistencias** — Tabla paginada con filtros por estudiante, práctica y estado. Export CSV.
+- **Módulo Estudiantes / Prácticas / Reportes** — Vistas completas con datos en tiempo real.
+- **Diseño responsive** — Mobile (360 px), tablet, desktop y ultrawide (≥ 1536 px).
+- **Audit log** — Registro inmutable de acciones críticas (sign-out, eventos de seguridad).
 
-Este proyecto utiliza **Supabase Local Development** para la base de datos y servicios de backend.
+---
 
-### 1. Requisitos previos
-- Node.js (v18+)
-- Docker Desktop (necesario para el backend local)
-- pnpm
+## Configuración local
 
-### 2. Levantar el Backend (Supabase)
-En la raíz de la carpeta `Check-Health`:
+> El backend corre en **Supabase Cloud** — no se necesita Docker ni Supabase local.
+
+### Requisitos
+
+- **Node.js 18 o superior** — verificar con `node -v`
+- **pnpm** — el proyecto no acepta npm ni yarn
 
 ```bash
-# Iniciar contenedores de Supabase (Postgres, Auth, Storage, API)
-npx supabase start
-
-# Aplicar migraciones y semillas de datos si es necesario
-npx supabase db reset
+# Instalar pnpm si no lo tienes
+npm install -g pnpm
 ```
 
-### 3. Levantar el Frontend
+### Pasos
+
 ```bash
-# Instalar dependencias
+# 1. Clonar el repositorio
+git clone https://github.com/ReneAraniva/UNIVO-Check-Health-.git
+cd UNIVO-Check-Health-/Check-Health
+
+# 2. Crear el archivo de variables de entorno
+#    (pedir las credenciales)
+.env.local  
+
+# 3. Instalar dependencias
 pnpm install
 
-# Iniciar servidor de desarrollo
+# 4. Levantar el servidor de desarrollo
 pnpm dev
 ```
 
 La aplicación estará disponible en `http://localhost:5173`.
 
-## Stack Tecnológico
+### Archivo `.env.local`
 
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS.
-- **Backend/DB:** Supabase (Postgres, PostgREST, Auth).
-- **UI Components:** Radix UI / shadcn/ui.
-- **Utilidades:** date-fns, sonner (notificaciones), recharts (gráficas), zustand (estado global).
+Crear el archivo `Check-Health/.env.local` con las siguientes variables (pedir valores al equipo):
 
-## Estado del Proyecto
+```env
+VITE_SUPABASE_URL=https://<proyecto>.supabase.co
+VITE_SUPABASE_ANON_KEY=<clave_anon_publica>
+VITE_SUPABASE_SERVICE_ROLE=<clave_service_role>
+```
 
-- **Autenticación:** Implementada mediante roles (Estudiante, Docente, Coordinador, Representante).
-- **Asistencia:** Registro de Check-in/out funcional con validación de geocerca en tiempo real.
-- **Persistencia:** Integración real con base de datos Postgres mediante el cliente oficial de Supabase.
-- **Módulo de Coordinación (Decano):** Dashboard de estadísticas, gestión de alumnos y sedes.
+> `.env.local` está en `.gitignore` — nunca subir las claves al repositorio.
 
-## Flujo de Trabajo
+### Credenciales de prueba
 
-1. Crear rama por feature: `git checkout -b feature/nombre-feature`
-2. Realizar cambios y commits claros.
-3. Abrir Pull Request hacia `main`.
-4. Revisión técnica antes de fusionar.
+| Usuario | Correo | Rol |
+|---------|--------|-----|
+| Administrador | `admin@univo.edu.sv` | Decano (acceso completo) |
+| Estudiante 1 | `U20240001@univo.edu.sv` | Encargado |
 
-## Notas importantes
-- El proyecto se encuentra en fase de integración de microservicios.
-- Las coordenadas de las sedes para pruebas están definidas en el archivo de semillas (`supabase/seed.sql`).
+Contraseñas: solicitar al equipo. Para crear nuevos usuarios, usar el panel **Gestión de Usuarios** dentro de la app.
 
+### Solución de errores comunes
+
+| Error | Causa | Solución |
+|-------|-------|---------|
+| Página en blanco / error de módulo | Se usó `npm install` en vez de `pnpm` | Borrar `node_modules` y `package-lock.json`, luego `pnpm install` |
+| `Invalid API key` en consola | `.env.local` no existe o tiene las claves incorrectas | Verificar el archivo y reiniciar `pnpm dev` |
+| Login rechazado con correo válido | La cuenta no existe en Supabase Auth | Crearla desde el panel de Gestión de Usuarios |
+| `node -v` < 18 | Vite 6 requiere Node 18+ | Actualizar Node con `nvm install 18` |
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | React 18 + TypeScript + Vite 6 |
+| Estilos | Tailwind CSS 4 + shadcn/ui (Radix UI) |
+| Estado | Zustand + React Hook Form |
+| Gráficas | Recharts |
+| Backend | Supabase (PostgreSQL + Auth + Storage + Realtime) |
+| Routing | React Router 7 |
+| Fechas | date-fns |
+| Notificaciones | Sonner |
+| Package manager | pnpm |
+
+---
+
+## Estructura del proyecto
+
+```
+Check-Health/
+├── src/
+│   ├── app/          # Rutas (React Router)
+│   ├── modules/      # Módulos por feature
+│   │   ├── admin/        # Gestión de usuarios
+│   │   ├── attendance/   # Check-in / check-out
+│   │   ├── dashboard/    # Dashboard principal
+│   │   ├── dean/         # Panel del decano/coordinador
+│   │   ├── practices/    # Prácticas / sedes
+│   │   ├── reports/      # Reportes y exportación
+│   │   └── students/     # Listado de estudiantes
+│   └── shared/       # Layout, cliente Supabase, UI primitives
+├── supabase/
+│   └── migrations/   # Scripts SQL aplicados en Supabase Cloud
+└── .env.local        # Variables de entorno (no subir a git)
+```
+
+---
+
+## Flujo de trabajo Git
+
+```bash
+# Crear rama por feature
+git checkout -b feature/HU-XX-descripcion
+
+# Commit con prefijo
+git commit -m "feat: descripción del cambio"
+
+# Abrir Pull Request hacia main
+# Revisión requerida antes de fusionar
+```
+
+Prefijos válidos: `feat:`, `fix:`, `docs:`, `refactor:`, `merge:`.
+
+---
+
+## Equipo
+
+| Nombre | Carné | Rol |
+|--------|-------|-----|
+| Carlos Alberto Granados Amaya | U20240579 |
+| René Francisco Pacheco Araniva | U20240844 |
+| Nelson René Rodríguez Quintanilla | U20240270 |
+| Verónica Nataly Morales Jiménez | U20220902 |
+| David Alexander Urias Blanco | U20240435 |
+
+Cátedra: **Diseño de Componentes Web** — Ing. José Adolfo Herrera Funes — UNIVO Ciclo I-2026.
