@@ -75,6 +75,10 @@ function HoursProgressRing({
       <span className="text-xs font-semibold" style={{ color }}>
         {label}
       </span>
+    </div>
+  );
+}
+
 // T-03.6: Calcula tiempo transcurrido desde check-in usando hora del servidor
 function formatElapsed(checkInIso: string, now: Date): string {
   const ms = Math.max(0, now.getTime() - new Date(checkInIso).getTime());
@@ -393,8 +397,6 @@ export function CheckIn() {
     const timeStr = format(new Date(), 'HH:mm');
     loadData();
     loadHoursProgress();
-    const student = students.find((s) => s.id === selectedStudent);
-    toast.success(`Check-in registrado para ${student?.name}`);
     toast.success(`Check-in registrado para ${student?.name}`);
     // T-03.7: agregar al feed
     pushFeedEvent({
@@ -655,6 +657,10 @@ const handleCheckOut = async (attendanceId: string) => {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* T-03.7: Feed de actividad en tiempo real del grupo */}
       <Card>
