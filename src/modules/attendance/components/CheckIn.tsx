@@ -357,7 +357,7 @@ export function CheckIn() {
     });
   };
 
-    const handleCheckIn = () => {
+    const handleCheckIn = async () => {
     if (!selectedStudent || !selectedPractice) {
       toast.error('Por favor selecciona un estudiante y una práctica');
       return;
@@ -375,7 +375,7 @@ export function CheckIn() {
       return;
     }
 
-    const result = registerStudentCheckIn({
+    const result = await registerStudentCheckIn({
       studentId: selectedStudent,
       practiceId: selectedPractice,
       notes: notes || undefined,
@@ -408,24 +408,24 @@ export function CheckIn() {
     setSelectedPractice('');
     setNotes('');
   };
+const handleCheckOut = async (attendanceId: string) => {
+  const attendance = todayAttendance.find(a => a.id === attendanceId);
 
-  const handleCheckOut = (attendanceId: string) => {
-    const attendance = todayAttendance.find((a) => a.id === attendanceId);
-    if (!attendance) {
-      toast.error('No se encontró el registro activo');
-      return;
-    }
+  if (!attendance) {
+    toast.error('No se encontro el registro activo');
+    return;
+  }
 
-    const result = registerStudentCheckOut({
-      attendanceId,
-      location: getTrustedPracticeLocation(attendance.practiceId),
-      deviceId: getDeviceId(),
-    });
+  const result = await registerStudentCheckOut({
+    attendanceId,
+    location: getTrustedPracticeLocation(attendance.practiceId),
+    deviceId: getDeviceId(),
+  });
 
-    if (!result.ok) {
-      toast.error(result.message);
-      return;
-    }
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
 
     const rec = todayAttendance.find((a) => a.id === attendanceId);
     const studentName = students.find((s) => s.id === rec?.studentId)?.name ?? 'Desconocido';
