@@ -40,3 +40,28 @@ export const getAttendance = async (): Promise<Attendance[]> => {
   if (error || !data) return [];
   return data.map(mapRow);
 };
+
+export const getStudentAttendanceHistory = async (
+  studentId: string,
+  range: 'week' | 'month' | 'all',
+  from: number,
+  to: number,
+): Promise<{ data: Attendance[]; count: number }> => {
+  let query = supabase
+    .from('attendances')
+    .select('*', { count: 'exact' })
+    .eq('student_id', studentId)
+    .order('date', { ascending: false })
+    .order('check_in', { ascending: false })
+    .range(from, to);
+
+  if (range !== 'all') {
+    const days = range === 'week' ? 7 : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    query = query.gte('date', since);
+  }
+
+  const { data, error, count } = await query;
+  if (error || !data) return { data: [], count: 0 };
+  return { data: data.map(mapRow), count: count ?? 0 };
+};

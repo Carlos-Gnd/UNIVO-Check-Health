@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { deanLocations, deanStudents } from '@/data/deanMockData';
+import { fetchDeanData } from '@/modules/dean/services/dean.service';
 import type { DeanFilters, DeanGlobalStats, DeanStudent, Location } from '@/modules/dean/types';
 
 interface DeanStore {
@@ -9,25 +9,35 @@ interface DeanStore {
   filters: DeanFilters;
   selectedStudent: DeanStudent | null;
   selectedLocation: Location | null;
+  isLoading: boolean;
+  loadData: () => Promise<void>;
   setFilter: <K extends keyof DeanFilters>(key: K, value: DeanFilters[K]) => void;
   setSelectedStudent: (student: DeanStudent | null) => void;
   setSelectedLocation: (location: Location | null) => void;
 }
 
-const globalStats: DeanGlobalStats = {
-  totalStudents: deanStudents.length,
-  globalComplianceRate: Math.round(deanStudents.reduce((acc, student) => acc + student.compliancePercentage, 0) / deanStudents.length),
-  atRiskCount: deanStudents.filter((student) => student.compliancePercentage < 60).length,
-  activeLocations: deanLocations.filter((location) => location.status === 'active').length,
+const emptyStats: DeanGlobalStats = {
+  totalStudents: 0,
+  globalComplianceRate: 0,
+  atRiskCount: 0,
+  activeLocations: 0,
 };
 
 export const useDeanStore = create<DeanStore>((set) => ({
-  students: deanStudents,
-  locations: deanLocations,
-  globalStats,
+  students: [],
+  locations: [],
+  globalStats: emptyStats,
   filters: { sede: 'all', status: 'all', period: '2026-1', search: '' },
   selectedStudent: null,
   selectedLocation: null,
+  isLoading: false,
+
+  loadData: async () => {
+    set({ isLoading: true });
+    const { students, locations, globalStats } = await fetchDeanData();
+    set({ students, locations, globalStats, isLoading: false });
+  },
+
   setFilter: (key, value) => set((state) => ({ filters: { ...state.filters, [key]: value } })),
   setSelectedStudent: (student) => set({ selectedStudent: student }),
   setSelectedLocation: (location) => set({ selectedLocation: location }),

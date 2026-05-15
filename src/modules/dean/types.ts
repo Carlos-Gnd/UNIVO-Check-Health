@@ -33,6 +33,11 @@ export interface Location {
   coordinates: { lat: number; lng: number };
   allowedRadiusMeters: number;
   doctorName: string;
+  doctorPhone: string;
+  schedule: string;
+  startDate: string;
+  endDate: string;
+  description: string;
   doctorStatus: 'active' | 'inactive';
   totalStudents: number;
   averageCompliance: number;

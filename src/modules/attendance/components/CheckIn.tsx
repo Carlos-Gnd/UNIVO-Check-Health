@@ -6,10 +6,10 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { toast } from 'sonner';
-import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft, TrendingUp } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft, TrendingUp, History } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
-import { getAttendance } from '../services/attendance.service';
+import { getAttendance, getStudentAttendanceHistory } from '../services/attendance.service';
 import {
   registerStudentCheckIn,
   registerStudentCheckOut,
@@ -179,6 +179,123 @@ function FeedEvent({ event }: {
         </Badge>
       </div>
     </div>
+  );
+}
+
+// T-06.3: Componente de historial filtrable con paginación
+const HIST_PAGE_SIZE = 10;
+
+function AttendanceHistory({ students, practices }: { students: Student[]; practices: Practice[] }) {
+  const [filterStudent, setFilterStudent] = useState('');
+  const [filterRange, setFilterRange] = useState<'week' | 'month' | 'all'>('month');
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<Attendance[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!filterStudent) { setRows([]); setTotal(0); return; }
+    setLoading(true);
+    const from = (page - 1) * HIST_PAGE_SIZE;
+    const to = from + HIST_PAGE_SIZE - 1;
+    const { data, count } = await getStudentAttendanceHistory(filterStudent, filterRange, from, to);
+    setRows(data);
+    setTotal(count);
+    setLoading(false);
+  }, [filterStudent, filterRange, page]);
+
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setPage(1); }, [filterStudent, filterRange]);
+
+  const totalPages = Math.max(1, Math.ceil(total / HIST_PAGE_SIZE));
+  const getPracticeName = (id: string) => practices.find((p) => p.id === id)?.name ?? id;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <History className="w-4 h-4 text-blue-600" />
+          Historial de Asistencias
+        </CardTitle>
+        <CardDescription>Selecciona un estudiante para ver su historial completo</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <Select value={filterStudent} onValueChange={setFilterStudent}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Selecciona estudiante" />
+            </SelectTrigger>
+            <SelectContent>
+              {students.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name} — {s.carnet}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterRange} onValueChange={(v: any) => setFilterRange(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Esta semana</SelectItem>
+              <SelectItem value="month">Este mes</SelectItem>
+              <SelectItem value="all">Todo el historial</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {!filterStudent ? (
+          <p className="text-sm text-gray-400 text-center py-6">Selecciona un estudiante para ver su historial</p>
+        ) : loading ? (
+          <p className="text-sm text-gray-400 text-center py-6">Cargando…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">Sin registros en el período seleccionado</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Práctica</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Entrada</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Salida</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Horas</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">{format(new Date(r.date), 'dd/MM/yyyy')}</td>
+                      <td className="px-3 py-2 text-gray-700">{getPracticeName(r.practiceId)}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{format(new Date(r.checkIn), 'HH:mm')}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{r.checkOut ? format(new Date(r.checkOut), 'HH:mm') : '—'}</td>
+                      <td className="px-3 py-2">{r.workedHours != null ? `${r.workedHours.toFixed(1)}h` : '—'}</td>
+                      <td className="px-3 py-2">
+                        <Badge className={
+                          r.reviewStatus === 'flagged' ? 'bg-amber-100 text-amber-700'
+                          : r.status === 'present' ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                        }>
+                          {r.reviewStatus === 'flagged' ? 'En revisión' : r.status === 'present' ? 'Presente' : r.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Página {page} de {totalPages} · {total} registros</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -700,6 +817,9 @@ const handleCheckOut = async (attendanceId: string) => {
           )}
         </CardContent>
       </Card>
+
+      {/* T-06.3: Historial de asistencias filtrable con paginación 10 en 10 */}
+      <AttendanceHistory students={students} practices={practices} />
 
       {/* Resumen del Día */}
       <Card>
