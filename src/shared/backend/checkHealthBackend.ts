@@ -168,6 +168,20 @@ export const getTrustedPracticeLocation = (practiceId: string): GeoPoint => {
 
 const getOfficialServerTime = () => new Date();
 
+const getOfficialServerDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const getRoleAssignments = () => {
+  return readBackendStorage<Record<string, UserRole>>(BACKEND_STORAGE_KEYS.ROLE_ASSIGNMENTS, {
+    'david@gmail.com': 'Coordinador',
+  });
+};
+
 export const assignAccessLevel = (email: string): { role: UserRole; access: string[] } => {
   const normalizedEmail = email.trim().toLowerCase();
   const domain = normalizedEmail.split('@')[1];
@@ -341,7 +355,7 @@ export const registerStudentCheckIn = (params: {
     studentId: params.studentId,
     practiceId: params.practiceId,
     checkIn: now.toISOString(),
-    date: now.toISOString().slice(0, 10),
+    date: getOfficialServerDate(now),
     status: 'present',
     notes: params.notes || undefined,
     checkInLocation: params.location,
