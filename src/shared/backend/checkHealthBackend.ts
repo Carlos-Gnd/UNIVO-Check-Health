@@ -312,114 +312,122 @@ const processLocationReviewJob = (job: LocationReviewJob) => {
   }
 };
 
-export const registerStudentCheckIn = (params: {
+import { supabase } from './supabaseClient';
+
+export const registerStudentCheckIn = async (params: {
   studentId: string;
   practiceId: string;
   location: GeoPoint;
   notes?: string;
   deviceId?: string;
-}): AttendanceResult => {
-  const locationValidation = validateLocationInsidePractice(params.practiceId, params.location);
+}): Promise<AttendanceResult> => {
+  // Use Supabase RPC to validate location against campus radius
+  const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
+    p_campus_id: params.practiceId,
+    p_current_lat: params.location.latitude,
+    p_current_lng: params.location.longitude
+  });
 
-  if (!locationValidation.isInside) {
+  if (validationError || !validationData || !validationData[0]?.is_allowed) {
     return {
       ok: false,
-      message: `Registro rechazado: el estudiante esta a ${Math.round(locationValidation.distance)} m de la sede permitida.`,
+      message: validationData?.[0]?.message || 'Registro rechazado: Ubicación inválida o fuera de rango.',
     };
   }
 
-  if (getActiveAttendance(params.studentId, params.practiceId)) {
+  // Check for active attendance
+  const { data: activeRecords } = await supabase
+    .from('attendances')
+    .select('*')
+    .eq('student_id', params.studentId)
+    .is('check_out', null);
+
+  if (activeRecords && activeRecords.length > 0) {
     return {
       ok: false,
-      message: 'Este estudiante ya tiene una entrada activa para esta practica.',
+      message: 'Este estudiante ya tiene una entrada activa.',
     };
   }
 
-  const now = getOfficialServerTime();
-  const attendance: Attendance = {
-    id: Date.now().toString(),
-    studentId: params.studentId,
-    practiceId: params.practiceId,
-    checkIn: now.toISOString(),
-    date: getOfficialServerDate(now),
-    status: 'present',
-    notes: params.notes || undefined,
-    checkInLocation: params.location,
-    reviewStatus: 'clear',
-    deviceId: params.deviceId,
-  };
-  const sealedAttendance = {
-    ...attendance,
-    securitySeal: createSecuritySeal(attendance),
-  };
+  // Insert real attendance
+  const { data: attendanceData, error: insertError } = await supabase
+    .from('attendances')
+    .insert([{
+      student_id: params.studentId,
+      campus_id: params.practiceId,
+      notes: params.notes,
+      check_in_location: params.location,
+      device_id: params.deviceId,
+      status: 'present'
+    }])
+    .select()
+    .single();
 
-  addAttendance(sealedAttendance);
-  queueLocationReview(sealedAttendance.id, 'check-in');
+  if (insertError) {
+    return { ok: false, message: 'Error registrando asistencia en la base de datos.' };
+  }
 
   return {
     ok: true,
-    attendance: sealedAttendance,
+    attendance: attendanceData as any,
     message: 'Entrada registrada con hora oficial del servidor.',
   };
 };
 
-export const registerStudentCheckOut = (params: {
+export const registerStudentCheckOut = async (params: {
   attendanceId: string;
   location: GeoPoint;
   deviceId?: string;
-}): AttendanceResult => {
-  const attendance = getAttendance().find((record) => record.id === params.attendanceId);
+}): Promise<AttendanceResult> => {
+  const { data: attendance, error: fetchError } = await supabase
+    .from('attendances')
+    .select('*, campus_id')
+    .eq('id', params.attendanceId)
+    .single();
 
-  if (!attendance) {
+  if (fetchError || !attendance) {
+    return { ok: false, message: 'No se encontro el registro activo.' };
+  }
+
+  if (attendance.check_out) {
+    return { ok: false, message: 'La salida ya fue registrada para esta jornada.' };
+  }
+
+  const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
+    p_campus_id: attendance.campus_id,
+    p_current_lat: params.location.latitude,
+    p_current_lng: params.location.longitude
+  });
+
+  if (validationError || !validationData || !validationData[0]?.is_allowed) {
     return {
       ok: false,
-      message: 'No se encontro el registro activo.',
+      message: validationData?.[0]?.message || 'Salida rechazada: Ubicación inválida.',
     };
   }
 
-  if (attendance.checkOut) {
-    return {
-      ok: false,
-      message: 'La salida ya fue registrada para esta jornada.',
-    };
+  const now = new Date();
+  const workedHours = Number(((now.getTime() - new Date(attendance.check_in).getTime()) / (1000 * 60 * 60)).toFixed(2));
+
+  const { data: updatedAttendance, error: updateError } = await supabase
+    .from('attendances')
+    .update({
+      check_out: now.toISOString(),
+      check_out_location: params.location,
+      worked_hours: workedHours,
+      device_id: params.deviceId ?? attendance.device_id
+    })
+    .eq('id', params.attendanceId)
+    .select()
+    .single();
+
+  if (updateError) {
+    return { ok: false, message: 'Error actualizando salida en la base de datos.' };
   }
-
-  const locationValidation = validateLocationInsidePractice(attendance.practiceId, params.location);
-
-  if (!locationValidation.isInside) {
-    return {
-      ok: false,
-      message: `Salida rechazada: el estudiante esta a ${Math.round(locationValidation.distance)} m de la sede permitida.`,
-    };
-  }
-
-  const now = getOfficialServerTime();
-  const workedHours = Number(((now.getTime() - new Date(attendance.checkIn).getTime()) / (1000 * 60 * 60)).toFixed(2));
-  const updatedAttendance: Attendance = {
-    ...attendance,
-    checkOut: now.toISOString(),
-    checkOutLocation: params.location,
-    workedHours,
-    deviceId: params.deviceId ?? attendance.deviceId,
-  };
-  const sealedUpdates: Partial<Attendance> = {
-    checkOut: updatedAttendance.checkOut,
-    checkOutLocation: updatedAttendance.checkOutLocation,
-    workedHours,
-    checkOutSecuritySeal: createSecuritySeal(updatedAttendance),
-    deviceId: updatedAttendance.deviceId,
-  };
-
-  updateAttendance(attendance.id, sealedUpdates);
-  updateHoursCache(attendance.studentId, workedHours);
-  queueLocationReview(attendance.id, 'check-out');
 
   return {
     ok: true,
-    attendance: {
-      ...updatedAttendance,
-      checkOutSecuritySeal: sealedUpdates.checkOutSecuritySeal,
-    },
+    attendance: updatedAttendance as any,
     message: 'Salida registrada y horas acumuladas correctamente.',
   };
 };
