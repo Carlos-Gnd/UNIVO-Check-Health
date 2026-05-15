@@ -13,6 +13,24 @@ Este sistema permite:
 
 Actualmente, la app funciona con **datos locales (mock/localStorage)** para revisión académica. Más adelante se integrará backend y base de datos.
 
+## Backend local Sprint 1 (Carlos)
+
+Se agrego base de datos local para tareas de Sprint 1 con imagen de Supabase Postgres.
+
+```bash
+docker compose up -d
+```
+
+El script de inicializacion corre automaticamente desde:
+
+```txt
+supabase/sql/001_init_checkhealth.sql
+```
+
+Documentacion:
+- `docs/backend/sprint1-carlos.md`
+- `docs/qa/sprint1-casos-carlos.md`
+
 ## Demo local rápida
 
 1. Instalar dependencias:
@@ -47,10 +65,14 @@ pnpm preview
 
 ## Credenciales temporales (solo frontend)
 
-- Correo: `David@gmail.com`
-- Contraseña: `david123`
+- Encargado:
+  - Correo: `david@gmail.com`
+  - Contraseña: `david123`
+- Decano:
+  - Correo: `decano@gmail.com`
+  - Contraseña: `decano123`
 
-Estas credenciales son provisionales para revisión. No hay autenticación real con servidor todavía.
+
 
 ## Stack tecnológico
 
@@ -61,6 +83,8 @@ Estas credenciales son provisionales para revisión. No hay autenticación real 
 - Componentes UI (shadcn/radix + utilidades)
 - date-fns
 - sonner (notificaciones)
+- recharts (gráficas)
+- zustand (estado global para módulo Decano)
 
 ## Estructura principal
 
@@ -70,6 +94,10 @@ src/
     App.tsx
     routes.tsx
   modules/
+    dean/
+      pages/
+      store/
+      types.ts
     dashboard/
       components/
     attendance/
@@ -98,12 +126,32 @@ src/
     tailwind.css
     theme.css
   main.tsx
+  data/
+    deanMockData.ts
 ```
+
+## Rutas principales por rol
+
+- Encargado:
+  - `/`
+  - `/checkin`
+  - `/students`
+  - `/practices`
+  - `/reports`
+- Decano:
+  - `/dean/dashboard`
+  - `/dean/students`
+  - `/dean/locations`
 
 ## Estado actual
 
 - Login responsive implementado.
 - Sidebar y navegación responsive.
+- Soporte de 2 roles en login temporal (`Encargado` y `Decano`).
+- Módulo Decano agregado con:
+  - Dashboard (estadísticas, riesgo y cumplimiento por sede).
+  - Gestión de alumnos (filtros, tabla ordenable, paginación, modal detalle).
+  - Gestión de sedes (cards, filtros y modal detalle).
 - Vista de reportes adaptada:
   - Tabla en desktop.
   - Tarjetas en móvil/tablet.
@@ -123,18 +171,10 @@ git checkout -b feature/nombre-feature
 3. Abrir Pull Request hacia `main`.
 4. Pedir revisión de al menos 1 compañero antes de merge.
 
-## Próximos pasos sugeridos
-
-- Integrar backend (API REST o similar).
-- Mover autenticación a servidor (JWT/sesiones).
-- Conectar base de datos (estudiantes, prácticas, asistencias).
-- Agregar validaciones de negocio y roles.
-- Implementar pruebas (unitarias/integración).
 
 ## Notas importantes
 
 - La información actual se guarda localmente en navegador.
 - Al limpiar almacenamiento local, los datos pueden perderse.
 - Proyecto orientado a avance académico y revisión funcional inicial.
-
 

@@ -6,6 +6,9 @@ import { Students } from '@/modules/students/components/Students';
 import { Practices } from '@/modules/practices/components/Practices';
 import { Reports } from '@/modules/reports/components/Reports';
 import { NotFound } from '@/shared/components/NotFound';
+import { DeanDashboardPage } from '@/modules/dean/pages/DeanDashboardPage';
+import { DeanStudentsPage } from '@/modules/dean/pages/DeanStudentsPage';
+import { DeanLocationsPage } from '@/modules/dean/pages/DeanLocationsPage';
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +20,9 @@ export const router = createBrowserRouter([
       { path: 'students', Component: Students },
       { path: 'practices', Component: Practices },
       { path: 'reports', Component: Reports },
+      { path: 'dean/dashboard', Component: DeanDashboardPage },
+      { path: 'dean/students', Component: DeanStudentsPage },
+      { path: 'dean/locations', Component: DeanLocationsPage },
       { path: '*', Component: NotFound },
     ],
   },
