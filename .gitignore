@@ -32,3 +32,5 @@ Thumbs.db
 .claude
 # Vite cache
 .vite/
+
+CLAUDE.md

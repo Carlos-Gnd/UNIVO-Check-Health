@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -37,6 +38,7 @@ type ActiveStudent = {
 };
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalPractices: 0,
@@ -63,10 +65,12 @@ export function Dashboard() {
   const [riskPanelOpen, setRiskPanelOpen] = useState(false);
 
   useEffect(() => {
-    const loadDashboardData = () => {
-      const students = getStudents();
-      const practices = getPractices();
-      const attendance = getAttendance();
+    const loadDashboardData = async () => {
+      const [students, practices, attendance] = await Promise.all([
+        getStudents(),
+        getPractices(),
+        getAttendance(),
+      ]);
 
       const today = format(new Date(), 'yyyy-MM-dd');
       const todayRecords = attendance.filter((a) => a.date === today);
@@ -119,16 +123,18 @@ export function Dashboard() {
       });
 
       setRecentActivity(recent);
-      setActiveStudents(getActiveStudentsSnapshot());
+      setActiveStudents(await getActiveStudentsSnapshot());
     };
 
-    loadDashboardData();
-    const intervalId = window.setInterval(loadDashboardData, 30000);
+    void loadDashboardData();
+    const intervalId = window.setInterval(() => void loadDashboardData(), 30000);
     // T-07.5: los indicadores del ciclo se recalculan cada 5 minutos
-    const cycleIntervalId = window.setInterval(() => {
-      const students = getStudents();
-      const practices = getPractices();
-      const attendance = getAttendance();
+    const cycleIntervalId = window.setInterval(async () => {
+      const [students, practices, attendance] = await Promise.all([
+        getStudents(),
+        getPractices(),
+        getAttendance(),
+      ]);
       const studentRates = students.map((s) => {
         const sa = attendance.filter((a) => a.studentId === s.id);
         const present = sa.filter((a) => a.status === 'present' || a.status === 'late').length;
@@ -410,7 +416,7 @@ export function Dashboard() {
                         className="text-xs h-7 border-red-200 text-red-700 hover:bg-red-50"
                         onClick={() => {
                           const params = new URLSearchParams({ student: s.id });
-                          window.location.href = `/students?${params.toString()}`;
+                          navigate(`/students?${params.toString()}`);
                         }}
                       >
                         Ver historial

@@ -14,51 +14,57 @@ import {
   FileCheck2,
   Activity,
   MapPin,
+  UserPlus,
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
-import { initStudents } from '@/modules/students/services/students.service';
-import { initPractices } from '@/modules/practices/services/practices.service';
-import { initAttendance } from '@/modules/attendance/services/attendance.service';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
+import { supabase } from '@/shared/backend/supabaseClient';
+import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano';
 
-const AUTH_STORAGE_KEY = 'checkhealth-auth';
-const SESSION_STORAGE_KEY = 'checkhealth-current-session';
-const COORD_EMAIL = 'david@gmail.com';
-const COORD_PASSWORD = 'david123';
-const DEAN_EMAIL = 'decano@gmail.com';
-const DEAN_PASSWORD = 'decano123';
+const UNIVO_DOMAIN = '@univo.edu.sv';
 
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(AUTH_STORAGE_KEY) === 'true');
-  const [currentRole, setCurrentRole] = useState<AppRole>(() => {
-    try {
-      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (!saved) return 'Encargado';
-      const parsed = JSON.parse(saved) as { role?: AppRole };
-      return parsed.role === 'Decano' ? 'Decano' : 'Encargado';
-    } catch {
-      return 'Encargado';
-    }
-  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
+  const [displayName, setDisplayName] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
+  const resolveRole = async (userEmail: string) => {
+    const { data } = await supabase
+      .from('users')
+      .select('role, full_name')
+      .eq('email', userEmail)
+      .single();
+    setCurrentRole(data?.role === 'ADMIN' ? 'Decano' : 'Encargado');
+    setDisplayName(data?.full_name ?? userEmail);
+  };
+
   useEffect(() => {
-    if (isAuthenticated) {
-      initStudents();
-      initPractices();
-      initAttendance();
-    }
-  }, [isAuthenticated]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setCurrentUser(session.user);
+          void resolveRole(session.user.email ?? '');
+        } else {
+          setCurrentUser(null);
+          setCurrentRole('Encargado');
+          setDisplayName('');
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   const navigation = currentRole === 'Decano'
     ? [
@@ -72,51 +78,50 @@ export function MainLayout() {
         { name: 'Estudiantes', href: '/students', icon: Users },
         { name: 'Prácticas', href: '/practices', icon: Stethoscope },
         { name: 'Reportes', href: '/reports', icon: BarChart3 },
+        { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
       ];
 
   const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
-    }
+    if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
   };
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     const normalizedEmail = email.trim().toLowerCase();
-    const isCoord = normalizedEmail === COORD_EMAIL && password === COORD_PASSWORD;
-    const isDean = normalizedEmail === DEAN_EMAIL && password === DEAN_PASSWORD;
 
-    if (!isCoord && !isDean) {
+    if (!normalizedEmail.endsWith(UNIVO_DOMAIN)) {
+      toast.error(`Solo se permiten correos institucionales (${UNIVO_DOMAIN})`);
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+    setIsLoading(false);
+
+    if (error) {
       toast.error('Correo o contraseña inválidos');
       return;
     }
 
-    const role: AppRole = isDean ? 'Decano' : 'Encargado';
-    localStorage.setItem(AUTH_STORAGE_KEY, 'true');
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ email: normalizedEmail, role }));
-
-    setCurrentRole(role);
-    setIsAuthenticated(true);
     setPassword('');
-    toast.success(`Bienvenido al dashboard de ${role.toLowerCase()}`);
-    navigate(role === 'Decano' ? '/dean/dashboard' : '/');
+    toast.success('Bienvenido al sistema');
+    navigate('/');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsMobileMenuOpen(false);
     setEmail('');
     setPassword('');
     setShowPassword(false);
-    setCurrentRole('Encargado');
     toast.success('Sesión cerrada');
   };
 
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-white flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-6xl rounded-2xl overflow-hidden border border-blue-100 bg-white/95 backdrop-blur shadow-[0_20px_60px_rgba(14,116,144,0.15)]">
@@ -149,9 +154,9 @@ export function MainLayout() {
             <section className="p-5 sm:p-8 lg:p-10 bg-gradient-to-br from-blue-50/60 to-white">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-500 text-center mb-5 sm:mb-6">Acceso al sistema</p>
               <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-                <div className="space-y-2"><Label htmlFor="email" className="text-slate-700 uppercase tracking-wide text-xs">Correo electrónico</Label><Input id="email" type="email" placeholder="ejemplo@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-blue-200 text-slate-900 placeholder:text-slate-400" /></div>
+                <div className="space-y-2"><Label htmlFor="email" className="text-slate-700 uppercase tracking-wide text-xs">Correo institucional</Label><Input id="email" type="email" placeholder={`U20240000${UNIVO_DOMAIN}`} value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-blue-200 text-slate-900 placeholder:text-slate-400" /></div>
                 <div className="space-y-2"><Label htmlFor="password" className="text-slate-700 uppercase tracking-wide text-xs">Contraseña</Label><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white border-blue-200 text-slate-900 placeholder:text-slate-400" required /><button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-blue-500 hover:text-blue-700" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div></div>
-                <Button type="submit" className="w-full h-12 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold tracking-wide">Iniciar sesión</Button>
+                <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold tracking-wide">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
             </section>
           </div>
@@ -178,7 +183,7 @@ export function MainLayout() {
       <div className="flex">
         <aside className="hidden lg:flex lg:flex-col w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)]">
           <nav className="flex-1 p-4 space-y-1">{navigation.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.name} to={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}><Icon className="w-5 h-5" /><span className="text-sm font-medium">{item.name}</span></Link>; })}</nav>
-          <div className="p-4 border-t border-gray-200 space-y-3"><div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg"><p className="text-sm font-semibold text-gray-900">{currentRole === 'Decano' ? 'Decano' : 'Dr. David'}</p><p className="text-xs text-gray-600">{currentRole}</p></div><Button onClick={handleLogout} variant="outline" className="w-full justify-start"><LogOut className="w-4 h-4 mr-2" />Cerrar sesión</Button></div>
+          <div className="p-4 border-t border-gray-200 space-y-3"><div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg"><p className="text-sm font-semibold text-gray-900 truncate">{displayName || currentUser.email}</p><p className="text-xs text-gray-600">{currentRole}</p></div><Button onClick={handleLogout} variant="outline" className="w-full justify-start"><LogOut className="w-4 h-4 mr-2" />Cerrar sesión</Button></div>
         </aside>
 
         {isMobileMenuOpen && <div className="lg:hidden fixed inset-0 top-16 z-40 bg-white"><nav className="p-4 space-y-1">{navigation.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.name} to={item.href} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}><Icon className="w-5 h-5" /><span className="text-sm font-medium">{item.name}</span></Link>; })}<div className="mt-6 pt-4 border-t border-gray-200"><Button onClick={handleLogout} variant="outline" className="w-full justify-start"><LogOut className="w-4 h-4 mr-2" />Cerrar sesión</Button></div></nav></div>}
