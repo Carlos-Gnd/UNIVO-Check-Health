@@ -475,6 +475,8 @@ export const getStudentHoursProgress = (studentId: string): { completedHours: nu
     completed = Number((completed + sessionHours).toFixed(1));
   }
   return { completedHours: completed, requiredHours: REQUIRED_PRACTICE_HOURS };
+};
+
 export const checkLocationVsPractice = (
   practiceId: string,
   location: GeoPoint,
