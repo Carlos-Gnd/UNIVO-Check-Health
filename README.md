@@ -4,177 +4,66 @@ Aplicación web para el **registro y control de asistencias** de prácticas del 
 
 ## Objetivo del proyecto
 
-Este sistema permite:
+Digitalizar y auditar el ciclo completo de prácticas clínicas de la Facultad de Ciencias de la Salud, garantizando la integridad académica mediante:
 
-- Registrar entradas y salidas de estudiantes en prácticas.
-- Gestionar estudiantes y prácticas.
-- Visualizar reportes de asistencia.
-- Exportar datos en CSV para revisión.
+- Verificación geográfica (Geofencing) para asegurar la presencia física.
+- Registro de evidencias fotográficas con metadatos EXIF.
+- Auditoría inmutable de registros de entrada y salida.
+- Dashboard ejecutivo para la coordinación y supervisión docente.
 
-Actualmente, la app funciona con **datos locales (mock/localStorage)** para revisión académica. Más adelante se integrará backend y base de datos.
+## Configuración del Entorno de Desarrollo
 
-## Backend local Sprint 1 (Carlos)
+Este proyecto utiliza **Supabase Local Development** para la base de datos y servicios de backend.
 
-Se agrego base de datos local para tareas de Sprint 1 con imagen de Supabase Postgres.
+### 1. Requisitos previos
+- Node.js (v18+)
+- Docker Desktop (necesario para el backend local)
+- pnpm
 
-```bash
-docker compose up -d
-```
-
-El script de inicializacion corre automaticamente desde:
-
-```txt
-supabase/sql/001_init_checkhealth.sql
-```
-
-Documentacion:
-- `docs/backend/sprint1-carlos.md`
-- `docs/qa/sprint1-casos-carlos.md`
-
-## Demo local rápida
-
-1. Instalar dependencias:
+### 2. Levantar el Backend (Supabase)
+En la raíz de la carpeta `Check-Health`:
 
 ```bash
+# Iniciar contenedores de Supabase (Postgres, Auth, Storage, API)
+npx supabase start
+
+# Aplicar migraciones y semillas de datos si es necesario
+npx supabase db reset
+```
+
+### 3. Levantar el Frontend
+```bash
+# Instalar dependencias
 pnpm install
-```
 
-2. Levantar entorno de desarrollo:
-
-```bash
+# Iniciar servidor de desarrollo
 pnpm dev
 ```
 
-3. Abrir en navegador:
+La aplicación estará disponible en `http://localhost:5173`.
 
-```txt
-http://localhost:5173
-```
+## Stack Tecnológico
 
-## Build de producción
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS.
+- **Backend/DB:** Supabase (Postgres, PostgREST, Auth).
+- **UI Components:** Radix UI / shadcn/ui.
+- **Utilidades:** date-fns, sonner (notificaciones), recharts (gráficas), zustand (estado global).
 
-```bash
-pnpm build
-```
+## Estado del Proyecto
 
-Para previsualizar build local:
+- **Autenticación:** Implementada mediante roles (Estudiante, Docente, Coordinador, Representante).
+- **Asistencia:** Registro de Check-in/out funcional con validación de geocerca en tiempo real.
+- **Persistencia:** Integración real con base de datos Postgres mediante el cliente oficial de Supabase.
+- **Módulo de Coordinación (Decano):** Dashboard de estadísticas, gestión de alumnos y sedes.
 
-```bash
-pnpm preview
-```
+## Flujo de Trabajo
 
-## Credenciales temporales (solo frontend)
-
-- Encargado:
-  - Correo: `david@gmail.com`
-  - Contraseña: `david123`
-- Decano:
-  - Correo: `decano@gmail.com`
-  - Contraseña: `decano123`
-
-
-
-## Stack tecnológico
-
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Componentes UI (shadcn/radix + utilidades)
-- date-fns
-- sonner (notificaciones)
-- recharts (gráficas)
-- zustand (estado global para módulo Decano)
-
-## Estructura principal
-
-```txt
-src/
-  app/
-    App.tsx
-    routes.tsx
-  modules/
-    dean/
-      pages/
-      store/
-      types.ts
-    dashboard/
-      components/
-    attendance/
-      components/
-      services/
-      types.ts
-    students/
-      components/
-      services/
-      types.ts
-    practices/
-      components/
-      services/
-      types.ts
-    reports/
-      components/
-  shared/
-    components/
-      MainLayout.tsx      # Layout principal + login temporal
-      NotFound.tsx
-      ui/                 # Componentes reutilizables
-    utils/
-      storage.ts
-  styles/
-    index.css
-    tailwind.css
-    theme.css
-  main.tsx
-  data/
-    deanMockData.ts
-```
-
-## Rutas principales por rol
-
-- Encargado:
-  - `/`
-  - `/checkin`
-  - `/students`
-  - `/practices`
-  - `/reports`
-- Decano:
-  - `/dean/dashboard`
-  - `/dean/students`
-  - `/dean/locations`
-
-## Estado actual
-
-- Login responsive implementado.
-- Sidebar y navegación responsive.
-- Soporte de 2 roles en login temporal (`Encargado` y `Decano`).
-- Módulo Decano agregado con:
-  - Dashboard (estadísticas, riesgo y cumplimiento por sede).
-  - Gestión de alumnos (filtros, tabla ordenable, paginación, modal detalle).
-  - Gestión de sedes (cards, filtros y modal detalle).
-- Vista de reportes adaptada:
-  - Tabla en desktop.
-  - Tarjetas en móvil/tablet.
-- Arquitectura monolítica modular aplicada (`modules` + `shared`).
-- Nombre de paquete actualizado a:
-  - `@check-health/my-make-file`
-
-## Flujo de trabajo recomendado para el equipo
-
-1. Crear rama por feature:
-
-```bash
-git checkout -b feature/nombre-feature
-```
-
-2. Hacer cambios y commits claros.
+1. Crear rama por feature: `git checkout -b feature/nombre-feature`
+2. Realizar cambios y commits claros.
 3. Abrir Pull Request hacia `main`.
-4. Pedir revisión de al menos 1 compañero antes de merge.
-
+4. Revisión técnica antes de fusionar.
 
 ## Notas importantes
-
-- La información actual se guarda localmente en navegador.
-- Al limpiar almacenamiento local, los datos pueden perderse.
-- Proyecto orientado a avance académico y revisión funcional inicial.
+- El proyecto se encuentra en fase de integración de microservicios.
+- Las coordenadas de las sedes para pruebas están definidas en el archivo de semillas (`supabase/seed.sql`).
 
