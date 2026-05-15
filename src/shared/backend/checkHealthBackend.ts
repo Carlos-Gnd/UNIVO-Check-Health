@@ -341,7 +341,7 @@ export const registerStudentCheckIn = (params: {
     studentId: params.studentId,
     practiceId: params.practiceId,
     checkIn: now.toISOString(),
-    date: now.toISOString().slice(0, 10),
+    date: getOfficialServerDate(now),
     status: 'present',
     notes: params.notes || undefined,
     checkInLocation: params.location,
@@ -453,4 +453,31 @@ export const getActiveStudentsSnapshot = (): ActiveStudentRecord[] => {
 
 export const getCoordinatorAlerts = () => {
   return readBackendStorage<CoordinatorAlert[]>(BACKEND_STORAGE_KEYS.COORDINATOR_ALERTS, []);
+};
+
+const REQUIRED_PRACTICE_HOURS = 480;
+
+export const getStudentHoursProgress = (studentId: string): { completedHours: number; requiredHours: number } => {
+  const hoursCache = getHoursCache();
+  const active = getActiveAttendance(studentId);
+  let completed = Number((hoursCache[studentId] ?? 0).toFixed(1));
+  if (active) {
+    const sessionHours =
+      (getOfficialServerTime().getTime() - new Date(active.checkIn).getTime()) / (1000 * 60 * 60);
+    completed = Number((completed + sessionHours).toFixed(1));
+  }
+  return { completedHours: completed, requiredHours: REQUIRED_PRACTICE_HOURS };
+export const checkLocationVsPractice = (
+  practiceId: string,
+  location: GeoPoint,
+): { distance: number; isInside: boolean; radiusMeters: number; center: GeoPoint } => {
+  const coverage = getCoverageForPractice(practiceId);
+  const distance = distanceInMeters(location, coverage);
+  const tolerance = location.accuracyMeters ?? 0;
+  return {
+    distance: Math.round(distance),
+    isInside: distance <= coverage.radiusMeters + tolerance,
+    radiusMeters: coverage.radiusMeters,
+    center: { latitude: coverage.latitude, longitude: coverage.longitude },
+  };
 };
