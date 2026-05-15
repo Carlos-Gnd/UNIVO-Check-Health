@@ -6,12 +6,11 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { toast } from 'sonner';
-import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft, TrendingUp } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '../services/attendance.service';
 import {
-  getTrustedPracticeLocation,
   registerStudentCheckIn,
   registerStudentCheckOut,
   getStudentHoursProgress,
@@ -21,7 +20,6 @@ import { Student } from '@/modules/students/types';
 import { Practice } from '@/modules/practices/types';
 import { Attendance, GeoPoint } from '../types';
 import { format } from 'date-fns';
-import confetti from 'canvas-confetti';
 
 const DEVICE_ID_STORAGE_KEY = 'checkhealth-device-id';
 
@@ -220,41 +218,41 @@ export function CheckIn() {
   const feedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [feedOnline, setFeedOnline] = useState(navigator.onLine);
 
-  const loadData = useCallback(() => {
-    setStudents(getStudents());
-    setPractices(getPractices());
+  const loadData = useCallback(async () => {
+    const [studentsData, practicesData, allAttendance] = await Promise.all([
+      getStudents(),
+      getPractices(),
+      getAttendance(),
+    ]);
+    setStudents(studentsData);
+    setPractices(practicesData);
     const today = format(new Date(), 'yyyy-MM-dd');
-    const attendance = getAttendance();
-    setTodayAttendance(attendance.filter((a) => a.date === today));
+    setTodayAttendance(allAttendance.filter((a) => a.date === today));
   }, []);
 
   // T-06.2 — carga progreso de horas de todos los estudiantes
-  const loadHoursProgress = useCallback(() => {
-    const all = getStudents();
-    const progress: Record<string, { completedHours: number; requiredHours: number }> = {};
-    all.forEach((s) => {
-      progress[s.id] = getStudentHoursProgress(s.id);
-    });
-    setHoursProgress(progress);
+  const loadHoursProgress = useCallback(async () => {
+    const all = await getStudents();
+    const entries = await Promise.all(
+      all.map(async (s) => [s.id, await getStudentHoursProgress(s.id)] as const),
+    );
+    setHoursProgress(Object.fromEntries(entries));
   }, []);
 
   useEffect(() => {
-    loadData();
-    loadHoursProgress();
+    void loadData();
+    void loadHoursProgress();
 
     // T-06.2 — se actualiza solo cuando el usuario vuelve a la pantalla, no sondeo constante
     const handleVisibility = () => {
       if (!document.hidden) {
-        loadData();
-        loadHoursProgress();
+        void loadData();
+        void loadHoursProgress();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [loadData, loadHoursProgress]);
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   // T-03.6 — tick de 1 segundo usando hora real del servidor (no se persiste en browser)
   useEffect(() => {
@@ -298,7 +296,11 @@ export function CheckIn() {
       setLocationCheck(null);
       return;
     }
-    setLocationCheck(checkLocationVsPractice(selectedPractice, userLocation));
+    let cancelled = false;
+    void checkLocationVsPractice(selectedPractice, userLocation).then((result) => {
+      if (!cancelled) setLocationCheck(result);
+    });
+    return () => { cancelled = true; };
   }, [selectedPractice, userLocation]);
 
 
@@ -395,8 +397,7 @@ export function CheckIn() {
     const student = students.find((s) => s.id === selectedStudent);
     const practice = practices.find((p) => p.id === selectedPractice);
     const timeStr = format(new Date(), 'HH:mm');
-    loadData();
-    loadHoursProgress();
+    await Promise.all([loadData(), loadHoursProgress()]);
     toast.success(`Check-in registrado para ${student?.name}`);
     // T-03.7: agregar al feed
     pushFeedEvent({
@@ -411,16 +412,14 @@ export function CheckIn() {
     setNotes('');
   };
 const handleCheckOut = async (attendanceId: string) => {
-  const attendance = todayAttendance.find(a => a.id === attendanceId);
-
-  if (!attendance) {
-    toast.error('No se encontro el registro activo');
+  if (!userLocation) {
+    toast.error('Se requiere ubicación GPS para registrar la salida');
     return;
   }
 
   const result = await registerStudentCheckOut({
     attendanceId,
-    location: getTrustedPracticeLocation(attendance.practiceId),
+    location: userLocation,
     deviceId: getDeviceId(),
   });
 
@@ -432,8 +431,7 @@ const handleCheckOut = async (attendanceId: string) => {
     const rec = todayAttendance.find((a) => a.id === attendanceId);
     const studentName = students.find((s) => s.id === rec?.studentId)?.name ?? 'Desconocido';
     const practiceName = practices.find((p) => p.id === rec?.practiceId)?.name ?? 'Desconocido';
-    loadData();
-    loadHoursProgress();
+    await Promise.all([loadData(), loadHoursProgress()]);
     toast.success('Check-out registrado exitosamente');
     // T-03.7: agregar checkout al feed
     pushFeedEvent({
