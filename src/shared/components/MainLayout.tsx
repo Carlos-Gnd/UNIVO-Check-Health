@@ -113,6 +113,14 @@ export function MainLayout() {
   };
 
   const handleLogout = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await supabase.from('audit_log').insert({
+        action: 'SIGN_OUT',
+        actor_user_id: session.user.id,
+        details: { email: session.user.email, timestamp: new Date().toISOString() },
+      });
+    }
     await supabase.auth.signOut();
     setIsMobileMenuOpen(false);
     setEmail('');
