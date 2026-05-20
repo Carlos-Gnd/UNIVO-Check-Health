@@ -21,6 +21,7 @@ export interface Attendance {
   reviewStatus?: 'clear' | 'pending_review' | 'flagged';
   suspiciousReason?: string;
   deviceId?: string;
+  deviceFingerprint?: string;
   deviceInfo?: DeviceInfo;
 }
 

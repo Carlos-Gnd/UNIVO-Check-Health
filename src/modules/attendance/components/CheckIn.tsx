@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft, TrendingUp, History } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
-import { getAttendance, getStudentAttendanceHistory } from '../services/attendance.service';
+import { getAttendance, getDeviceFingerprint, getStudentAttendanceHistory } from '../services/attendance.service';
 import {
   registerStudentCheckIn,
   registerStudentCheckOut,
@@ -504,6 +504,7 @@ export function CheckIn() {
       notes: notes || undefined,
       location: userLocation,
       deviceId: getDeviceId(),
+      deviceFingerprint: getDeviceFingerprint(),
     });
 
     if (!result.ok) {

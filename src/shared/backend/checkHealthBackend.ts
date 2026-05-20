@@ -156,6 +156,7 @@ const mapAttendanceRow = (row: Record<string, unknown>): Attendance => ({
   reviewStatus: (row.review_status as Attendance['reviewStatus']) ?? undefined,
   suspiciousReason: (row.suspicious_reason as string) ?? undefined,
   deviceId: (row.device_id as string) ?? undefined,
+  deviceFingerprint: (row.device_fingerprint as string) ?? undefined,
   deviceInfo: (row.device_info as DeviceInfo) ?? undefined,
 });
 
@@ -297,6 +298,7 @@ export const registerStudentCheckIn = async (params: {
   location: GeoPoint;
   notes?: string;
   deviceId?: string;
+  deviceFingerprint?: string;
 }): Promise<AttendanceResult> => {
   const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
     p_campus_id: params.practiceId,
@@ -330,6 +332,7 @@ export const registerStudentCheckIn = async (params: {
         notes: params.notes,
         check_in_location: params.location,
         device_id: params.deviceId,
+        device_fingerprint: params.deviceFingerprint,
         status: 'present',
       },
     ])
