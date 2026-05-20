@@ -10,6 +10,63 @@ import { DeanDashboardPage } from '@/modules/dean/pages/DeanDashboardPage';
 import { DeanStudentsPage } from '@/modules/dean/pages/DeanStudentsPage';
 import { DeanLocationsPage } from '@/modules/dean/pages/DeanLocationsPage';
 import { UserManagement } from '@/modules/admin/components/UserManagement';
+import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
+import { RoleGuard } from '@/shared/components/RoleGuard';
+import { StudentPlaceholderPage } from '@/modules/students/components/StudentPlaceholderPage';
+
+const DeanDashboardRoute = () => (
+  <RoleGuard allow={['ADMIN']}>
+    <DeanDashboardPage />
+  </RoleGuard>
+);
+
+const DeanStudentsRoute = () => (
+  <RoleGuard allow={['ADMIN']}>
+    <DeanStudentsPage />
+  </RoleGuard>
+);
+
+const DeanLocationsRoute = () => (
+  <RoleGuard allow={['ADMIN']}>
+    <DeanLocationsPage />
+  </RoleGuard>
+);
+
+const UsersRoute = () => (
+  <RoleGuard allow={['ADMIN']}>
+    <UserManagement />
+  </RoleGuard>
+);
+
+const StudentQrRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentPlaceholderPage title="Escanear QR del encargado" />
+  </RoleGuard>
+);
+
+const StudentHistoryRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentPlaceholderPage title="Historial de asistencias y faltas" />
+  </RoleGuard>
+);
+
+const StudentProgressRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentPlaceholderPage title="Progreso de horas del período" />
+  </RoleGuard>
+);
+
+const StudentJustificationsRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentPlaceholderPage title="Justificaciones de inasistencia" />
+  </RoleGuard>
+);
+
+const StudentAssignmentRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentPlaceholderPage title="Mi sede y doctor encargado" />
+  </RoleGuard>
+);
 
 export const router = createBrowserRouter([
   {
@@ -21,10 +78,17 @@ export const router = createBrowserRouter([
       { path: 'students', Component: Students },
       { path: 'practices', Component: Practices },
       { path: 'reports', Component: Reports },
-      { path: 'users', Component: UserManagement },
-      { path: 'dean/dashboard', Component: DeanDashboardPage },
-      { path: 'dean/students', Component: DeanStudentsPage },
-      { path: 'dean/locations', Component: DeanLocationsPage },
+      { path: 'users', Component: UsersRoute },
+      { path: 'dean/users', Component: UsersRoute },
+      { path: 'rotations', Component: RotationsCalendarPage },
+      { path: 'student/qr', Component: StudentQrRoute },
+      { path: 'student/history', Component: StudentHistoryRoute },
+      { path: 'student/progress', Component: StudentProgressRoute },
+      { path: 'student/justifications', Component: StudentJustificationsRoute },
+      { path: 'student/assignment', Component: StudentAssignmentRoute },
+      { path: 'dean/dashboard', Component: DeanDashboardRoute },
+      { path: 'dean/students', Component: DeanStudentsRoute },
+      { path: 'dean/locations', Component: DeanLocationsRoute },
       { path: '*', Component: NotFound },
     ],
   },
