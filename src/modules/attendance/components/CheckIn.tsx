@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { CheckCircle, Clock, XCircle, MapPin, Navigation, AlertTriangle, Users, ArrowRightLeft, TrendingUp, History } from 'lucide-react';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
-import { getAttendance, getStudentAttendanceHistory } from '../services/attendance.service';
+import { getAttendance, getDeviceInfo, getStudentAttendanceHistory } from '../services/attendance.service';
 import {
   registerStudentCheckIn,
   registerStudentCheckOut,
@@ -18,10 +18,11 @@ import {
 } from '@/shared/backend/checkHealthBackend';
 import { Student } from '@/modules/students/types';
 import { Practice } from '@/modules/practices/types';
-import { Attendance, GeoPoint } from '../types';
+import { Attendance, GeoPoint, GeoPointSample, MotionSensorSample } from '../types';
 import { format } from 'date-fns';
 
 const DEVICE_ID_STORAGE_KEY = 'checkhealth-device-id';
+const SENSOR_SAMPLE_LIMIT = 30;
 
 const getDeviceId = () => {
   const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
@@ -30,6 +31,57 @@ const getDeviceId = () => {
   localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
   return deviceId;
 };
+
+const trimSamples = <T,>(samples: T[]) => samples.slice(-SENSOR_SAMPLE_LIMIT);
+
+function useSensorSnapshot(userLocation: GeoPoint | null) {
+  const [motionSamples, setMotionSamples] = useState<MotionSensorSample[]>([]);
+  const [locationSamples, setLocationSamples] = useState<GeoPointSample[]>([]);
+
+  useEffect(() => {
+    const handleMotion = (event: DeviceMotionEvent) => {
+      const acceleration = event.accelerationIncludingGravity ?? event.acceleration;
+      const rotation = event.rotationRate;
+      if (!acceleration && !rotation) return;
+
+      const accelerationMagnitude = Math.sqrt(
+        (acceleration?.x ?? 0) ** 2 + (acceleration?.y ?? 0) ** 2 + (acceleration?.z ?? 0) ** 2,
+      );
+      const rotationRateMagnitude = Math.sqrt(
+        (rotation?.alpha ?? 0) ** 2 + (rotation?.beta ?? 0) ** 2 + (rotation?.gamma ?? 0) ** 2,
+      );
+
+      setMotionSamples((current) =>
+        trimSamples([
+          ...current,
+          {
+            timestamp: Date.now(),
+            accelerationMagnitude: Number(accelerationMagnitude.toFixed(4)),
+            rotationRateMagnitude: Number(rotationRateMagnitude.toFixed(4)),
+          },
+        ]),
+      );
+    };
+
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
+  }, []);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    setLocationSamples((current) =>
+      trimSamples([
+        ...current,
+        {
+          ...userLocation,
+          timestamp: Date.now(),
+        },
+      ]),
+    );
+  }, [userLocation]);
+
+  return { motionSamples, locationSamples };
+}
 
 // T-06.2: Indicador circular de progreso de horas (verde/amarillo/rojo según avance)
 function HoursProgressRing({
@@ -334,6 +386,7 @@ export function CheckIn() {
   }>>([]);
   const feedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [feedOnline, setFeedOnline] = useState(navigator.onLine);
+  const sensorSnapshot = useSensorSnapshot(userLocation);
 
   const loadData = useCallback(async () => {
     const [studentsData, practicesData, allAttendance] = await Promise.all([
@@ -504,6 +557,11 @@ export function CheckIn() {
       notes: notes || undefined,
       location: userLocation,
       deviceId: getDeviceId(),
+      deviceInfo: getDeviceInfo({
+        location: userLocation,
+        motionSamples: sensorSnapshot.motionSamples,
+        locationSamples: sensorSnapshot.locationSamples,
+      }),
     });
 
     if (!result.ok) {
@@ -538,6 +596,11 @@ const handleCheckOut = async (attendanceId: string) => {
     attendanceId,
     location: userLocation,
     deviceId: getDeviceId(),
+    deviceInfo: getDeviceInfo({
+      location: userLocation,
+      motionSamples: sensorSnapshot.motionSamples,
+      locationSamples: sensorSnapshot.locationSamples,
+    }),
   });
 
   if (!result.ok) {

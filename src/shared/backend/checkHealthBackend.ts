@@ -60,6 +60,7 @@ const LONG_SESSION_DAYS = 7;
 const MAX_HUMAN_SPEED_KMH = 140;
 const REVIEW_DELAY_MS = 250;
 const REQUIRED_PRACTICE_HOURS = 480;
+const FAKE_GPS_CONFIDENCE_THRESHOLD = 0.8;
 
 const readBackendStorage = <T,>(key: string, fallback: T): T => {
   try {
@@ -91,6 +92,67 @@ const distanceInMeters = (from: GeoPoint, to: GeoPoint) => {
     Math.sin(latitudeDistance / 2) ** 2 +
     Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDistance / 2) ** 2;
   return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const variance = (values: number[]) => {
+  if (values.length < 2) return 0;
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return values.reduce((sum, value) => sum + (value - average) ** 2, 0) / values.length;
+};
+
+const analyzeFakeGpsPattern = (deviceInfo: DeviceInfo | undefined): DeviceInfo | undefined => {
+  if (!deviceInfo) return undefined;
+
+  const motionSamples = deviceInfo.motionSamples ?? [];
+  const locationSamples = deviceInfo.locationSamples ?? [];
+  const accelerationVariance = variance(motionSamples.map((sample) => sample.accelerationMagnitude));
+  const rotationVariance = variance(motionSamples.map((sample) => sample.rotationRateMagnitude));
+  const gpsDriftMeters = locationSamples.reduce((total, sample, index) => {
+    const previous = locationSamples[index - 1];
+    return previous ? total + distanceInMeters(previous, sample) : total;
+  }, 0);
+
+  const reasons: string[] = [];
+  let confidence = 0;
+
+  if (motionSamples.length >= 8 && accelerationVariance < 0.0004 && rotationVariance < 0.0004) {
+    confidence += 0.45;
+    reasons.push('Sensores de movimiento casi planos durante la captura.');
+  }
+
+  if (locationSamples.length >= 2 && gpsDriftMeters >= 25) {
+    confidence += 0.35;
+    reasons.push(`GPS cambio ${Math.round(gpsDriftMeters)} m durante la captura.`);
+  }
+
+  if (deviceInfo.gpsAccuracy !== null && deviceInfo.gpsAccuracy <= 5 && motionSamples.length >= 8) {
+    confidence += 0.15;
+    reasons.push('Precision GPS inusualmente alta para una lectura sin movimiento.');
+  }
+
+  if (locationSamples.length >= 2 && motionSamples.length === 0 && deviceInfo.gpsAccuracy !== null && deviceInfo.gpsAccuracy <= 5) {
+    confidence += 0.2;
+    reasons.push('GPS preciso sin muestras de acelerometro disponibles.');
+  }
+
+  const normalizedConfidence = Number(Math.min(confidence, 1).toFixed(2));
+  const isFakeGps = normalizedConfidence > FAKE_GPS_CONFIDENCE_THRESHOLD;
+  const fakeGpsAnalysis = {
+    isFakeGps,
+    confidence: normalizedConfidence,
+    reasons,
+    sampleCount: motionSamples.length,
+    gpsDriftMeters: Number(gpsDriftMeters.toFixed(2)),
+    accelerationVariance: Number(accelerationVariance.toFixed(6)),
+    rotationVariance: Number(rotationVariance.toFixed(6)),
+  };
+
+  return {
+    ...deviceInfo,
+    fakeGpsAnalysis,
+    isFakeGps,
+    fakeGpsConfidence: normalizedConfidence,
+  };
 };
 
 const createToken = (payload: Record<string, unknown>, type: 'short' | 'long') => {
@@ -297,6 +359,7 @@ export const registerStudentCheckIn = async (params: {
   location: GeoPoint;
   notes?: string;
   deviceId?: string;
+  deviceInfo?: DeviceInfo;
 }): Promise<AttendanceResult> => {
   const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
     p_campus_id: params.practiceId,
@@ -321,6 +384,11 @@ export const registerStudentCheckIn = async (params: {
     return { ok: false, message: 'Este estudiante ya tiene una entrada activa.' };
   }
 
+  const deviceInfo = analyzeFakeGpsPattern(params.deviceInfo);
+  const fakeGpsReason = deviceInfo?.fakeGpsAnalysis?.isFakeGps
+    ? `Posible GPS falso detectado (${Math.round(deviceInfo.fakeGpsAnalysis.confidence * 100)}%): ${deviceInfo.fakeGpsAnalysis.reasons.join(' ')}`
+    : undefined;
+
   const { data: attendanceData, error: insertError } = await supabase
     .from('attendances')
     .insert([
@@ -330,6 +398,9 @@ export const registerStudentCheckIn = async (params: {
         notes: params.notes,
         check_in_location: params.location,
         device_id: params.deviceId,
+        device_info: deviceInfo,
+        review_status: fakeGpsReason ? 'pending_review' : 'clear',
+        suspicious_reason: fakeGpsReason,
         status: 'present',
       },
     ])
@@ -354,6 +425,7 @@ export const registerStudentCheckOut = async (params: {
   attendanceId: string;
   location: GeoPoint;
   deviceId?: string;
+  deviceInfo?: DeviceInfo;
 }): Promise<AttendanceResult> => {
   const { data: attendance, error: fetchError } = await supabase
     .from('attendances')
@@ -387,6 +459,11 @@ export const registerStudentCheckOut = async (params: {
     ((now.getTime() - new Date(attendance.check_in as string).getTime()) / (1000 * 60 * 60)).toFixed(2),
   );
 
+  const deviceInfo = analyzeFakeGpsPattern(params.deviceInfo);
+  const fakeGpsReason = deviceInfo?.fakeGpsAnalysis?.isFakeGps
+    ? `Posible GPS falso detectado (${Math.round(deviceInfo.fakeGpsAnalysis.confidence * 100)}%): ${deviceInfo.fakeGpsAnalysis.reasons.join(' ')}`
+    : undefined;
+
   const { data: updatedAttendance, error: updateError } = await supabase
     .from('attendances')
     .update({
@@ -394,6 +471,9 @@ export const registerStudentCheckOut = async (params: {
       check_out_location: params.location,
       worked_hours: workedHours,
       device_id: params.deviceId ?? attendance.device_id,
+      device_info: deviceInfo ?? attendance.device_info,
+      review_status: fakeGpsReason ? 'pending_review' : attendance.review_status,
+      suspicious_reason: fakeGpsReason ?? attendance.suspicious_reason,
     })
     .eq('id', params.attendanceId)
     .select()

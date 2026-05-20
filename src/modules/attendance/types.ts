@@ -2,6 +2,11 @@ export interface DeviceInfo {
   browser: string;
   gpsAccuracy: number | null;
   connectionType: string;
+  motionSamples?: MotionSensorSample[];
+  locationSamples?: GeoPointSample[];
+  fakeGpsAnalysis?: FakeGpsAnalysis;
+  isFakeGps?: boolean;
+  fakeGpsConfidence?: number;
 }
 
 export interface Attendance {
@@ -33,4 +38,24 @@ export interface GeoPoint {
   latitude: number;
   longitude: number;
   accuracyMeters?: number;
+}
+
+export interface GeoPointSample extends GeoPoint {
+  timestamp: number;
+}
+
+export interface MotionSensorSample {
+  timestamp: number;
+  accelerationMagnitude: number;
+  rotationRateMagnitude: number;
+}
+
+export interface FakeGpsAnalysis {
+  isFakeGps: boolean;
+  confidence: number;
+  reasons: string[];
+  sampleCount: number;
+  gpsDriftMeters: number;
+  accelerationVariance: number;
+  rotationVariance: number;
 }
