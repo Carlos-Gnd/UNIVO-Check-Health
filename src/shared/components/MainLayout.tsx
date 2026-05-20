@@ -15,6 +15,12 @@ import {
   Activity,
   MapPin,
   UserPlus,
+  CalendarDays,
+  QrCode,
+  History,
+  Gauge,
+  FileWarning,
+  Hospital,
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -24,9 +30,16 @@ import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 
-type AppRole = 'Encargado' | 'Decano';
+type AppRole = 'Encargado' | 'Decano' | 'Alumno';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
+
+function mapAppRole(rawRole: string | null | undefined): AppRole {
+  const normalized = (rawRole ?? '').toUpperCase().trim();
+  if (normalized === 'ADMIN' || normalized === 'ADMINISTRADOR') return 'Decano';
+  if (normalized === 'STUDENT' || normalized === 'ESTUDIANTE' || normalized === 'ALUMNO') return 'Alumno';
+  return 'Encargado';
+}
 
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -37,17 +50,20 @@ export function MainLayout() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
+  const [isResolvingRole, setIsResolvingRole] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const resolveRole = async (userEmail: string) => {
+  const resolveRole = async (userId: string, fallbackEmail: string) => {
+    setIsResolvingRole(true);
     const { data } = await supabase
       .from('users')
       .select('role, full_name')
-      .eq('email', userEmail)
+      .eq('id', userId)
       .single();
-    setCurrentRole(data?.role === 'ADMIN' ? 'Decano' : 'Encargado');
-    setDisplayName(data?.full_name ?? userEmail);
+    setCurrentRole(mapAppRole(data?.role));
+    setDisplayName(data?.full_name ?? fallbackEmail);
+    setIsResolvingRole(false);
   };
 
   useEffect(() => {
@@ -55,31 +71,49 @@ export function MainLayout() {
       (_event, session) => {
         if (session?.user) {
           setCurrentUser(session.user);
-          void resolveRole(session.user.email ?? '');
+          void resolveRole(session.user.id, session.user.email ?? '');
         } else {
           setCurrentUser(null);
           setCurrentRole('Encargado');
           setDisplayName('');
+          setIsResolvingRole(false);
         }
       }
     );
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!currentUser || isResolvingRole) return;
+    if (currentRole === 'Alumno' && location.pathname === '/') navigate('/rotations', { replace: true });
+    if (currentRole === 'Decano' && location.pathname === '/') navigate('/dean/dashboard', { replace: true });
+  }, [currentUser, currentRole, isResolvingRole, location.pathname, navigate]);
+
   const navigation = currentRole === 'Decano'
     ? [
         { name: 'Dashboard', href: '/dean/dashboard', icon: LayoutDashboard },
+        { name: 'Calendario', href: '/rotations', icon: CalendarDays },
+        { name: 'Gestión de Usuarios', href: '/dean/users', icon: UserPlus },
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
       ]
-    : [
-        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-        { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
-        { name: 'Estudiantes', href: '/students', icon: Users },
-        { name: 'Prácticas', href: '/practices', icon: Stethoscope },
-        { name: 'Reportes', href: '/reports', icon: BarChart3 },
-        { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
-      ];
+    : currentRole === 'Alumno'
+      ? [
+          { name: 'Calendario', href: '/rotations', icon: CalendarDays },
+          { name: 'Escanear QR', href: '/student/qr', icon: QrCode },
+          { name: 'Historial', href: '/student/history', icon: History },
+          { name: 'Progreso de Horas', href: '/student/progress', icon: Gauge },
+          { name: 'Justificaciones', href: '/student/justifications', icon: FileWarning },
+          { name: 'Mi Sede y Encargado', href: '/student/assignment', icon: Hospital },
+        ]
+      : [
+          { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+          { name: 'Calendario', href: '/rotations', icon: CalendarDays },
+          { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
+          { name: 'Estudiantes', href: '/students', icon: Users },
+          { name: 'Prácticas', href: '/practices', icon: Stethoscope },
+          { name: 'Reportes', href: '/reports', icon: BarChart3 },
+        ];
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -170,6 +204,14 @@ export function MainLayout() {
           </div>
           <div className="border-t border-blue-100 py-3.5 sm:py-4 px-4 text-center text-[11px] sm:text-xs text-slate-500">UNIVO Check-Health - Sistema de Registro y Control de Asistencias</div>
         </div>
+      </div>
+    );
+  }
+
+  if (isResolvingRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">
+        Verificando rol...
       </div>
     );
   }
