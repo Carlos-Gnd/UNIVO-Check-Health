@@ -1,11 +1,67 @@
-import { useEffect, useMemo } from 'react';
-import { AlertTriangle, Building2, CheckCircle2, Loader2, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Building2, CheckCircle2, Loader2, MapPin, Users } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
+import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
+
+function LiveMap() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletInstance = useRef<any>(null);
+  const markersLayer = useRef<any>(null);
+  const [studentCount, setStudentCount] = useState(0);
+
+  const refreshMarkers = async (L: any) => {
+    const students = await getActiveStudentsSnapshot();
+    setStudentCount(students.length);
+    if (!markersLayer.current) return;
+    markersLayer.current.clearLayers();
+    students.forEach((s) => {
+      if (!s.lastLocation) return;
+      L.marker([s.lastLocation.latitude, s.lastLocation.longitude])
+        .bindPopup(`<b>${s.studentName}</b><br/>${s.siteName}<br/>${s.hoursToday.toFixed(1)} h hoy`)
+        .addTo(markersLayer.current);
+    });
+  };
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    import('leaflet').then((L) => {
+      if (!mapRef.current || leafletInstance.current) return;
+      const map = L.map(mapRef.current, { zoomControl: true }).setView([13.7942, -88.8965], 8);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+      }).addTo(map);
+      markersLayer.current = L.layerGroup().addTo(map);
+      leafletInstance.current = map;
+      void refreshMarkers(L);
+      interval = setInterval(() => void refreshMarkers(L), 30000);
+    });
+    return () => {
+      clearInterval(interval);
+      leafletInstance.current?.remove();
+      leafletInstance.current = null;
+      markersLayer.current = null;
+    };
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-blue-600" />Estudiantes activos en tiempo real
+        </CardTitle>
+        <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+      </CardHeader>
+      <CardContent className="p-0 overflow-hidden rounded-b-lg">
+        <div ref={mapRef} style={{ height: 320 }} />
+      </CardContent>
+    </Card>
+  );
+}
 
 export function DeanDashboardPage() {
   const navigate = useNavigate();
@@ -116,6 +172,9 @@ export function DeanDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* T-18.1: Mapa de estudiantes activos */}
+      <LiveMap />
 
       {/* T-07.1: Resumen por sede */}
       <Card>

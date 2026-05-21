@@ -568,5 +568,3 @@ export const checkLocationVsPractice = async (
   };
 };
 
-// Solo para compatibilidad con createSecuritySeal (no expuesto como export)
-void createSecuritySeal;

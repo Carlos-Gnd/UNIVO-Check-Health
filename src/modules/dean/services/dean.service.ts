@@ -160,14 +160,17 @@ export type CampusFormData = {
   start_date: string;
   end_date: string;
   description: string;
+  check_in_from: string;
+  check_in_to: string;
 };
 
 export async function createCampus(form: CampusFormData): Promise<{ ok: boolean; message?: string }> {
+  const radius = Math.max(50, Number(form.radius_meters) || 100);
   const { error } = await supabase.from('campuses').insert({
     name: form.name.trim(),
     latitude: Number(form.latitude),
     longitude: Number(form.longitude),
-    radius_meters: Number(form.radius_meters) || 100,
+    radius_meters: radius,
     location_label: form.location_label.trim() || null,
     supervisor_name: form.supervisor_name.trim() || null,
     supervisor_phone: form.supervisor_phone.trim() || null,
@@ -175,19 +178,22 @@ export async function createCampus(form: CampusFormData): Promise<{ ok: boolean;
     start_date: form.start_date || null,
     end_date: form.end_date || null,
     description: form.description.trim() || null,
+    check_in_from: form.check_in_from || null,
+    check_in_to: form.check_in_to || null,
   });
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
 
 export async function updateCampus(id: string, form: CampusFormData): Promise<{ ok: boolean; message?: string }> {
+  const radius = Math.max(50, Number(form.radius_meters) || 100);
   const { error } = await supabase
     .from('campuses')
     .update({
       name: form.name.trim(),
       latitude: Number(form.latitude),
       longitude: Number(form.longitude),
-      radius_meters: Number(form.radius_meters) || 100,
+      radius_meters: radius,
       location_label: form.location_label.trim() || null,
       supervisor_name: form.supervisor_name.trim() || null,
       supervisor_phone: form.supervisor_phone.trim() || null,
@@ -195,6 +201,8 @@ export async function updateCampus(id: string, form: CampusFormData): Promise<{ 
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       description: form.description.trim() || null,
+      check_in_from: form.check_in_from || null,
+      check_in_to: form.check_in_to || null,
     })
     .eq('id', id);
   if (error) return { ok: false, message: error.message };

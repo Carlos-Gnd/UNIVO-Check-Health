@@ -13,6 +13,9 @@ import { UserManagement } from '@/modules/admin/components/UserManagement';
 import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
 import { StudentPlaceholderPage } from '@/modules/students/components/StudentPlaceholderPage';
+import { StudentQrScannerPage } from '@/modules/students/components/StudentQrScannerPage';
+import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
+import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -40,19 +43,19 @@ const UsersRoute = () => (
 
 const StudentQrRoute = () => (
   <RoleGuard allow={['STUDENT']}>
-    <StudentPlaceholderPage title="Escanear QR del encargado" />
+    <StudentQrScannerPage />
   </RoleGuard>
 );
 
 const StudentHistoryRoute = () => (
   <RoleGuard allow={['STUDENT']}>
-    <StudentPlaceholderPage title="Historial de asistencias y faltas" />
+    <StudentHistoryPage />
   </RoleGuard>
 );
 
 const StudentProgressRoute = () => (
   <RoleGuard allow={['STUDENT']}>
-    <StudentPlaceholderPage title="Progreso de horas del período" />
+    <StudentProgressPage />
   </RoleGuard>
 );
 
@@ -79,7 +82,6 @@ export const router = createBrowserRouter([
       { path: 'practices', Component: Practices },
       { path: 'reports', Component: Reports },
       { path: 'users', Component: UsersRoute },
-      { path: 'dean/users', Component: UsersRoute },
       { path: 'rotations', Component: RotationsCalendarPage },
       { path: 'student/qr', Component: StudentQrRoute },
       { path: 'student/history', Component: StudentHistoryRoute },

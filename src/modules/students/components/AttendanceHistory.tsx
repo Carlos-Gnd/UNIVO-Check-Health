@@ -44,17 +44,19 @@ export function AttendanceHistory({ studentId, studentName }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    const attendance = getAttendance();
-    const practices = getPractices();
-    const records = attendance
-      .filter(a => a.studentId === studentId)
-      .map(a => ({
-        ...a,
-        practiceName: practices.find(p => p.id === a.practiceId)?.name ?? 'Desconocida',
-      }))
-      .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime());
-    setAllRecords(records);
-    setVisibleCount(PAGE_SIZE);
+    const load = async () => {
+      const [attendance, practices] = await Promise.all([getAttendance(), getPractices()]);
+      const records = attendance
+        .filter(a => a.studentId === studentId)
+        .map(a => ({
+          ...a,
+          practiceName: practices.find(p => p.id === a.practiceId)?.name ?? 'Desconocida',
+        }))
+        .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime());
+      setAllRecords(records);
+      setVisibleCount(PAGE_SIZE);
+    };
+    void load();
   }, [studentId]);
 
   const filtered = filterStatus === 'all'
