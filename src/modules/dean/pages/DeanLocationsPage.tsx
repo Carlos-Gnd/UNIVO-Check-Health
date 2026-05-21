@@ -15,6 +15,7 @@ const EMPTY_FORM: CampusFormData = {
   name: '', latitude: '', longitude: '', radius_meters: '100',
   location_label: '', supervisor_name: '', supervisor_phone: '',
   schedule: '', start_date: '', end_date: '', description: '',
+  check_in_from: '', check_in_to: '',
 };
 
 export function DeanLocationsPage() {
@@ -62,6 +63,8 @@ export function DeanLocationsPage() {
       start_date: l.startDate ?? '',
       end_date: l.endDate ?? '',
       description: l.description ?? '',
+      check_in_from: (l as any).checkInFrom ?? '',
+      check_in_to: (l as any).checkInTo ?? '',
     });
     setShowForm(true);
   };
@@ -216,8 +219,8 @@ export function DeanLocationsPage() {
               <Input value={form.longitude} onChange={set('longitude')} placeholder="-89.2045" type="number" step="any" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Radio GPS (metros)</Label>
-              <Input value={form.radius_meters} onChange={set('radius_meters')} placeholder="100" type="number" min="20" max="1000" />
+              <Label className="text-xs uppercase tracking-wide">Radio GPS (metros, mín. 50)</Label>
+              <Input value={form.radius_meters} onChange={set('radius_meters')} placeholder="100" type="number" min="50" max="1000" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wide">Dirección / Etiqueta</Label>
@@ -246,6 +249,20 @@ export function DeanLocationsPage() {
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-xs uppercase tracking-wide">Descripción</Label>
               <Input value={form.description} onChange={set('description')} placeholder="Descripción breve de la práctica…" />
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Ventana horaria de check-in (opcional)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Hora inicio</Label>
+                  <Input value={form.check_in_from} onChange={set('check_in_from')} type="time" placeholder="07:00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Hora fin</Label>
+                  <Input value={form.check_in_to} onChange={set('check_in_to')} type="time" placeholder="09:00" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Si no se configura, no hay restricción horaria.</p>
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" disabled={isSaving} onClick={() => setShowForm(false)}>Cancelar</Button>

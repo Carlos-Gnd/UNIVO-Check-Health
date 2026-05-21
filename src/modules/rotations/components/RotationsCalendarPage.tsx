@@ -15,7 +15,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -93,6 +93,23 @@ export function RotationsCalendarPage() {
   const selectedDayEntries = selectedDay ? dayEntries(selectedDay, visibleWindows) : [];
   const today = new Date();
 
+  const exportXlsx = async () => {
+    const { utils, writeFile } = await import('xlsx');
+    const data = visibleWindows.map((w) => ({
+      Alumno: w.studentName,
+      Carrera: w.career,
+      Sede: w.campusName,
+      Supervisor: w.supervisorName,
+      Horario: w.schedule,
+      'Fecha inicio': w.startDate,
+      'Fecha fin': w.endDate,
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, 'Rotaciones');
+    writeFile(wb, `rotaciones_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 gap-2 text-gray-500">
@@ -114,6 +131,9 @@ export function RotationsCalendarPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void exportXlsx()}>
+            <Download className="h-4 w-4 mr-1.5" />Exportar .xlsx
+          </Button>
           <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
