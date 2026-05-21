@@ -96,6 +96,7 @@ export function MainLayout() {
         { name: 'Gestión de Usuarios', href: '/dean/users', icon: UserPlus },
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
+        { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
       ]
     : currentRole === 'Alumno'
       ? [
