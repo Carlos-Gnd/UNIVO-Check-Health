@@ -4,7 +4,9 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Download, Filter } from 'lucide-react';
+import { Download, Filter, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
@@ -87,6 +89,38 @@ export function Reports() {
     URL.revokeObjectURL(url);
   };
 
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const dateStr = format(new Date(), 'dd/MM/yyyy');
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('UNIVO Check-Health — Reporte de Asistencias', 14, 16);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${dateStr}  |  Registros: ${filtered.length}`, 14, 23);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Fecha', 'Estudiante', 'Práctica', 'Entrada', 'Salida', 'Duración', 'Estado']],
+      body: filtered.map((r) => [
+        format(new Date(r.date), 'dd/MM/yyyy'),
+        r.studentName,
+        r.practiceName,
+        format(new Date(r.checkIn), 'HH:mm'),
+        r.checkOut ? format(new Date(r.checkOut), 'HH:mm') : '—',
+        duration(r.checkIn, r.checkOut),
+        r.status,
+      ]),
+      headStyles: { fillColor: [27, 58, 107], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [245, 245, 250] },
+      columnStyles: { 0: { cellWidth: 25 }, 3: { cellWidth: 18 }, 4: { cellWidth: 18 }, 5: { cellWidth: 22 }, 6: { cellWidth: 22 } },
+    });
+
+    doc.save(`reporte-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -94,9 +128,14 @@ export function Reports() {
           <h2 className="text-2xl font-semibold text-gray-900">Reportes</h2>
           <p className="text-sm text-gray-600 mt-1">Análisis detallado de asistencias y registros</p>
         </div>
-        <Button onClick={exportCSV} variant="outline" className="w-full sm:w-auto shrink-0">
-          <Download className="w-4 h-4 mr-2" />Exportar CSV
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button onClick={exportCSV} variant="outline" className="flex-1 sm:flex-none">
+            <Download className="w-4 h-4 mr-2" />CSV
+          </Button>
+          <Button onClick={exportPDF} variant="outline" className="flex-1 sm:flex-none">
+            <FileText className="w-4 h-4 mr-2" />PDF
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}

@@ -193,7 +193,84 @@ export function UserManagement() {
         <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreateOpen(true)}>
           <UserPlus className="w-4 h-4 mr-2" />
           Nuevo usuario
-        </Button>
+        </h2>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="fullName" className="text-xs uppercase tracking-wide text-gray-600">Nombre completo</Label>
+            <Input
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="María Fernanda García"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="studentCode" className="text-xs uppercase tracking-wide text-gray-600">Carné (código)</Label>
+            <Input
+              id="studentCode"
+              value={studentCode}
+              onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+              placeholder={role === 'STUDENT' ? 'U20240001' : 'COORD001'}
+              maxLength={role === 'STUDENT' ? 9 : 20}
+              required
+            />
+            {derivedEmail && (
+              <p className="text-xs text-gray-400">Correo: <span className="text-gray-700 font-medium">{derivedEmail}</span></p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="role" className="text-xs uppercase tracking-wide text-gray-600">Rol</Label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {role === 'STUDENT' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="career" className="text-xs uppercase tracking-wide text-gray-600">Carrera</Label>
+              <select
+                id="career"
+                value={career}
+                onChange={(e) => setCareer(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {CAREERS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs uppercase tracking-wide text-gray-600">Contraseña temporal</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              minLength={8}
+              required
+            />
+          </div>
+
+          <div className="sm:col-span-2 flex justify-end pt-2">
+            <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : <><UserPlus className="w-4 h-4 mr-2" />Crear usuario</>}
+            </Button>
+          </div>
+        </form>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
