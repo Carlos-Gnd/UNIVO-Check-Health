@@ -25,6 +25,24 @@ export const getDeviceInfo = (params?: {
   };
 };
 
+export const getDeviceFingerprint = (): string => {
+  const screenData = [
+    window.screen.width,
+    window.screen.height,
+    window.screen.colorDepth,
+    window.devicePixelRatio,
+  ].join('x');
+  const payload = `${navigator.userAgent}|${screenData}`;
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < payload.length; index += 1) {
+    hash ^= payload.charCodeAt(index);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+
+  return `fp_${(hash >>> 0).toString(16).padStart(8, '0')}`;
+};
+
 const mapRow = (row: Record<string, unknown>): Attendance => ({
   id: row.id as string,
   studentId: row.student_id as string,
@@ -42,6 +60,7 @@ const mapRow = (row: Record<string, unknown>): Attendance => ({
   reviewStatus: (row.review_status as Attendance['reviewStatus']) ?? undefined,
   suspiciousReason: (row.suspicious_reason as string) ?? undefined,
   deviceId: (row.device_id as string) ?? undefined,
+  deviceFingerprint: (row.device_fingerprint as string) ?? undefined,
   deviceInfo: (row.device_info as DeviceInfo) ?? undefined,
 });
 

@@ -218,6 +218,7 @@ const mapAttendanceRow = (row: Record<string, unknown>): Attendance => ({
   reviewStatus: (row.review_status as Attendance['reviewStatus']) ?? undefined,
   suspiciousReason: (row.suspicious_reason as string) ?? undefined,
   deviceId: (row.device_id as string) ?? undefined,
+  deviceFingerprint: (row.device_fingerprint as string) ?? undefined,
   deviceInfo: (row.device_info as DeviceInfo) ?? undefined,
 });
 
