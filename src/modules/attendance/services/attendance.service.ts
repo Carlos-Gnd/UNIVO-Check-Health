@@ -1,7 +1,11 @@
 import { supabase } from '@/shared/backend/supabaseClient';
-import { Attendance, DeviceInfo } from '../types';
+import { Attendance, DeviceInfo, GeoPoint, GeoPointSample, MotionSensorSample } from '../types';
 
-export const getDeviceInfo = (): DeviceInfo => {
+export const getDeviceInfo = (params?: {
+  location?: GeoPoint | null;
+  motionSamples?: MotionSensorSample[];
+  locationSamples?: GeoPointSample[];
+}): DeviceInfo => {
   const ua = navigator.userAgent;
   let browser = 'Desconocido';
   if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
@@ -12,7 +16,13 @@ export const getDeviceInfo = (): DeviceInfo => {
   const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
   const connectionType = nav.connection?.effectiveType ?? '';
 
-  return { browser, gpsAccuracy: null, connectionType };
+  return {
+    browser,
+    gpsAccuracy: params?.location?.accuracyMeters ?? null,
+    connectionType,
+    motionSamples: params?.motionSamples,
+    locationSamples: params?.locationSamples,
+  };
 };
 
 export const getDeviceFingerprint = (): string => {
