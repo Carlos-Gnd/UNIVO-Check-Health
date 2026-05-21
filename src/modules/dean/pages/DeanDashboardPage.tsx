@@ -7,6 +7,21 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
+import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
+
+const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
+
+const readResolvedSharedDeviceAlerts = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY) ?? '[]') as string[]);
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
+  localStorage.setItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY, JSON.stringify([...ids]));
+};
 
 function LiveMap() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -66,10 +81,16 @@ function LiveMap() {
 export function DeanDashboardPage() {
   const navigate = useNavigate();
   const { students, locations, globalStats, isLoading, loadData, setFilter } = useDeanStore();
+  const [sharedDeviceAlerts, setSharedDeviceAlerts] = useState<SharedDeviceAlert[]>([]);
+  const [resolvedAlertIds, setResolvedAlertIds] = useState<Set<string>>(() => readResolvedSharedDeviceAlerts());
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    void fetchSharedDeviceAlerts().then(setSharedDeviceAlerts);
+  }, []);
 
   const riskStudents = useMemo(
     () =>
@@ -93,6 +114,17 @@ export function DeanDashboardPage() {
   );
 
   const barColor = (v: number) => (v > 75 ? '#16a34a' : v >= 50 ? '#f59e0b' : '#dc2626');
+  const activeSharedDeviceAlerts = sharedDeviceAlerts.filter((alert) => !resolvedAlertIds.has(alert.id));
+  const latestSharedDeviceAlert = activeSharedDeviceAlerts[0];
+
+  const resolveSharedDeviceAlert = (id: string) => {
+    setResolvedAlertIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      writeResolvedSharedDeviceAlerts(next);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -109,6 +141,24 @@ export function DeanDashboardPage() {
         <h2 className="text-2xl font-semibold text-gray-900">Dashboard de Decanato</h2>
         <p className="text-sm text-gray-600">Vista general del cumplimiento de prácticas por sede y alumno.</p>
       </div>
+
+      {latestSharedDeviceAlert && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              Dispositivo compartido
+              <Badge className="bg-red-600 text-white">{activeSharedDeviceAlerts.length}</Badge>
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => resolveSharedDeviceAlert(latestSharedDeviceAlert.id)}>
+              Resolver
+            </Button>
+          </CardHeader>
+          <CardContent className="text-sm text-red-700">
+            Mismo dispositivo activo en sedes distintas. Fingerprint: {latestSharedDeviceAlert.deviceFingerprint || 'sin dato'}.
+          </CardContent>
+        </Card>
+      )}
 
       {/* T-07.5: Tarjetas de indicadores */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

@@ -2,6 +2,7 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import type { DeanAttendance, DeanGlobalStats, DeanStudent, Location } from '../types';
 
 const GOAL_HOURS = 240;
+const SHARED_DEVICE_ALERT_ACTION = 'SHARED_DEVICE_ACTIVE_CONFLICT';
 
 type AttRow = {
   id: string;
@@ -36,6 +37,30 @@ type CampusRow = {
   start_date: string | null;
   end_date: string | null;
   description: string | null;
+};
+
+type SharedDeviceAlertRow = {
+  id: number;
+  actor_user_id: string;
+  target_user_id: string | null;
+  event_at: string;
+  details: {
+    attempted_campus_id?: string;
+    active_campus_id?: string;
+    active_attendance_id?: string;
+    device_fingerprint?: string;
+  } | null;
+};
+
+export type SharedDeviceAlert = {
+  id: string;
+  attemptedStudentId: string;
+  activeStudentId: string | null;
+  attemptedCampusId: string;
+  activeCampusId: string;
+  activeAttendanceId: string;
+  deviceFingerprint: string;
+  createdAt: string;
 };
 
 function mapStudentRow(row: UserRow): DeanStudent {
@@ -146,6 +171,28 @@ export async function fetchDeanData(): Promise<{
   };
 
   return { students, locations, globalStats };
+}
+
+export async function fetchSharedDeviceAlerts(): Promise<SharedDeviceAlert[]> {
+  const { data, error } = await supabase
+    .from('audit_log')
+    .select('id, actor_user_id, target_user_id, event_at, details')
+    .eq('action', SHARED_DEVICE_ALERT_ACTION)
+    .order('event_at', { ascending: false })
+    .limit(20);
+
+  if (error || !data) return [];
+
+  return (data as SharedDeviceAlertRow[]).map((row) => ({
+    id: String(row.id),
+    attemptedStudentId: row.actor_user_id,
+    activeStudentId: row.target_user_id,
+    attemptedCampusId: row.details?.attempted_campus_id ?? '',
+    activeCampusId: row.details?.active_campus_id ?? '',
+    activeAttendanceId: row.details?.active_attendance_id ?? '',
+    deviceFingerprint: row.details?.device_fingerprint ?? '',
+    createdAt: row.event_at,
+  }));
 }
 
 export type CampusFormData = {
