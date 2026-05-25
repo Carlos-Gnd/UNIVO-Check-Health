@@ -21,6 +21,7 @@ const emptyStats: DeanGlobalStats = {
   globalComplianceRate: 0,
   atRiskCount: 0,
   activeLocations: 0,
+  riskThreshold: 60,
 };
 
 export const useDeanStore = create<DeanStore>((set) => ({

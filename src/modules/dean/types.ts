@@ -50,6 +50,7 @@ export interface DeanGlobalStats {
   globalComplianceRate: number;
   atRiskCount: number;
   activeLocations: number;
+  riskThreshold: number;
 }
 
 export interface DeanFilters {
