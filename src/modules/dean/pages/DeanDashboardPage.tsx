@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
+import { supabase } from '@/shared/backend/supabaseClient';
 import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
 
 const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
@@ -27,7 +28,9 @@ function LiveMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
+  const leafletModule = useRef<any>(null);
   const [studentCount, setStudentCount] = useState(0);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   const refreshMarkers = async (L: any) => {
     const students = await getActiveStudentsSnapshot();
@@ -44,8 +47,10 @@ function LiveMap() {
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
+    let isMounted = true;
     import('leaflet').then((L) => {
-      if (!mapRef.current || leafletInstance.current) return;
+      if (!isMounted || !mapRef.current || leafletInstance.current) return;
+      leafletModule.current = L;
       const map = L.map(mapRef.current, { zoomControl: true }).setView([13.7942, -88.8965], 8);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
@@ -56,10 +61,40 @@ function LiveMap() {
       interval = setInterval(() => void refreshMarkers(L), 30000);
     });
     return () => {
+      isMounted = false;
       clearInterval(interval);
       leafletInstance.current?.remove();
       leafletInstance.current = null;
       markersLayer.current = null;
+      leafletModule.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const refreshFromRealtime = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        if (leafletModule.current) void refreshMarkers(leafletModule.current);
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel('dean-live-map-attendances')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendances' },
+        refreshFromRealtime,
+      )
+      .subscribe((status) => {
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      setIsRealtimeConnected(false);
+      void supabase.removeChannel(channel);
     };
   }, []);
 
@@ -69,7 +104,12 @@ function LiveMap() {
         <CardTitle className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-blue-600" />Estudiantes activos en tiempo real
         </CardTitle>
-        <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+            {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
+          </Badge>
+          <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+        </div>
       </CardHeader>
       <CardContent className="p-0 overflow-hidden rounded-b-lg">
         <div ref={mapRef} style={{ height: 320 }} />
