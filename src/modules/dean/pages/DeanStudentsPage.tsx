@@ -28,6 +28,13 @@ export function DeanStudentsPage() {
     if (status === 'at-risk') setFilter('status', 'at-risk');
   }, [params, setFilter]);
 
+  useEffect(() => {
+    const studentId = params.get('student');
+    if (!studentId || students.length === 0) return;
+    const student = students.find((row) => row.id === studentId);
+    if (student) setSelectedStudent(student);
+  }, [params, setSelectedStudent, students]);
+
   const filtered = useMemo(() => {
     let rows = students.filter((s) => {
       const searchOk = `${s.fullName} ${s.carnet}`.toLowerCase().includes(filters.search.toLowerCase());
