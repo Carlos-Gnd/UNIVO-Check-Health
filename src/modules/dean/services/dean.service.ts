@@ -2,6 +2,8 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import type { DeanAttendance, DeanGlobalStats, DeanStudent, Location } from '../types';
 
 const GOAL_HOURS = 240;
+const SHARED_DEVICE_ALERT_ACTION = 'SHARED_DEVICE_ACTIVE_CONFLICT';
+const DEFAULT_RISK_THRESHOLD = 60;
 
 type AttRow = {
   id: string;
@@ -38,7 +40,43 @@ type CampusRow = {
   description: string | null;
 };
 
-function mapStudentRow(row: UserRow): DeanStudent {
+type SharedDeviceAlertRow = {
+  id: number;
+  actor_user_id: string;
+  target_user_id: string | null;
+  event_at: string;
+  details: {
+    attempted_campus_id?: string;
+    active_campus_id?: string;
+    active_attendance_id?: string;
+    device_fingerprint?: string;
+  } | null;
+};
+
+export type SharedDeviceAlert = {
+  id: string;
+  attemptedStudentId: string;
+  activeStudentId: string | null;
+  attemptedCampusId: string;
+  activeCampusId: string;
+  activeAttendanceId: string;
+  deviceFingerprint: string;
+  createdAt: string;
+};
+
+async function fetchRiskThreshold(): Promise<number> {
+  const { data } = await supabase
+    .from('system_config')
+    .select('value')
+    .in('key', ['risk_threshold_pct', 'compliance_alert_threshold_pct'])
+    .order('key', { ascending: false });
+
+  const rawValue = data?.find((item) => item.value != null)?.value;
+  const threshold = Number(rawValue);
+  return Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_RISK_THRESHOLD;
+}
+
+function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
   const completedHours = row.attendances.reduce((s, a) => s + (a.worked_hours ?? 0), 0);
   const absences = row.attendances.filter((a) => a.status === 'absent').length;
   const pct = Math.min(100, Math.round((completedHours / GOAL_HOURS) * 100));
@@ -68,23 +106,26 @@ function mapStudentRow(row: UserRow): DeanStudent {
     goalHours: GOAL_HOURS,
     compliancePercentage: pct,
     absences,
-    status: pct > 85 ? 'completed' : pct >= 60 ? 'in-progress' : 'at-risk',
+    status: pct > 85 ? 'completed' : pct >= riskThreshold ? 'in-progress' : 'at-risk',
     attendances,
   };
 }
 
 export async function fetchDeanStudents(): Promise<DeanStudent[]> {
-  const { data, error } = await supabase
-    .from('users')
-    .select(`
-      id, student_code, full_name, career,
-      attendances(id, date, check_in, check_out, status, worked_hours, review_status, campus_id,
-        campuses(name, supervisor_name))
-    `)
-    .eq('role', 'STUDENT');
+  const [riskThreshold, studentsResult] = await Promise.all([
+    fetchRiskThreshold(),
+    supabase
+      .from('users')
+      .select(`
+        id, student_code, full_name, career,
+        attendances(id, date, check_in, check_out, status, worked_hours, review_status, campus_id,
+          campuses(name, supervisor_name))
+      `)
+      .eq('role', 'STUDENT'),
+  ]);
 
-  if (error || !data) return [];
-  return (data as unknown as UserRow[]).map(mapStudentRow);
+  if (studentsResult.error || !studentsResult.data) return [];
+  return (studentsResult.data as unknown as UserRow[]).map((row) => mapStudentRow(row, riskThreshold));
 }
 
 export async function fetchDeanLocations(): Promise<Location[]> {
@@ -121,7 +162,11 @@ export async function fetchDeanData(): Promise<{
   locations: Location[];
   globalStats: DeanGlobalStats;
 }> {
-  const [students, locations] = await Promise.all([fetchDeanStudents(), fetchDeanLocations()]);
+  const [students, locations, riskThreshold] = await Promise.all([
+    fetchDeanStudents(),
+    fetchDeanLocations(),
+    fetchRiskThreshold(),
+  ]);
 
   const locMap = new Map(locations.map((l) => [l.id, l]));
   students.forEach((s) => {
@@ -143,9 +188,32 @@ export async function fetchDeanData(): Promise<{
         : 0,
     atRiskCount: students.filter((s) => s.status === 'at-risk').length,
     activeLocations: locations.filter((l) => l.status === 'active').length,
+    riskThreshold,
   };
 
   return { students, locations, globalStats };
+}
+
+export async function fetchSharedDeviceAlerts(): Promise<SharedDeviceAlert[]> {
+  const { data, error } = await supabase
+    .from('audit_log')
+    .select('id, actor_user_id, target_user_id, event_at, details')
+    .eq('action', SHARED_DEVICE_ALERT_ACTION)
+    .order('event_at', { ascending: false })
+    .limit(20);
+
+  if (error || !data) return [];
+
+  return (data as SharedDeviceAlertRow[]).map((row) => ({
+    id: String(row.id),
+    attemptedStudentId: row.actor_user_id,
+    activeStudentId: row.target_user_id,
+    attemptedCampusId: row.details?.attempted_campus_id ?? '',
+    activeCampusId: row.details?.active_campus_id ?? '',
+    activeAttendanceId: row.details?.active_attendance_id ?? '',
+    deviceFingerprint: row.details?.device_fingerprint ?? '',
+    createdAt: row.event_at,
+  }));
 }
 
 export type CampusFormData = {

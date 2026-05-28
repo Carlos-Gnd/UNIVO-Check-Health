@@ -21,6 +21,7 @@ import {
   Gauge,
   FileWarning,
   Hospital,
+  ClipboardList,
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -96,6 +97,7 @@ export function MainLayout() {
         { name: 'Gestión de Usuarios', href: '/dean/users', icon: UserPlus },
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
+        { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
         { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
       ]
     : currentRole === 'Alumno'
@@ -113,6 +115,7 @@ export function MainLayout() {
           { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
           { name: 'Estudiantes', href: '/students', icon: Users },
           { name: 'Prácticas', href: '/practices', icon: Stethoscope },
+          { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
           { name: 'Reportes', href: '/reports', icon: BarChart3 },
         ];
 

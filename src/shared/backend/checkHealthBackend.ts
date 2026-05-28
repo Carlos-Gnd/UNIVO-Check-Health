@@ -40,6 +40,13 @@ type CoordinatorAlert = {
   read: boolean;
 };
 
+type DeviceFingerprintConflict = {
+  attendance_id: string;
+  student_id: string;
+  campus_id: string;
+  check_in: string;
+};
+
 const BACKEND_STORAGE_KEYS = {
   SESSIONS: 'checkhealth_backend_sessions',
   LOCATION_REVIEW_JOBS: 'checkhealth_backend_location_review_jobs',
@@ -291,6 +298,27 @@ const addCoordinatorAlert = (alert: Omit<CoordinatorAlert, 'id' | 'createdAt' | 
   ]);
 };
 
+const logSharedDeviceConflict = async (params: {
+  actorUserId: string;
+  targetUserId: string;
+  attemptedCampusId: string;
+  activeCampusId: string;
+  activeAttendanceId: string;
+  deviceFingerprint: string;
+}) => {
+  await supabase.from('audit_log').insert({
+    action: 'SHARED_DEVICE_ACTIVE_CONFLICT',
+    actor_user_id: params.actorUserId,
+    target_user_id: params.targetUserId,
+    details: {
+      attempted_campus_id: params.attemptedCampusId,
+      active_campus_id: params.activeCampusId,
+      active_attendance_id: params.activeAttendanceId,
+      device_fingerprint: params.deviceFingerprint,
+    },
+  });
+};
+
 const queueLocationReview = (attendanceId: string, type: LocationReviewJob['type']) => {
   const jobs = readBackendStorage<LocationReviewJob[]>(BACKEND_STORAGE_KEYS.LOCATION_REVIEW_JOBS, []);
   const job: LocationReviewJob = {
@@ -360,6 +388,7 @@ export const registerStudentCheckIn = async (params: {
   location: GeoPoint;
   notes?: string;
   deviceId?: string;
+  deviceFingerprint?: string;
   deviceInfo?: DeviceInfo;
 }): Promise<AttendanceResult> => {
   const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
@@ -385,6 +414,31 @@ export const registerStudentCheckIn = async (params: {
     return { ok: false, message: 'Este estudiante ya tiene una entrada activa.' };
   }
 
+  if (params.deviceFingerprint) {
+    const { data: deviceConflict } = await supabase.rpc('detect_device_fingerprint_conflict', {
+      p_device_fingerprint: params.deviceFingerprint,
+      p_campus_id: params.practiceId,
+      p_student_id: params.studentId,
+    });
+    const conflict = (deviceConflict?.[0] ?? null) as DeviceFingerprintConflict | null;
+
+    if (conflict) {
+      await logSharedDeviceConflict({
+        actorUserId: params.studentId,
+        targetUserId: conflict.student_id,
+        attemptedCampusId: params.practiceId,
+        activeCampusId: conflict.campus_id,
+        activeAttendanceId: conflict.attendance_id,
+        deviceFingerprint: params.deviceFingerprint,
+      });
+
+      return {
+        ok: false,
+        message: 'Dispositivo ya activo en otra sede. El intento fue enviado a auditoria.',
+      };
+    }
+  }
+
   const deviceInfo = analyzeFakeGpsPattern(params.deviceInfo);
   const fakeGpsReason = deviceInfo?.fakeGpsAnalysis?.isFakeGps
     ? `Posible GPS falso detectado (${Math.round(deviceInfo.fakeGpsAnalysis.confidence * 100)}%): ${deviceInfo.fakeGpsAnalysis.reasons.join(' ')}`
@@ -399,6 +453,7 @@ export const registerStudentCheckIn = async (params: {
         notes: params.notes,
         check_in_location: params.location,
         device_id: params.deviceId,
+        device_fingerprint: params.deviceFingerprint,
         device_info: deviceInfo,
         review_status: fakeGpsReason ? 'pending_review' : 'clear',
         suspicious_reason: fakeGpsReason,

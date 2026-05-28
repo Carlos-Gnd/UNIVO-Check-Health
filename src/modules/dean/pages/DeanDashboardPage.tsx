@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Building2, CheckCircle2, Loader2, MapPin, Users } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -7,12 +7,31 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
+import { supabase } from '@/shared/backend/supabaseClient';
+import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
+
+const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
+const RISK_PAGE_SIZE = 5;
+
+const readResolvedSharedDeviceAlerts = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY) ?? '[]') as string[]);
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
+  localStorage.setItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY, JSON.stringify([...ids]));
+};
 
 function LiveMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
+  const leafletModule = useRef<any>(null);
   const [studentCount, setStudentCount] = useState(0);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   const refreshMarkers = async (L: any) => {
     const students = await getActiveStudentsSnapshot();
@@ -29,8 +48,10 @@ function LiveMap() {
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
+    let isMounted = true;
     import('leaflet').then((L) => {
-      if (!mapRef.current || leafletInstance.current) return;
+      if (!isMounted || !mapRef.current || leafletInstance.current) return;
+      leafletModule.current = L;
       const map = L.map(mapRef.current, { zoomControl: true }).setView([13.7942, -88.8965], 8);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
@@ -41,10 +62,40 @@ function LiveMap() {
       interval = setInterval(() => void refreshMarkers(L), 30000);
     });
     return () => {
+      isMounted = false;
       clearInterval(interval);
       leafletInstance.current?.remove();
       leafletInstance.current = null;
       markersLayer.current = null;
+      leafletModule.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const refreshFromRealtime = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        if (leafletModule.current) void refreshMarkers(leafletModule.current);
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel('dean-live-map-attendances')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendances' },
+        refreshFromRealtime,
+      )
+      .subscribe((status) => {
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      setIsRealtimeConnected(false);
+      void supabase.removeChannel(channel);
     };
   }, []);
 
@@ -54,7 +105,12 @@ function LiveMap() {
         <CardTitle className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-blue-600" />Estudiantes activos en tiempo real
         </CardTitle>
-        <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+            {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
+          </Badge>
+          <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+        </div>
       </CardHeader>
       <CardContent className="p-0 overflow-hidden rounded-b-lg">
         <div ref={mapRef} style={{ height: 320 }} />
@@ -66,19 +122,28 @@ function LiveMap() {
 export function DeanDashboardPage() {
   const navigate = useNavigate();
   const { students, locations, globalStats, isLoading, loadData, setFilter } = useDeanStore();
+  const [sharedDeviceAlerts, setSharedDeviceAlerts] = useState<SharedDeviceAlert[]>([]);
+  const [resolvedAlertIds, setResolvedAlertIds] = useState<Set<string>>(() => readResolvedSharedDeviceAlerts());
+  const [riskPage, setRiskPage] = useState(0);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    void fetchSharedDeviceAlerts().then(setSharedDeviceAlerts);
+  }, []);
+
   const riskStudents = useMemo(
     () =>
       [...students]
-        .filter((s) => s.compliancePercentage < 60)
-        .sort((a, b) => a.compliancePercentage - b.compliancePercentage)
-        .slice(0, 5),
-    [students],
+        .filter((s) => s.compliancePercentage < globalStats.riskThreshold)
+        .sort((a, b) => a.compliancePercentage - b.compliancePercentage),
+    [globalStats.riskThreshold, students],
   );
+
+  const totalRiskPages = Math.max(1, Math.ceil(riskStudents.length / RISK_PAGE_SIZE));
+  const pagedRiskStudents = riskStudents.slice(riskPage * RISK_PAGE_SIZE, (riskPage + 1) * RISK_PAGE_SIZE);
 
   const chartData = useMemo(
     () =>
@@ -93,6 +158,26 @@ export function DeanDashboardPage() {
   );
 
   const barColor = (v: number) => (v > 75 ? '#16a34a' : v >= 50 ? '#f59e0b' : '#dc2626');
+  const activeSharedDeviceAlerts = sharedDeviceAlerts.filter((alert) => !resolvedAlertIds.has(alert.id));
+  const latestSharedDeviceAlert = activeSharedDeviceAlerts[0];
+
+  const resolveSharedDeviceAlert = (id: string) => {
+    setResolvedAlertIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      writeResolvedSharedDeviceAlerts(next);
+      return next;
+    });
+  };
+
+  const openStudentProfile = (studentId: string) => {
+    setFilter('status', 'at-risk');
+    navigate(`/dean/students?status=at-risk&student=${studentId}`);
+  };
+
+  useEffect(() => {
+    if (riskPage > totalRiskPages - 1) setRiskPage(totalRiskPages - 1);
+  }, [riskPage, totalRiskPages]);
 
   if (isLoading) {
     return (
@@ -110,11 +195,29 @@ export function DeanDashboardPage() {
         <p className="text-sm text-gray-600">Vista general del cumplimiento de prácticas por sede y alumno.</p>
       </div>
 
+      {latestSharedDeviceAlert && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              Dispositivo compartido
+              <Badge className="bg-red-600 text-white">{activeSharedDeviceAlerts.length}</Badge>
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => resolveSharedDeviceAlert(latestSharedDeviceAlert.id)}>
+              Resolver
+            </Button>
+          </CardHeader>
+          <CardContent className="text-sm text-red-700">
+            Mismo dispositivo activo en sedes distintas. Fingerprint: {latestSharedDeviceAlert.deviceFingerprint || 'sin dato'}.
+          </CardContent>
+        </Card>
+      )}
+
       {/* T-07.5: Tarjetas de indicadores */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Alumnos Activos" value={globalStats.totalStudents} subtitle="en prácticas este período" icon={Users} />
         <StatCard title="Tasa de Cumplimiento Global" value={`${globalStats.globalComplianceRate}%`} subtitle="promedio de todos los alumnos" icon={CheckCircle2} />
-        <StatCard title="Alumnos en Riesgo" value={globalStats.atRiskCount} subtitle="menos del 60% de cumplimiento" icon={AlertTriangle} danger />
+        <StatCard title="Alumnos en Riesgo" value={globalStats.atRiskCount} subtitle={`menos del ${globalStats.riskThreshold}% de cumplimiento`} icon={AlertTriangle} danger />
         <StatCard title="Sedes Activas" value={globalStats.activeLocations} subtitle="lugares con prácticas este semestre" icon={Building2} />
       </div>
 
@@ -140,11 +243,14 @@ export function DeanDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* T-07.2: Alumnos en riesgo */}
+        {/* T-19.3: Lista paginada de alumnos en riesgo */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Alumnos en riesgo</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => { setFilter('status', 'at-risk'); navigate('/dean/students'); }}>
+            <div>
+              <CardTitle>Alumnos en riesgo</CardTitle>
+              <p className="text-xs text-gray-500">Umbral configurado: &lt; {globalStats.riskThreshold}%</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setFilter('status', 'at-risk'); navigate('/dean/students?status=at-risk'); }}>
               Ver todos
             </Button>
           </CardHeader>
@@ -152,12 +258,12 @@ export function DeanDashboardPage() {
             {riskStudents.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">Sin alumnos en riesgo</p>
             ) : (
-              riskStudents.map((s) => (
+              pagedRiskStudents.map((s) => (
                 <div key={s.id} className="rounded-lg border p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="font-medium text-gray-900">{s.fullName}</p>
-                      <p className="text-xs text-gray-500">{s.sedeName}</p>
+                      <p className="text-xs text-gray-500">{s.carnet} Â· {s.sedeName}</p>
                     </div>
                     <Badge className={s.compliancePercentage < 40 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}>
                       {s.compliancePercentage < 40 ? 'Riesgo alto' : 'Riesgo medio'}
@@ -166,8 +272,24 @@ export function DeanDashboardPage() {
                   <p className="mt-2 text-sm text-gray-600">
                     {s.compliancePercentage}% cumplimiento · {s.goalHours - s.completedHours} h faltantes
                   </p>
+                  <Button variant="link" className="mt-2 h-auto p-0 text-blue-700" onClick={() => openStudentProfile(s.id)}>
+                    Ver perfil
+                  </Button>
                 </div>
               ))
+            )}
+            {riskStudents.length > RISK_PAGE_SIZE && (
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-xs text-gray-500">Pagina {riskPage + 1} de {totalRiskPages}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={riskPage === 0} onClick={() => setRiskPage((page) => page - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={riskPage >= totalRiskPages - 1} onClick={() => setRiskPage((page) => page + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
