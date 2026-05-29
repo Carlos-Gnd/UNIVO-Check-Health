@@ -1,7 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Attendance, GeoPoint } from '@/modules/attendance/types';
 import { DeviceInfo } from '@/modules/attendance/types';
-import { SessionCredential, UserRole, UserSession } from './types';
 
 type SiteCoverage = GeoPoint & { radiusMeters: number; name?: string };
 
@@ -24,23 +23,6 @@ type AttendanceResult = {
   message: string;
 };
 
-type LocationReviewJob = {
-  id: string;
-  attendanceId: string;
-  type: 'check-in' | 'check-out';
-  createdAt: string;
-  processedAt?: string;
-};
-
-type CoordinatorAlert = {
-  id: string;
-  attendanceId: string;
-  studentId: string;
-  message: string;
-  createdAt: string;
-  read: boolean;
-};
-
 type DeviceFingerprintConflict = {
   attendance_id: string;
   student_id: string;
@@ -48,47 +30,11 @@ type DeviceFingerprintConflict = {
   check_in: string;
 };
 
-const BACKEND_STORAGE_KEYS = {
-  SESSIONS: 'checkhealth_backend_sessions',
-  LOCATION_REVIEW_JOBS: 'checkhealth_backend_location_review_jobs',
-  COORDINATOR_ALERTS: 'checkhealth_backend_coordinator_alerts',
-};
-
-const ROLE_ACCESS: Record<UserRole, string[]> = {
-  Estudiante: ['dashboard:student', 'attendance:self'],
-  Docente: ['dashboard:teacher', 'attendance:read'],
-  Coordinador: ['dashboard:coordinator', 'attendance:read', 'attendance:write', 'sessions:revoke'],
-  'Representante de sede': ['dashboard:site', 'attendance:read'],
-  Administrador: ['dashboard:admin', 'attendance:read', 'attendance:write', 'sessions:revoke', 'roles:write'],
-};
-
 const EARTH_RADIUS_METERS = 6371000;
-const SHORT_SESSION_MINUTES = 15;
-const LONG_SESSION_DAYS = 7;
 const MAX_HUMAN_SPEED_KMH = 140;
-const REVIEW_DELAY_MS = 250;
 const REQUIRED_PRACTICE_HOURS = 240;
 const FAKE_GPS_CONFIDENCE_THRESHOLD = 0.8;
 
-const readBackendStorage = <T,>(key: string, fallback: T): T => {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const writeBackendStorage = <T,>(key: string, value: T): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
-};
-
-const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60 * 1000);
-const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 const toRadians = (degrees: number) => degrees * (Math.PI / 180);
 
 const distanceInMeters = (from: GeoPoint, to: GeoPoint) => {
@@ -163,52 +109,6 @@ export const analyzeFakeGpsPattern = (deviceInfo: DeviceInfo | undefined): Devic
   };
 };
 
-const createToken = (payload: Record<string, unknown>, type: 'short' | 'long') => {
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const body = btoa(
-    JSON.stringify({
-      ...payload,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(
-        (type === 'short'
-          ? Date.now() + SHORT_SESSION_MINUTES * 60 * 1000
-          : Date.now() + LONG_SESSION_DAYS * 24 * 60 * 60 * 1000) / 1000,
-      ),
-    }),
-  );
-  const signature = simpleHash(`${header}.${body}.secret_RS256_mock`);
-  return `${header}.${body}.${signature}`;
-};
-
-const createCredential = (userId: string, type: SessionCredential['type'], now: Date): SessionCredential => ({
-  token: createToken({ sub: userId, type }, type),
-  expiresAt: (
-    type === 'short' ? addMinutes(now, SHORT_SESSION_MINUTES) : addDays(now, LONG_SESSION_DAYS)
-  ).toISOString(),
-  type,
-});
-
-const simpleHash = (payload: string) => {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < payload.length; i += 1) {
-    hash ^= payload.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-};
-
-const createSecuritySeal = (attendance: Pick<Attendance, 'id' | 'studentId' | 'practiceId' | 'checkIn' | 'checkOut' | 'date'>) => {
-  const payload = [
-    attendance.id,
-    attendance.studentId,
-    attendance.practiceId,
-    attendance.checkIn,
-    attendance.checkOut ?? '',
-    attendance.date,
-  ].join('|');
-  return `seal_${simpleHash(payload)}_${simpleHash(payload.split('').reverse().join(''))}`;
-};
-
 const mapAttendanceRow = (row: Record<string, unknown>): Attendance => ({
   id: row.id as string,
   studentId: row.student_id as string,
@@ -247,58 +147,6 @@ const getCampusById = async (campusId: string): Promise<SiteCoverage | null> => 
   };
 };
 
-const getOfficialServerTime = () => new Date();
-
-export const assignAccessLevel = (email: string): { role: UserRole; access: string[] } => {
-  const domain = email.trim().toLowerCase().split('@')[1] ?? '';
-  let role: UserRole = 'Estudiante';
-  if (domain === 'coordinador.univo.edu.sv') role = 'Coordinador';
-  else if (domain === 'docente.univo.edu.sv') role = 'Docente';
-  else if (domain === 'hospital.edu.sv') role = 'Representante de sede';
-  else if (domain === 'admin.univo.edu.sv') role = 'Administrador';
-  return { role, access: ROLE_ACCESS[role] };
-};
-
-export const generateSessionCredentials = (email: string, userId = email.trim().toLowerCase()): UserSession => {
-  const normalizedEmail = email.trim().toLowerCase();
-  const now = getOfficialServerTime();
-  const accessLevel = assignAccessLevel(normalizedEmail);
-  const session: UserSession = {
-    userId,
-    email: normalizedEmail,
-    role: accessLevel.role,
-    access: accessLevel.access,
-    shortLived: createCredential(userId, 'short', now),
-    longLived: createCredential(userId, 'long', now),
-    createdAt: now.toISOString(),
-  };
-  const sessions = readBackendStorage<UserSession[]>(BACKEND_STORAGE_KEYS.SESSIONS, []);
-  writeBackendStorage(BACKEND_STORAGE_KEYS.SESSIONS, [...sessions, session]);
-  return session;
-};
-
-export const revokeUserSessions = (targetUserId: string): void => {
-  const now = getOfficialServerTime().toISOString();
-  const sessions = readBackendStorage<UserSession[]>(BACKEND_STORAGE_KEYS.SESSIONS, []);
-  writeBackendStorage(
-    BACKEND_STORAGE_KEYS.SESSIONS,
-    sessions.map((s) => (s.userId === targetUserId ? { ...s, revokedAt: now } : s)),
-  );
-};
-
-const addCoordinatorAlert = (alert: Omit<CoordinatorAlert, 'id' | 'createdAt' | 'read'>) => {
-  const alerts = readBackendStorage<CoordinatorAlert[]>(BACKEND_STORAGE_KEYS.COORDINATOR_ALERTS, []);
-  writeBackendStorage(BACKEND_STORAGE_KEYS.COORDINATOR_ALERTS, [
-    ...alerts,
-    {
-      ...alert,
-      id: `alert_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      createdAt: getOfficialServerTime().toISOString(),
-      read: false,
-    },
-  ]);
-};
-
 const logSharedDeviceConflict = async (params: {
   actorUserId: string;
   targetUserId: string;
@@ -320,67 +168,17 @@ const logSharedDeviceConflict = async (params: {
   });
 };
 
-const queueLocationReview = (attendanceId: string, type: LocationReviewJob['type']) => {
-  const jobs = readBackendStorage<LocationReviewJob[]>(BACKEND_STORAGE_KEYS.LOCATION_REVIEW_JOBS, []);
-  const job: LocationReviewJob = {
-    id: `job_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-    attendanceId,
-    type,
-    createdAt: getOfficialServerTime().toISOString(),
-  };
-  writeBackendStorage(BACKEND_STORAGE_KEYS.LOCATION_REVIEW_JOBS, [...jobs, job]);
-  window.setTimeout(() => void processLocationReviewJob(job), REVIEW_DELAY_MS);
-};
-
-const processLocationReviewJob = async (job: LocationReviewJob) => {
-  const { data: attendance, error: fetchError } = await supabase
-    .from('attendances')
-    .select('*')
-    .eq('id', job.attendanceId)
-    .single();
-
-  if (fetchError || !attendance) return;
-
-  const { data: previousRecords } = await supabase
-    .from('attendances')
-    .select('check_in, check_out, check_in_location')
-    .eq('student_id', attendance.student_id)
-    .neq('id', attendance.id)
-    .not('check_in_location', 'is', null)
-    .order('check_in', { ascending: false })
-    .limit(1);
-
-  const previous = previousRecords?.[0];
-  const currentLocation =
-    job.type === 'check-out' ? attendance.check_out_location : attendance.check_in_location;
-
-  if (!previous || !currentLocation || !previous.check_in_location) return;
-
-  const previousTime = new Date(previous.check_out ?? previous.check_in).getTime();
-  const currentTime = new Date(
-    job.type === 'check-out' ? (attendance.check_out ?? attendance.check_in) : attendance.check_in,
-  ).getTime();
-  const elapsedHours = Math.max((currentTime - previousTime) / (1000 * 60 * 60), 0.01);
-  const speedKmh =
-    distanceInMeters(
-      previous.check_in_location as GeoPoint,
-      currentLocation as GeoPoint,
-    ) /
-    1000 /
-    elapsedHours;
-
-  if (speedKmh > MAX_HUMAN_SPEED_KMH) {
-    const reason = `Desplazamiento inusual detectado: ${Math.round(speedKmh)} km/h entre registros.`;
-    await supabase
-      .from('attendances')
-      .update({ review_status: 'OBSERVADO', suspicious_reason: reason })
-      .eq('id', job.attendanceId);
-    addCoordinatorAlert({
-      attendanceId: job.attendanceId,
-      studentId: attendance.student_id as string,
-      message: reason,
-    });
-  }
+// Llama al RPC validate_location_coherence para verificar velocidad de desplazamiento.
+// Reemplaza la lógica client-side de processLocationReviewJob (eliminada en Fase 4).
+const checkLocationCoherence = async (studentId: string, location: GeoPoint): Promise<string | undefined> => {
+  const { data } = await supabase.rpc('validate_location_coherence', {
+    p_student_id: studentId,
+    p_current_lat: location.latitude,
+    p_current_lng: location.longitude,
+  });
+  return data?.[0]?.is_suspicious
+    ? 'Desplazamiento inusual detectado entre registros consecutivos.'
+    : undefined;
 };
 
 export const registerStudentCheckIn = async (params: {
@@ -445,6 +243,10 @@ export const registerStudentCheckIn = async (params: {
     ? `Posible GPS falso detectado (${Math.round(deviceInfo.fakeGpsAnalysis.confidence * 100)}%): ${deviceInfo.fakeGpsAnalysis.reasons.join(' ')}`
     : undefined;
 
+  // Verificación de coherencia espacio-temporal (reemplaza processLocationReviewJob client-side)
+  const speedReason = await checkLocationCoherence(params.studentId, params.location);
+  const suspiciousReason = fakeGpsReason ?? speedReason;
+
   const { data: attendanceData, error: insertError } = await supabase
     .from('attendances')
     .insert([
@@ -456,8 +258,8 @@ export const registerStudentCheckIn = async (params: {
         device_id: params.deviceId,
         device_fingerprint: params.deviceFingerprint,
         device_info: deviceInfo,
-        review_status: fakeGpsReason ? 'OBSERVADO' : 'PENDIENTE',
-        suspicious_reason: fakeGpsReason,
+        review_status: suspiciousReason ? 'OBSERVADO' : 'PENDIENTE',
+        suspicious_reason: suspiciousReason,
         status: 'present',
       },
     ])
@@ -468,12 +270,21 @@ export const registerStudentCheckIn = async (params: {
     return { ok: false, message: 'Error al registrar la asistencia.' };
   }
 
-  const mapped = mapAttendanceRow(attendanceData as Record<string, unknown>);
-  queueLocationReview(mapped.id, 'check-in');
+  if (fakeGpsReason) {
+    await supabase.from('audit_log').insert({
+      action: 'FAKE_GPS_DETECTED',
+      actor_user_id: params.studentId,
+      details: {
+        attendance_id: (attendanceData as Record<string, unknown>).id,
+        campus_id: params.practiceId,
+        confidence: deviceInfo?.fakeGpsConfidence,
+      },
+    });
+  }
 
   return {
     ok: true,
-    attendance: mapped,
+    attendance: mapAttendanceRow(attendanceData as Record<string, unknown>),
     message: 'Entrada registrada con hora oficial del servidor.',
   };
 };
@@ -540,12 +351,9 @@ export const registerStudentCheckOut = async (params: {
     return { ok: false, message: 'Error al registrar la salida.' };
   }
 
-  const mapped = mapAttendanceRow(updatedAttendance as Record<string, unknown>);
-  queueLocationReview(mapped.id, 'check-out');
-
   return {
     ok: true,
-    attendance: mapped,
+    attendance: mapAttendanceRow(updatedAttendance as Record<string, unknown>),
     message: 'Salida registrada y horas acumuladas correctamente.',
   };
 };
@@ -579,10 +387,6 @@ export const getActiveStudentsSnapshot = async (): Promise<ActiveStudentRecord[]
       lastLocation: (row.check_out_location ?? row.check_in_location) as GeoPoint | undefined,
     };
   });
-};
-
-export const getCoordinatorAlerts = () => {
-  return readBackendStorage<CoordinatorAlert[]>(BACKEND_STORAGE_KEYS.COORDINATOR_ALERTS, []);
 };
 
 export const getStudentHoursProgress = async (
