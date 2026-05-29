@@ -181,6 +181,20 @@ const TEMPLATES: Record<string, {
       <p>El mismo dispositivo intentó registrar asistencia en dos sedes distintas simultáneamente.</p>
       <p>El intento fue registrado en auditoría.</p>`,
   },
+  JUSTIFICATION_RECEIVED: {
+    title:        'Nueva solicitud de justificación',
+    pushBody:     (p) => `${p.student_name ?? 'Estudiante'} (${p.student_code ?? ''}) envió una justificación para ${p.campus_name ?? 'su sede'}.`,
+    emailSubject: (p) => `Justificación pendiente — ${p.student_name ?? 'Estudiante'} · ${p.attendance_date ?? ''}`,
+    emailHtml:    (p) => `
+      <h2>Nueva solicitud de justificación</h2>
+      <p><strong>${p.student_name ?? 'Un estudiante'}</strong> (${p.student_code ?? ''}) envió una solicitud de justificación.</p>
+      <ul>
+        <li><strong>Fecha de asistencia:</strong> ${p.attendance_date ?? '—'}</li>
+        <li><strong>Sede:</strong> ${p.campus_name ?? '—'}</li>
+        <li><strong>Motivo:</strong> ${p.reason ?? '—'}</li>
+      </ul>
+      <p>Ingresa al panel del coordinador para revisar y aprobar o rechazar la solicitud.</p>`,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

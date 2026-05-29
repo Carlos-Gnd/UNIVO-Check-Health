@@ -18,6 +18,7 @@ import { StudentQrScannerPage } from '@/modules/students/components/StudentQrSca
 import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
 import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
 import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
+import { StudentAssignmentPage } from '@/modules/students/components/StudentAssignmentPage';
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -75,7 +76,7 @@ const StudentJustificationsRoute = () => (
 
 const StudentAssignmentRoute = () => (
   <RoleGuard allow={['STUDENT']}>
-    <StudentPlaceholderPage title="Mi sede y doctor encargado" />
+    <StudentAssignmentPage />
   </RoleGuard>
 );
 
