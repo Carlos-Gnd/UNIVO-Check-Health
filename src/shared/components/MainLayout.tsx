@@ -94,7 +94,6 @@ export function MainLayout() {
     ? [
         { name: 'Dashboard', href: '/dean/dashboard', icon: LayoutDashboard },
         { name: 'Calendario', href: '/rotations', icon: CalendarDays },
-        { name: 'Gestión de Usuarios', href: '/dean/users', icon: UserPlus },
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
         { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },

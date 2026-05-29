@@ -263,7 +263,7 @@ export function DeanDashboardPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="font-medium text-gray-900">{s.fullName}</p>
-                      <p className="text-xs text-gray-500">{s.carnet} Â· {s.sedeName}</p>
+                      <p className="text-xs text-gray-500">{s.carnet} · {s.sedeName}</p>
                     </div>
                     <Badge className={s.compliancePercentage < 40 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}>
                       {s.compliancePercentage < 40 ? 'Riesgo alto' : 'Riesgo medio'}
