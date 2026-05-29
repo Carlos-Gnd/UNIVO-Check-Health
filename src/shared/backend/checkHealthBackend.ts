@@ -107,7 +107,7 @@ const variance = (values: number[]) => {
   return values.reduce((sum, value) => sum + (value - average) ** 2, 0) / values.length;
 };
 
-const analyzeFakeGpsPattern = (deviceInfo: DeviceInfo | undefined): DeviceInfo | undefined => {
+export const analyzeFakeGpsPattern = (deviceInfo: DeviceInfo | undefined): DeviceInfo | undefined => {
   if (!deviceInfo) return undefined;
 
   const motionSamples = deviceInfo.motionSamples ?? [];

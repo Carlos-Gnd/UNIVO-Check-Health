@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { initFcm } from '@/shared/utils/firebase';
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -142,6 +143,12 @@ export function MainLayout() {
     if (error) {
       toast.error('Correo o contraseña inválidos');
       return;
+    }
+
+    // Registrar token FCM para notificaciones push (T-16.1); no bloquea si falla
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user.id) {
+      void initFcm(sessionData.session.user.id);
     }
 
     setPassword('');
