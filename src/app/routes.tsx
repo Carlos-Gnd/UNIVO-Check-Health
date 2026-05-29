@@ -17,6 +17,7 @@ import { StudentPlaceholderPage } from '@/modules/students/components/StudentPla
 import { StudentQrScannerPage } from '@/modules/students/components/StudentQrScannerPage';
 import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
 import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
+import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -68,7 +69,7 @@ const StudentProgressRoute = () => (
 
 const StudentJustificationsRoute = () => (
   <RoleGuard allow={['STUDENT']}>
-    <StudentPlaceholderPage title="Justificaciones de inasistencia" />
+    <StudentJustificationsPage />
   </RoleGuard>
 );
 

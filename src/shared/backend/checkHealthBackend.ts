@@ -8,6 +8,7 @@ type SiteCoverage = GeoPoint & { radiusMeters: number; name?: string };
 type ActiveStudentRecord = {
   studentId: string;
   studentName: string;
+  carnet: string;
   career: string;
   practiceId: string;
   siteName: string;
@@ -552,7 +553,7 @@ export const registerStudentCheckOut = async (params: {
 export const getActiveStudentsSnapshot = async (): Promise<ActiveStudentRecord[]> => {
   const [attendancesResult, usersResult, campusesResult] = await Promise.all([
     supabase.from('attendances').select('*').is('check_out', null),
-    supabase.from('users').select('id, full_name, career').eq('role', 'STUDENT'),
+    supabase.from('users').select('id, full_name, career, student_code').eq('role', 'STUDENT'),
     supabase.from('campuses').select('id, name, location_label'),
   ]);
 
@@ -568,6 +569,7 @@ export const getActiveStudentsSnapshot = async (): Promise<ActiveStudentRecord[]
     return {
       studentId: row.student_id as string,
       studentName: (student?.full_name as string) ?? 'Desconocido',
+      carnet: (student?.student_code as string) ?? '',
       career: (student?.career as string) ?? 'Sin carrera',
       practiceId: row.campus_id as string,
       siteName: (campus?.location_label as string) ?? (campus?.name as string) ?? 'Sede no registrada',
