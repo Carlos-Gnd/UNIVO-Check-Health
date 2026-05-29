@@ -6,7 +6,9 @@ import * as jose from 'https://esm.sh/jose@5';
 import { corsHeaders } from '../_shared/cors.ts';
 
 type RequestBody = {
-  qr_token?: string;
+  qr_token?: string;      // JWT del QR escaneado con cámara
+  short_code?: string;    // Código corto de 6 chars (fallback sin cámara)
+  campus_id?: string;     // Requerido cuando se usa short_code
   lat?: number;
   lng?: number;
   accuracy?: number;
@@ -49,16 +51,21 @@ Deno.serve(async (req: Request) => {
   }
 
   const body = await req.json().catch(() => ({})) as RequestBody;
-  const { qr_token, lat, lng, accuracy, device_fingerprint, device_info } = body;
+  const { qr_token, short_code, campus_id: bodyCAmpusId, lat, lng, accuracy, device_fingerprint, device_info } = body;
 
-  if (!qr_token || lat == null || lng == null) {
+  if (lat == null || lng == null) {
     return new Response(
-      JSON.stringify({ ok: false, message: 'Faltan parámetros requeridos (qr_token, lat, lng).' }),
+      JSON.stringify({ ok: false, message: 'Faltan parámetros requeridos (lat, lng).' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+  if (!qr_token && (!short_code || !bodyCAmpusId)) {
+    return new Response(
+      JSON.stringify({ ok: false, message: 'Proporciona qr_token o (short_code + campus_id).' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 
-  // 1. Verificar firma JWT y expiración
   const qrSecret = Deno.env.get('QR_JWT_SECRET');
   if (!qrSecret) {
     return new Response(
@@ -67,26 +74,57 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  let qrPayload: { campus_id: string; date: string };
-  try {
-    const secretKey = new TextEncoder().encode(qrSecret);
-    const { payload } = await jose.jwtVerify(qr_token, secretKey, { algorithms: ['HS256'] });
-    qrPayload = payload as { campus_id: string; date: string };
-  } catch {
-    return new Response(
-      JSON.stringify({ ok: false, message: 'QR inválido o expirado.' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // 2. Verificar que el QR es de hoy (zona El Salvador UTC-6)
   const nowSV = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
   const todaySV = nowSV.toISOString().slice(0, 10);
-  if (qrPayload.date !== todaySV) {
-    return new Response(
-      JSON.stringify({ ok: false, message: `QR corresponde a ${qrPayload.date}, no a hoy.` }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+
+  let qrPayload: { campus_id: string; date: string };
+
+  if (short_code && bodyCAmpusId) {
+    // ── Ruta alternativa: validar código corto (fallback sin cámara) ──────────
+    const { data: cached } = await admin
+      .from('campus_daily_qr')
+      .select('token, short_code')
+      .eq('campus_id', bodyCAmpusId)
+      .eq('qr_date', todaySV)
+      .eq('short_code', short_code.toUpperCase())
+      .single();
+
+    if (!cached?.token) {
+      return new Response(
+        JSON.stringify({ ok: false, message: 'Código incorrecto o expirado. Solicita uno nuevo al encargado.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    // Extraer el payload del token cacheado (ya fue verificado al crearlo)
+    const secretKey = new TextEncoder().encode(qrSecret);
+    try {
+      const { payload } = await jose.jwtVerify(cached.token as string, secretKey, { algorithms: ['HS256'] });
+      qrPayload = payload as { campus_id: string; date: string };
+    } catch {
+      return new Response(
+        JSON.stringify({ ok: false, message: 'Código expirado. Solicita uno nuevo al encargado.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+  } else {
+    // ── Ruta principal: verificar JWT del QR escaneado ────────────────────────
+    try {
+      const secretKey = new TextEncoder().encode(qrSecret);
+      const { payload } = await jose.jwtVerify(qr_token!, secretKey, { algorithms: ['HS256'] });
+      qrPayload = payload as { campus_id: string; date: string };
+    } catch {
+      return new Response(
+        JSON.stringify({ ok: false, message: 'QR inválido o expirado.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    if (qrPayload.date !== todaySV) {
+      return new Response(
+        JSON.stringify({ ok: false, message: `QR corresponde a ${qrPayload.date}, no a hoy.` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
   }
 
   // 3. Validar geofence + ventana horaria

@@ -24,6 +24,7 @@ type QrModal = {
   campusId: string;
   campusName: string;
   qrDataUrl: string;
+  shortCode: string;
   date: string;
 };
 
@@ -128,7 +129,7 @@ export function DeanLocationsPage() {
       toast.error(data?.error ?? 'No se pudo generar el QR. Verifica la configuración del servidor.');
       return;
     }
-    setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, date: data.date });
+    setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, shortCode: data.short_code ?? '', date: data.date });
   };
 
   const handleToggleActive = async (l: Location) => {
@@ -378,9 +379,17 @@ export function DeanLocationsPage() {
                   width={280}
                   height={280}
                 />
+                {qrModal.shortCode && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 mb-1">Código manual (sin cámara)</p>
+                    <p className="text-3xl font-mono font-bold tracking-widest text-gray-900 select-all">
+                      {qrModal.shortCode}
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-gray-500 text-center">
                   Válido el <strong>{qrModal.date}</strong> hasta las 23:59.<br />
-                  El estudiante debe escanearlo dentro de la app con GPS activo.
+                  El alumno escanea el QR o ingresa el código de 6 letras en la app.
                 </p>
                 <Button variant="outline" className="w-full" onClick={handleDownloadQr}>
                   <Download className="w-4 h-4 mr-2" />Descargar PNG
