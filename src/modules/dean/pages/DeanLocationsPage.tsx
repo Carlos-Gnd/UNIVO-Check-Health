@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Download, Loader2, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import type { Location } from '@/modules/dean/types';
-import { createCampus, updateCampus, deleteCampus, type CampusFormData } from '@/modules/dean/services/dean.service';
+import { createCampus, updateCampus, deleteCampus, toggleCampusActive, type CampusFormData } from '@/modules/dean/services/dean.service';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { Switch } from '@/shared/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
@@ -38,6 +39,7 @@ export function DeanLocationsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [qrModal, setQrModal] = useState<QrModal | null>(null);
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadData();
@@ -129,6 +131,15 @@ export function DeanLocationsPage() {
     setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, date: data.date });
   };
 
+  const handleToggleActive = async (l: Location) => {
+    setTogglingId(l.id);
+    const result = await toggleCampusActive(l.id, l.status === 'inactive');
+    setTogglingId(null);
+    if (!result.ok) { toast.error(result.message ?? 'Error al cambiar estado'); return; }
+    toast.success(l.status === 'active' ? `${l.name} desactivada` : `${l.name} activada`);
+    void loadData();
+  };
+
   const handleDownloadQr = () => {
     if (!qrModal) return;
     const a = document.createElement('a');
@@ -187,9 +198,20 @@ export function DeanLocationsPage() {
                     <MapPin className="w-3 h-3" />{l.address}
                   </p>
                 </div>
-                <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
-                  {l.status === 'active' ? 'Activa' : 'Inactiva'}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
+                    {l.status === 'active' ? 'Activa' : 'Inactiva'}
+                  </Badge>
+                  {togglingId === l.id
+                    ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    : (
+                      <Switch
+                        checked={l.status === 'active'}
+                        onCheckedChange={() => void handleToggleActive(l)}
+                        aria-label={l.status === 'active' ? 'Desactivar sede' : 'Activar sede'}
+                      />
+                    )}
+                </div>
               </div>
 
               <div className="space-y-1 text-sm text-gray-700">

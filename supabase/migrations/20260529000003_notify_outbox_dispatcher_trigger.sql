@@ -5,6 +5,23 @@
 --   supabase secrets set FCM_SERVER_KEY=<firebase-legacy-server-key>
 --   supabase secrets set RESEND_API_KEY=<resend-api-key>
 
+-- Crear notification_outbox si no existe (idempotente: puede no haberse ejecutado antes)
+CREATE TABLE IF NOT EXISTS public.notification_outbox (
+  id             bigserial   PRIMARY KEY,
+  channel        text        NOT NULL CHECK (channel IN ('push', 'email')),
+  type           text        NOT NULL,
+  target_user_id uuid        NOT NULL,
+  attendance_id  uuid        NOT NULL REFERENCES public.attendances(id) ON DELETE CASCADE,
+  status         text        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed')),
+  payload        jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  sent_at        timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_pending
+  ON public.notification_outbox (channel, status, created_at)
+  WHERE status = 'pending';
+
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 CREATE OR REPLACE FUNCTION public.fn_dispatch_outbox_item()

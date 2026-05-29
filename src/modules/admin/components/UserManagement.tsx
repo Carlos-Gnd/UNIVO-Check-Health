@@ -1,8 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { UserPlus, Loader2, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { Copy, KeyRound, Loader2, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
+import { Switch } from '@/shared/components/ui/switch';
+import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import {
   AlertDialog,
@@ -17,13 +19,14 @@ import {
 import { toast } from 'sonner';
 import { supabaseAdmin } from '@/shared/backend/supabaseAdmin';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { toggleUserActive } from '@/modules/dean/services/dean.service';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 const CAREERS = ['Enfermería', 'Medicina', 'Fisioterapia', 'Radiología', 'Laboratorio Clínico', 'Nutrición'];
 const ROLES = [
-  { value: 'STUDENT', label: 'Estudiante' },
-  { value: 'COORDINATOR', label: 'Coordinador' },
-  { value: 'ADMIN', label: 'Administrador / Decano' },
+  { value: 'STUDENT',      label: 'Estudiante' },
+  { value: 'COORDINATOR',  label: 'Coordinador' },
+  { value: 'ADMIN',        label: 'Administrador / Decano' },
 ];
 
 interface UserRow {
@@ -33,47 +36,51 @@ interface UserRow {
   email: string;
   role: string;
   career: string | null;
+  is_active: boolean;
 }
 
+// Muestra email + contraseña tras crear el usuario
+type CreatedCredentials = { email: string; password: string } | null;
+
 export function UserManagement() {
-  const [fullName, setFullName] = useState('');
-  const [studentCode, setStudentCode] = useState('');
-  const [career, setCareer] = useState(CAREERS[0]);
-  const [role, setRole] = useState('STUDENT');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [fullName, setFullName]           = useState('');
+  const [studentCode, setStudentCode]     = useState('');
+  const [career, setCareer]               = useState(CAREERS[0]);
+  const [role, setRole]                   = useState('STUDENT');
+  const [password, setPassword]           = useState('');
+  const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [users, setUsers]                 = useState<UserRow[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('STUDENT');
-  const [editCareer, setEditCareer] = useState(CAREERS[0]);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [createOpen, setCreateOpen]       = useState(false);
+  const [createdCreds, setCreatedCreds]   = useState<CreatedCredentials>(null);
+
+  const [editingUser, setEditingUser]     = useState<UserRow | null>(null);
+  const [editName, setEditName]           = useState('');
+  const [editRole, setEditRole]           = useState('STUDENT');
+  const [editCareer, setEditCareer]       = useState(CAREERS[0]);
+  const [isSavingEdit, setIsSavingEdit]   = useState(false);
+
+  const [deleteTarget, setDeleteTarget]   = useState<UserRow | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+
+  const [togglingId, setTogglingId]       = useState<string | null>(null);
+  const [resetingId, setResetingId]       = useState<string | null>(null);
 
   const derivedEmail = studentCode ? `${studentCode.toUpperCase()}${UNIVO_DOMAIN}` : '';
 
   const resetCreateForm = () => {
-    setFullName('');
-    setStudentCode('');
-    setCareer(CAREERS[0]);
-    setRole('STUDENT');
-    setPassword('');
+    setFullName(''); setStudentCode(''); setCareer(CAREERS[0]);
+    setRole('STUDENT'); setPassword('');
   };
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     const { data, error } = await supabase
       .from('users')
-      .select('id, student_code, full_name, email, role, career')
+      .select('id, student_code, full_name, email, role, career, is_active')
       .order('created_at', { ascending: false });
     setIsLoadingUsers(false);
-    if (error) {
-      toast.error('Error al cargar usuarios');
-      return;
-    }
+    if (error) { toast.error('Error al cargar usuarios'); return; }
     setUsers((data as UserRow[]) ?? []);
   };
 
@@ -81,24 +88,23 @@ export function UserManagement() {
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const code = studentCode.trim().toUpperCase();
+    const code  = studentCode.trim().toUpperCase();
     const email = `${code}${UNIVO_DOMAIN}`;
 
     if (role === 'STUDENT' && !/^U\d{8}$/.test(code)) {
-      toast.error('El carné de estudiante debe tener formato U + 8 dígitos (ej. U20240001)');
+      toast.error('Carné de estudiante: U + 8 dígitos (ej. U20240001)');
       return;
     }
-    if (code.length < 4) {
-      toast.error('El código debe tener al menos 4 caracteres');
-      return;
-    }
-    if (password.length < 8) {
-      toast.error('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
+    if (code.length < 4) { toast.error('El código debe tener al menos 4 caracteres'); return; }
+    if (password.length < 8) { toast.error('La contraseña debe tener al menos 8 caracteres'); return; }
 
     setIsSubmitting(true);
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true });
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,   // marca email como confirmado — login inmediato sin verificación
+    });
+
     if (authError) {
       toast.error(`Error al crear usuario: ${authError.message}`);
       setIsSubmitting(false);
@@ -106,21 +112,21 @@ export function UserManagement() {
     }
 
     const { error: profileError } = await supabaseAdmin.from('users').insert({
-      id: authData.user.id,
+      id:           authData.user.id,
       student_code: code,
-      full_name: fullName.trim(),
+      full_name:    fullName.trim(),
       email,
       role,
-      career: role === 'STUDENT' ? career : null,
+      career:       role === 'STUDENT' ? career : null,
     });
     setIsSubmitting(false);
 
     if (profileError) {
-      toast.error(`Usuario Auth creado pero perfil falló: ${profileError.message}`);
+      toast.error(`Auth creado pero perfil falló: ${profileError.message}`);
       return;
     }
 
-    toast.success(`Usuario ${email} creado exitosamente`);
+    setCreatedCreds({ email, password });
     resetCreateForm();
     setCreateOpen(false);
     void loadUsers();
@@ -139,19 +145,10 @@ export function UserManagement() {
     setIsSavingEdit(true);
     const { error } = await supabaseAdmin
       .from('users')
-      .update({
-        full_name: editName.trim(),
-        role: editRole,
-        career: editRole === 'STUDENT' ? editCareer : null,
-      })
+      .update({ full_name: editName.trim(), role: editRole, career: editRole === 'STUDENT' ? editCareer : null })
       .eq('id', editingUser.id);
     setIsSavingEdit(false);
-
-    if (error) {
-      toast.error(`Error al actualizar usuario: ${error.message}`);
-      return;
-    }
-
+    if (error) { toast.error(`Error al actualizar: ${error.message}`); return; }
     toast.success('Usuario actualizado');
     setEditingUser(null);
     void loadUsers();
@@ -160,39 +157,51 @@ export function UserManagement() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeletingUserId(deleteTarget.id);
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(deleteTarget.id);
-    if (authError) {
-      setDeletingUserId(null);
-      toast.error(`Error al eliminar en Auth: ${authError.message}`);
-      return;
-    }
-
-    const { error: profileError } = await supabaseAdmin.from('users').delete().eq('id', deleteTarget.id);
+    const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(deleteTarget.id);
+    if (authErr) { setDeletingUserId(null); toast.error(`Error Auth: ${authErr.message}`); return; }
+    await supabaseAdmin.from('users').delete().eq('id', deleteTarget.id);
     setDeletingUserId(null);
-
-    if (profileError) {
-      toast.error(`Auth eliminado, pero falló perfil: ${profileError.message}`);
-      return;
-    }
-
     toast.success('Usuario eliminado');
     setDeleteTarget(null);
     void loadUsers();
   };
 
-  const roleBadge = (r: string) => (r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700');
-  const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
+  const handleToggleActive = async (user: UserRow) => {
+    setTogglingId(user.id);
+    const result = await toggleUserActive(user.id, !user.is_active);
+    setTogglingId(null);
+    if (!result.ok) { toast.error(result.message ?? 'Error al cambiar estado'); return; }
+    toast.success(user.is_active ? `${user.full_name ?? user.email} desactivado` : `${user.full_name ?? user.email} activado`);
+    void loadUsers();
+  };
+
+  const handleResetPassword = async (user: UserRow) => {
+    setResetingId(user.id);
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: user.email,
+    });
+    setResetingId(null);
+    if (error || !data?.properties?.action_link) {
+      toast.error('No se pudo generar el link de restablecimiento');
+      return;
+    }
+    await navigator.clipboard.writeText(data.properties.action_link).catch(() => undefined);
+    toast.success('Link de restablecimiento copiado al portapapeles');
+  };
+
+  const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+  const roleLabel  = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
-          <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso del personal y alumnado.</p>
+          <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso.</p>
         </div>
         <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreateOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-2" />
-          Nuevo usuario
+          <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
         </Button>
       </div>
 
@@ -200,46 +209,72 @@ export function UserManagement() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Usuarios registrados</h2>
           <Button variant="outline" size="sm" onClick={loadUsers} disabled={isLoadingUsers}>
-            <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />
-            Actualizar
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />Actualizar
           </Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Nombre</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Carné</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Correo</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Carrera</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Rol</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Acciones</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Carné</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Correo</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Carrera</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Rol</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase">Activo</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
+                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
-                    <td className="px-6 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
-                    <td className="px-6 py-3 text-gray-600 text-xs">{u.email}</td>
-                    <td className="px-6 py-3 text-gray-600">{u.career ?? '—'}</td>
-                    <td className="px-6 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadge(u.role)}`}>{roleLabel(u.role)}</span>
+                  <tr key={u.id} className={`hover:bg-gray-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
+                    <td className="px-4 py-3 text-gray-600">{u.career ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadge(u.role)}`}>
+                        {roleLabel(u.role)}
+                      </span>
                     </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 text-center">
+                      {togglingId === u.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto text-gray-400" />
+                      ) : (
+                        <Switch
+                          checked={u.is_active}
+                          onCheckedChange={() => void handleToggleActive(u)}
+                          aria-label={u.is_active ? 'Desactivar usuario' : 'Activar usuario'}
+                        />
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
                         <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
-                          <Pencil className="w-3.5 h-3.5 mr-1" />
-                          Editar
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-50" onClick={() => setDeleteTarget(u)} disabled={deletingUserId === u.id}>
-                          {deletingUserId === u.id ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
-                          Eliminar
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Generar link de restablecimiento de contraseña"
+                          disabled={resetingId === u.id}
+                          onClick={() => void handleResetPassword(u)}
+                        >
+                          {resetingId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-700 border-red-200 hover:bg-red-50"
+                          onClick={() => setDeleteTarget(u)}
+                          disabled={deletingUserId === u.id}
+                        >
+                          {deletingUserId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </Button>
                       </div>
                     </td>
@@ -251,6 +286,7 @@ export function UserManagement() {
         </div>
       </div>
 
+      {/* Modal crear usuario */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Nuevo usuario</DialogTitle></DialogHeader>
@@ -260,9 +296,20 @@ export function UserManagement() {
               <Input id="create-fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="María Fernanda García" required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-gray-600">Carné (código)</Label>
-              <Input id="create-studentCode" value={studentCode} onChange={(e) => setStudentCode(e.target.value.toUpperCase())} placeholder="U20240001" maxLength={9} required />
-              {derivedEmail && <p className="text-xs text-gray-400">Correo: <span className="text-gray-700 font-medium">{derivedEmail}</span></p>}
+              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-gray-600">Carné / Código</Label>
+              <Input
+                id="create-studentCode"
+                value={studentCode}
+                onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+                placeholder="U20240001"
+                maxLength={role === 'STUDENT' ? 9 : 20}
+                required
+              />
+              {derivedEmail && (
+                <p className="text-xs text-gray-400">
+                  Correo de acceso: <span className="text-gray-700 font-medium select-all">{derivedEmail}</span>
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="create-role" className="text-xs uppercase tracking-wide text-gray-600">Rol</Label>
@@ -280,7 +327,8 @@ export function UserManagement() {
             )}
             <div className="space-y-1.5">
               <Label htmlFor="create-password" className="text-xs uppercase tracking-wide text-gray-600">Contraseña temporal</Label>
-              <Input id="create-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required />
+              <Input id="create-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required />
+              <p className="text-xs text-gray-400">Se muestra en texto para que puedas copiarla.</p>
             </div>
             <div className="sm:col-span-2 flex justify-end pt-2">
               <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -291,6 +339,47 @@ export function UserManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal credenciales creadas */}
+      <Dialog open={Boolean(createdCreds)} onOpenChange={() => setCreatedCreds(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Usuario creado exitosamente</DialogTitle></DialogHeader>
+          {createdCreds && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.
+              </p>
+              <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Correo de acceso</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm font-mono text-gray-900 select-all">{createdCreds.email}</code>
+                    <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(createdCreds.email); toast.success('Correo copiado'); }}>
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Contraseña temporal</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm font-mono text-gray-900 select-all">{createdCreds.password}</code>
+                    <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(createdCreds.password); toast.success('Contraseña copiada'); }}>
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <Badge className="bg-amber-100 text-amber-700 text-xs">
+                El panel del alumno empieza en /rotations al iniciar sesión
+              </Badge>
+              <div className="flex justify-end">
+                <Button onClick={() => setCreatedCreds(null)} className="bg-blue-600 hover:bg-blue-700 text-white">Entendido</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal editar */}
       <Dialog open={Boolean(editingUser)} onOpenChange={(open) => { if (!open) setEditingUser(null); }}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader><DialogTitle>Editar usuario</DialogTitle></DialogHeader>
@@ -322,21 +411,18 @@ export function UserManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Confirmación de eliminación */}
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar usuario</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Eliminar usuario {deleteTarget?.email}? Esta acción no se puede deshacer.
+              ¿Eliminar <strong>{deleteTarget?.email}</strong>? Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={Boolean(deletingUserId)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleDelete()}
-              disabled={Boolean(deletingUserId)}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+            <AlertDialogAction onClick={() => void handleDelete()} disabled={Boolean(deletingUserId)} className="bg-red-600 hover:bg-red-700 text-white">
               {deletingUserId ? 'Eliminando...' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
