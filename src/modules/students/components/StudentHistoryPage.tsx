@@ -36,13 +36,13 @@ const statusClass = (s: string) => {
 
 const reviewLabel = (r: string) => {
   if (r === 'VALIDADO') return 'Validado';
-  if (r === 'OBSERVADO' || r === 'pending_review') return 'Observado';
+  if (r === 'OBSERVADO') return 'En revisión';
   return 'Pendiente';
 };
 
 const reviewClass = (r: string) => {
   if (r === 'VALIDADO') return 'bg-green-100 text-green-700';
-  if (r === 'OBSERVADO' || r === 'pending_review') return 'bg-orange-100 text-orange-700';
+  if (r === 'OBSERVADO') return 'bg-orange-100 text-orange-700';
   return 'bg-gray-100 text-gray-600';
 };
 

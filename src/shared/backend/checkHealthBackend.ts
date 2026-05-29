@@ -66,7 +66,7 @@ const SHORT_SESSION_MINUTES = 15;
 const LONG_SESSION_DAYS = 7;
 const MAX_HUMAN_SPEED_KMH = 140;
 const REVIEW_DELAY_MS = 250;
-const REQUIRED_PRACTICE_HOURS = 480;
+const REQUIRED_PRACTICE_HOURS = 240;
 const FAKE_GPS_CONFIDENCE_THRESHOLD = 0.8;
 
 const readBackendStorage = <T,>(key: string, fallback: T): T => {
@@ -372,7 +372,7 @@ const processLocationReviewJob = async (job: LocationReviewJob) => {
     const reason = `Desplazamiento inusual detectado: ${Math.round(speedKmh)} km/h entre registros.`;
     await supabase
       .from('attendances')
-      .update({ review_status: 'pending_review', suspicious_reason: reason })
+      .update({ review_status: 'OBSERVADO', suspicious_reason: reason })
       .eq('id', job.attendanceId);
     addCoordinatorAlert({
       attendanceId: job.attendanceId,
@@ -455,7 +455,7 @@ export const registerStudentCheckIn = async (params: {
         device_id: params.deviceId,
         device_fingerprint: params.deviceFingerprint,
         device_info: deviceInfo,
-        review_status: fakeGpsReason ? 'pending_review' : 'clear',
+        review_status: fakeGpsReason ? 'OBSERVADO' : 'PENDIENTE',
         suspicious_reason: fakeGpsReason,
         status: 'present',
       },
@@ -528,7 +528,7 @@ export const registerStudentCheckOut = async (params: {
       worked_hours: workedHours,
       device_id: params.deviceId ?? attendance.device_id,
       device_info: deviceInfo ?? attendance.device_info,
-      review_status: fakeGpsReason ? 'pending_review' : attendance.review_status,
+      review_status: fakeGpsReason ? 'OBSERVADO' : attendance.review_status,
       suspicious_reason: fakeGpsReason ?? attendance.suspicious_reason,
     })
     .eq('id', params.attendanceId)
