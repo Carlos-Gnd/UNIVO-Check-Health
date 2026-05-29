@@ -3,13 +3,13 @@ import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { CheckCircle2, Loader2, QrCode, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Loader2, QrCode, XCircle } from 'lucide-react';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getDeviceFingerprint, getDeviceInfo } from '@/modules/attendance/services/attendance.service';
 import { analyzeFakeGpsPattern } from '@/shared/backend/checkHealthBackend';
 import type { MotionSensorSample, GeoPointSample } from '@/modules/attendance/types';
 
-type ScanState = 'idle' | 'scanning' | 'validating' | 'success' | 'error';
+type ScanState = 'idle' | 'scanning' | 'validating' | 'success' | 'error' | 'countdown';
 
 const SENSOR_LIMIT = 30;
 
@@ -27,6 +27,30 @@ function peekQrPayload(token: string): { campus_id?: string; date?: string; exp?
   }
 }
 
+// Formatea segundos como MM:SS o HH:MM:SS
+function formatCountdown(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+// Calcula segundos hasta la hora HH:MM:SS en zona America/El_Salvador
+function secondsUntil(timeStr: string): number {
+  const now = new Date();
+  const svOffset = -6 * 60; // UTC-6 en minutos
+  const utcNow = now.getTime() + now.getTimezoneOffset() * 60000;
+  const svNow = new Date(utcNow + svOffset * 60000);
+
+  const [h, m, s] = timeStr.split(':').map(Number);
+  const target = new Date(svNow);
+  target.setHours(h, m, s ?? 0, 0);
+
+  const diff = Math.floor((target.getTime() - svNow.getTime()) / 1000);
+  return diff > 0 ? diff : 0;
+}
+
 export function StudentQrScannerPage() {
   const scannerDivId = 'qr-reader';
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
@@ -35,69 +59,74 @@ export function StudentQrScannerPage() {
   const [state, setState] = useState<ScanState>('idle');
   const [message, setMessage] = useState('');
 
-  // Muestras de sensores recopiladas mientras el escáner está activo (T-09.1)
+  // T-08b.3: countdown de ventana horaria
+  const [countdownSecs, setCountdownSecs] = useState(0);
+  const [windowOpen, setWindowOpen] = useState('');
+  const [windowClose, setWindowClose] = useState('');
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Muestras de sensores (T-09.1)
   const motionSamplesRef = useRef<MotionSensorSample[]>([]);
   const locationSamplesRef = useRef<GeoPointSample[]>([]);
 
-  // Listener de acelerómetro: arranca al montar, para tener muestras listas
   useEffect(() => {
     const handleMotion = (event: DeviceMotionEvent) => {
       const acceleration = event.accelerationIncludingGravity ?? event.acceleration;
       const rotation = event.rotationRate;
       if (!acceleration && !rotation) return;
-
       const accelerationMagnitude = Math.sqrt(
         (acceleration?.x ?? 0) ** 2 + (acceleration?.y ?? 0) ** 2 + (acceleration?.z ?? 0) ** 2,
       );
       const rotationRateMagnitude = Math.sqrt(
         (rotation?.alpha ?? 0) ** 2 + (rotation?.beta ?? 0) ** 2 + (rotation?.gamma ?? 0) ** 2,
       );
-
       motionSamplesRef.current = [
         ...motionSamplesRef.current,
-        {
-          timestamp: Date.now(),
-          accelerationMagnitude: Number(accelerationMagnitude.toFixed(4)),
-          rotationRateMagnitude: Number(rotationRateMagnitude.toFixed(4)),
-        },
+        { timestamp: Date.now(), accelerationMagnitude: Number(accelerationMagnitude.toFixed(4)), rotationRateMagnitude: Number(rotationRateMagnitude.toFixed(4)) },
       ].slice(-SENSOR_LIMIT);
     };
-
-    // iOS 13+ requiere permiso explícito para DeviceMotionEvent
     const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
     if (typeof dm.requestPermission === 'function') {
-      dm.requestPermission().then((perm) => {
-        if (perm === 'granted') window.addEventListener('devicemotion', handleMotion);
-      }).catch(() => undefined);
+      dm.requestPermission().then((p) => { if (p === 'granted') window.addEventListener('devicemotion', handleMotion); }).catch(() => undefined);
     } else {
       window.addEventListener('devicemotion', handleMotion);
     }
-
     return () => window.removeEventListener('devicemotion', handleMotion);
   }, []);
+
+  // Ticking countdown
+  useEffect(() => {
+    if (state !== 'countdown') {
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+      return;
+    }
+    countdownRef.current = setInterval(() => {
+      setCountdownSecs((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          countdownRef.current = null;
+          setState('idle');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+  }, [state]);
+
+  useEffect(() => () => { scannerRef.current?.clear().catch(() => undefined); }, []);
 
   const startScanner = () => {
     if (scannerRef.current) return;
     motionSamplesRef.current = [];
     locationSamplesRef.current = [];
     setState('scanning');
-
     const scanner = new Html5QrcodeScanner(
       scannerDivId,
-      {
-        fps: 10,
-        qrbox: { width: 260, height: 260 },
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-        rememberLastUsedCamera: true,
-      },
+      { fps: 10, qrbox: { width: 260, height: 260 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA], rememberLastUsedCamera: true },
       false,
     );
-
-    scanner.render(
-      (decodedText) => void handleScan(decodedText, scanner),
-      () => undefined,
-    );
-
+    scanner.render((decodedText) => void handleScan(decodedText, scanner), () => undefined);
     scannerRef.current = scanner;
   };
 
@@ -109,13 +138,32 @@ export function StudentQrScannerPage() {
     processingRef.current = false;
   };
 
+  // T-08b.3: tras un rechazo por ventana horaria, consulta los horarios de la sede y lanza countdown
+  const tryStartCountdown = async (campusId: string) => {
+    const { data } = await supabase
+      .from('campuses')
+      .select('check_in_from, check_in_to')
+      .eq('id', campusId)
+      .single();
+
+    if (!data?.check_in_from) return false;
+
+    const secs = secondsUntil(data.check_in_from);
+    if (secs <= 0) return false; // ventana ya abierta o sin datos
+
+    setWindowOpen(data.check_in_from.slice(0, 5));
+    setWindowClose(data.check_in_to ? data.check_in_to.slice(0, 5) : '');
+    setCountdownSecs(secs);
+    setState('countdown');
+    return true;
+  };
+
   const handleScan = async (text: string, scanner: Html5QrcodeScanner) => {
     if (processingRef.current) return;
     processingRef.current = true;
     scanner.pause(true);
     setState('validating');
 
-    // Verificación UX rápida del payload (sin validar firma)
     const peek = peekQrPayload(text);
     if (!peek?.campus_id) {
       setMessage('QR inválido: no contiene datos de sede.');
@@ -137,7 +185,6 @@ export function StudentQrScannerPage() {
       return;
     }
 
-    // Verificar sesión activa
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       setMessage('Sesión no encontrada. Vuelve a iniciar sesión.');
@@ -146,7 +193,6 @@ export function StudentQrScannerPage() {
       return;
     }
 
-    // Obtener GPS
     let coords: GeolocationCoordinates | null = null;
     try {
       const pos = await new Promise<GeolocationPosition>((res, rej) =>
@@ -160,13 +206,11 @@ export function StudentQrScannerPage() {
       return;
     }
 
-    // Agregar lectura GPS actual a location samples
     locationSamplesRef.current = [
       ...locationSamplesRef.current,
       { latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy, timestamp: Date.now() },
     ].slice(-SENSOR_LIMIT);
 
-    // Construir device info con análisis de GPS falso (T-09.1)
     const rawDeviceInfo = getDeviceInfo({
       location: { latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy },
       motionSamples: motionSamplesRef.current,
@@ -174,7 +218,6 @@ export function StudentQrScannerPage() {
     });
     const analyzedDeviceInfo = analyzeFakeGpsPattern(rawDeviceInfo);
 
-    // Llamar Edge Function — la firma RS256 se verifica en el servidor
     const { data, error } = await supabase.functions.invoke('validate-qr-checkin', {
       body: {
         qr_token: text,
@@ -187,7 +230,20 @@ export function StudentQrScannerPage() {
     });
 
     if (error || !data?.ok) {
-      setMessage(data?.message ?? error?.message ?? 'Error al validar el check-in.');
+      const msg: string = data?.message ?? error?.message ?? 'Error al validar el check-in.';
+
+      // T-08b.3: si el rechazo es por ventana horaria, mostrar countdown
+      if (msg.toLowerCase().includes('horario') || msg.toLowerCase().includes('ventana')) {
+        const started = await tryStartCountdown(peek.campus_id);
+        if (started) {
+          scanner.clear().catch(() => undefined);
+          scannerRef.current = null;
+          processingRef.current = false;
+          return;
+        }
+      }
+
+      setMessage(msg);
       setState('error');
       scanner.resume();
       processingRef.current = false;
@@ -201,8 +257,6 @@ export function StudentQrScannerPage() {
     processingRef.current = false;
   };
 
-  useEffect(() => () => { scannerRef.current?.clear().catch(() => undefined); }, []);
-
   return (
     <div className="space-y-4 max-w-lg mx-auto">
       <h2 className="text-2xl font-semibold text-gray-900">Escanear QR de entrada</h2>
@@ -214,6 +268,7 @@ export function StudentQrScannerPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+
           {state === 'idle' && (
             <div className="text-center py-6 space-y-3">
               <p className="text-sm text-gray-600">
@@ -242,15 +297,38 @@ export function StudentQrScannerPage() {
             </div>
           )}
 
+          {/* T-08b.3: pantalla de countdown cuando el check-in está fuera de ventana horaria */}
+          {state === 'countdown' && (
+            <div className="flex flex-col items-center gap-4 py-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                <Clock className="w-8 h-8 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700">El check-in aún no está habilitado</p>
+                {windowOpen && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ventana: <strong>{windowOpen}</strong>{windowClose ? ` – ${windowClose}` : ''}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-8 py-4">
+                <p className="text-xs text-amber-600 uppercase tracking-widest mb-1">Abre en</p>
+                <p className="text-4xl font-mono font-bold text-amber-700 tabular-nums">
+                  {formatCountdown(countdownSecs)}
+                </p>
+              </div>
+              <Badge className="bg-amber-100 text-amber-700">
+                El escáner se habilitará automáticamente
+              </Badge>
+            </div>
+          )}
+
           {state === 'success' && (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <CheckCircle2 className="w-12 h-12 text-green-500" />
               <Badge className="bg-green-100 text-green-700 text-sm px-3 py-1">Entrada registrada</Badge>
               <p className="text-sm text-gray-600">{message}</p>
-              <Button
-                variant="outline"
-                onClick={() => { setState('idle'); setMessage(''); }}
-              >
+              <Button variant="outline" onClick={() => { setState('idle'); setMessage(''); }}>
                 Escanear otro QR
               </Button>
             </div>
@@ -265,6 +343,7 @@ export function StudentQrScannerPage() {
               </Button>
             </div>
           )}
+
         </CardContent>
       </Card>
 
