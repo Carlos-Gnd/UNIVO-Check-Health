@@ -236,14 +236,14 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-surface to-white">
-      <header className="bg-white/95 border-b border-brand-100 shadow-[0_2px_16px_rgba(26,45,107,0.08)] sticky top-0 z-50 backdrop-blur">
+      <header className="bg-brand-700 border-b border-brand-800 shadow-[0_2px_16px_rgba(26,45,107,0.15)] sticky top-0 z-50 backdrop-blur">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white border border-gold-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-sm"><img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-8 h-8 object-contain" /></div>
-              <div><h1 className="text-base sm:text-lg leading-tight font-semibold text-brand-900">UNIVO Check-Health</h1><p className="text-xs text-brand-600">Sistema de Asistencias</p></div>
+              <div><h1 className="text-base sm:text-lg leading-tight font-semibold text-white">UNIVO Check-Health</h1><p className="text-xs text-gold-200">Sistema de Asistencias</p></div>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 rounded-md text-brand-700 hover:text-brand-900 hover:bg-brand-50">{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 rounded-md text-white hover:text-gold-200 hover:bg-brand-600">{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
           </div>
         </div>
       </header>
@@ -271,9 +271,9 @@ export function MainLayout() {
             })}
           </nav>
           <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/30">
-            <div className="border-l-4 border-gold-500 bg-brand-900/50 p-3 rounded-md shadow-sm">
-              <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
-              <p className="text-xs text-gold-200 mt-0.5">{currentRole}</p>
+            <div className="border-l-4 border-gold-500 bg-white p-3 rounded-md shadow-sm">
+              <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
+              <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
             </div>
             <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
               <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
@@ -304,9 +304,9 @@ export function MainLayout() {
                 );
               })}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                <div className="border-l-4 border-gold-500 bg-brand-900/50 p-3 rounded-md shadow-sm">
-                  <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
-                  <p className="text-xs text-gold-200 mt-0.5">{currentRole}</p>
+                <div className="border-l-4 border-gold-500 bg-white p-3 rounded-md shadow-sm">
+                  <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
+                  <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
                 </div>
                 <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
                   <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
