@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
@@ -25,7 +26,7 @@ const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
   localStorage.setItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY, JSON.stringify([...ids]));
 };
 
-function LiveMap() {
+function LiveMap({ campusFilter, careerFilter }: { campusFilter: string; careerFilter: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
@@ -33,15 +34,31 @@ function LiveMap() {
   const [studentCount, setStudentCount] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
+  // Refs para evitar stale closures en callbacks async
+  const campusFilterRef = useRef(campusFilter);
+  const careerFilterRef = useRef(careerFilter);
+  campusFilterRef.current = campusFilter;
+  careerFilterRef.current = careerFilter;
+
   const refreshMarkers = async (L: any) => {
-    const students = await getActiveStudentsSnapshot();
-    setStudentCount(students.length);
+    const all = await getActiveStudentsSnapshot();
+    const filtered = all.filter((s) => {
+      if (campusFilterRef.current !== 'all' && s.practiceId !== campusFilterRef.current) return false;
+      if (careerFilterRef.current !== 'all' && s.career !== careerFilterRef.current) return false;
+      return true;
+    });
+    setStudentCount(filtered.length);
     if (!markersLayer.current) return;
     markersLayer.current.clearLayers();
-    students.forEach((s) => {
+    filtered.forEach((s) => {
       if (!s.lastLocation) return;
       L.marker([s.lastLocation.latitude, s.lastLocation.longitude])
-        .bindPopup(`<b>${s.studentName}</b><br/>${s.siteName}<br/>${s.hoursToday.toFixed(1)} h hoy`)
+        .bindPopup(
+          `<b style="font-size:13px">${s.studentName}</b>` +
+          (s.carnet ? `<br/><span style="font-size:11px;color:#6b7280">${s.carnet}</span>` : '') +
+          `<br/><span style="font-size:11px">${s.siteName}</span>` +
+          `<br/><span style="font-size:11px;color:#2563eb">${s.hoursToday.toFixed(1)} h hoy</span>`,
+        )
         .addTo(markersLayer.current);
     });
   };
@@ -99,6 +116,11 @@ function LiveMap() {
     };
   }, []);
 
+  // Re-renderizar marcadores cuando cambian los filtros
+  useEffect(() => {
+    if (leafletModule.current) void refreshMarkers(leafletModule.current);
+  }, [campusFilter, careerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -121,10 +143,26 @@ function LiveMap() {
 
 export function DeanDashboardPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { students, locations, globalStats, isLoading, loadData, setFilter } = useDeanStore();
   const [sharedDeviceAlerts, setSharedDeviceAlerts] = useState<SharedDeviceAlert[]>([]);
   const [resolvedAlertIds, setResolvedAlertIds] = useState<Set<string>>(() => readResolvedSharedDeviceAlerts());
   const [riskPage, setRiskPage] = useState(0);
+
+  // T-18.3: filtros de mapa persistidos en URL
+  const campusFilter = searchParams.get('campus') ?? 'all';
+  const careerFilter = searchParams.get('career') ?? 'all';
+
+  const setMapFilter = (key: 'campus' | 'career', value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value === 'all') next.delete(key); else next.set(key, value);
+      return next;
+    }, { replace: true });
+  };
+
+  const campusOptions = useMemo(() => locations.map((l) => ({ id: l.id, name: l.name })), [locations]);
+  const careerOptions = useMemo(() => [...new Set(students.map((s) => s.career).filter(Boolean))], [students]);
 
   useEffect(() => {
     void loadData();
@@ -295,8 +333,26 @@ export function DeanDashboardPage() {
         </Card>
       </div>
 
-      {/* T-18.1: Mapa de estudiantes activos */}
-      <LiveMap />
+      {/* T-18.3: Filtros de mapa (estado en URL) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Select value={campusFilter} onValueChange={(v) => setMapFilter('campus', v)}>
+          <SelectTrigger><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las sedes</SelectItem>
+            {campusOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={careerFilter} onValueChange={(v) => setMapFilter('career', v)}>
+          <SelectTrigger><SelectValue placeholder="Todas las carreras" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las carreras</SelectItem>
+            {careerOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* T-18.1 / T-18.2: Mapa Realtime con filtros y tooltip con carnet */}
+      <LiveMap campusFilter={campusFilter} careerFilter={careerFilter} />
 
       {/* T-07.1: Resumen por sede */}
       <Card>

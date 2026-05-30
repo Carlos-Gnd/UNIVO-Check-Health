@@ -15,7 +15,9 @@ import {
   subMonths,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -93,6 +95,32 @@ export function RotationsCalendarPage() {
   const selectedDayEntries = selectedDay ? dayEntries(selectedDay, visibleWindows) : [];
   const today = new Date();
 
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const dateStr = format(new Date(), 'dd/MM/yyyy');
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('UNIVO Check-Health — Calendario de Rotaciones', 14, 16);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${dateStr}  |  Rotaciones: ${visibleWindows.length}`, 14, 23);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Alumno', 'Carrera', 'Sede', 'Supervisor', 'Horario', 'Inicio', 'Fin']],
+      body: visibleWindows.map((w) => [
+        w.studentName, w.career, w.campusName, w.supervisorName,
+        w.schedule, w.startDate, w.endDate,
+      ]),
+      headStyles: { fillColor: [30, 58, 107], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [245, 245, 250] },
+    });
+
+    doc.save(`rotaciones_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  };
+
   const exportXlsx = async () => {
     const { utils, writeFile } = await import('xlsx');
     const data = visibleWindows.map((w) => ({
@@ -131,8 +159,11 @@ export function RotationsCalendarPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <FileText className="h-4 w-4 mr-1.5" />PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void exportXlsx()}>
-            <Download className="h-4 w-4 mr-1.5" />Exportar .xlsx
+            <Download className="h-4 w-4 mr-1.5" />Excel
           </Button>
           <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
             <ChevronLeft className="h-4 w-4" />
