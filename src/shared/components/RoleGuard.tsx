@@ -10,8 +10,8 @@ const ROLE_HOME: Record<UserRole, string> = {
   STUDENT: '/rotations',
   COORDINATOR: '/',
   COORDINADOR: '/',
-  TEACHER: '/',
-  DOCENTE: '/',
+  TEACHER: '/teacher/dashboard',
+  DOCENTE: '/teacher/dashboard',
 };
 
 export function RoleGuard({

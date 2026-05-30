@@ -38,6 +38,7 @@ type CampusRow = {
   start_date: string | null;
   end_date: string | null;
   description: string | null;
+  is_active: boolean;
 };
 
 type SharedDeviceAlertRow = {
@@ -131,12 +132,11 @@ export async function fetchDeanStudents(): Promise<DeanStudent[]> {
 export async function fetchDeanLocations(): Promise<Location[]> {
   const { data, error } = await supabase
     .from('campuses')
-    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description')
+    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active')
     .order('name');
 
   if (error || !data) return [];
 
-  const today = new Date().toISOString().slice(0, 10);
   return (data as CampusRow[]).map((c) => ({
     id: c.id,
     name: c.name,
@@ -152,9 +152,27 @@ export async function fetchDeanLocations(): Promise<Location[]> {
     doctorStatus: 'active' as const,
     totalStudents: 0,
     averageCompliance: 0,
-    status: (!c.end_date || c.end_date >= today ? 'active' : 'inactive') as 'active' | 'inactive',
+    status: (c.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
     students: [],
   }));
+}
+
+export async function toggleCampusActive(id: string, isActive: boolean): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase
+    .from('campuses')
+    .update({ is_active: isActive })
+    .eq('id', id);
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+export async function toggleUserActive(id: string, isActive: boolean): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase
+    .from('users')
+    .update({ is_active: isActive })
+    .eq('id', id);
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
 }
 
 export async function fetchDeanData(): Promise<{

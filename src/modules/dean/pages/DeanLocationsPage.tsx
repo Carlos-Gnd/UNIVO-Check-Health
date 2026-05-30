@@ -1,21 +1,31 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Loader2, MapPin, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Download, Loader2, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import type { Location } from '@/modules/dean/types';
-import { createCampus, updateCampus, deleteCampus, type CampusFormData } from '@/modules/dean/services/dean.service';
+import { createCampus, updateCampus, deleteCampus, toggleCampusActive, type CampusFormData } from '@/modules/dean/services/dean.service';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { Switch } from '@/shared/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { toast } from 'sonner';
+import { supabase } from '@/shared/backend/supabaseClient';
 
 const EMPTY_FORM: CampusFormData = {
   name: '', latitude: '', longitude: '', radius_meters: '100',
   location_label: '', supervisor_name: '', supervisor_phone: '',
   schedule: '', start_date: '', end_date: '', description: '',
   check_in_from: '', check_in_to: '',
+};
+
+type QrModal = {
+  campusId: string;
+  campusName: string;
+  qrDataUrl: string;
+  shortCode: string;
+  date: string;
 };
 
 export function DeanLocationsPage() {
@@ -28,6 +38,9 @@ export function DeanLocationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Location | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [qrModal, setQrModal] = useState<QrModal | null>(null);
+  const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadData();
@@ -106,6 +119,36 @@ export function DeanLocationsPage() {
   const set = (field: keyof CampusFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
+  const handleGenerateQr = async (campusId: string, campusName: string) => {
+    setGeneratingQrId(campusId);
+    const { data, error } = await supabase.functions.invoke('generate-campus-qr', {
+      body: { campus_id: campusId },
+    });
+    setGeneratingQrId(null);
+    if (error || !data?.qr_data_url) {
+      toast.error(data?.error ?? 'No se pudo generar el QR. Verifica la configuración del servidor.');
+      return;
+    }
+    setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, shortCode: data.short_code ?? '', date: data.date });
+  };
+
+  const handleToggleActive = async (l: Location) => {
+    setTogglingId(l.id);
+    const result = await toggleCampusActive(l.id, l.status === 'inactive');
+    setTogglingId(null);
+    if (!result.ok) { toast.error(result.message ?? 'Error al cambiar estado'); return; }
+    toast.success(l.status === 'active' ? `${l.name} desactivada` : `${l.name} activada`);
+    void loadData();
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrModal) return;
+    const a = document.createElement('a');
+    a.href = qrModal.qrDataUrl;
+    a.download = `qr_${qrModal.campusName.replace(/\s+/g, '_')}_${qrModal.date}.png`;
+    a.click();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 gap-2 text-gray-500">
@@ -156,9 +199,20 @@ export function DeanLocationsPage() {
                     <MapPin className="w-3 h-3" />{l.address}
                   </p>
                 </div>
-                <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
-                  {l.status === 'active' ? 'Activa' : 'Inactiva'}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
+                    {l.status === 'active' ? 'Activa' : 'Inactiva'}
+                  </Badge>
+                  {togglingId === l.id
+                    ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    : (
+                      <Switch
+                        checked={l.status === 'active'}
+                        onCheckedChange={() => void handleToggleActive(l)}
+                        aria-label={l.status === 'active' ? 'Desactivar sede' : 'Activar sede'}
+                      />
+                    )}
+                </div>
               </div>
 
               <div className="space-y-1 text-sm text-gray-700">
@@ -186,6 +240,17 @@ export function DeanLocationsPage() {
               <div className="flex gap-2 pt-1">
                 <Button className="flex-1" variant="outline" size="sm" onClick={() => setSelectedLocation(l)}>
                   Ver detalle
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Generar QR del día"
+                  disabled={generatingQrId === l.id}
+                  onClick={() => void handleGenerateQr(l.id, l.name)}
+                >
+                  {generatingQrId === l.id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <QrCode className="w-3.5 h-3.5" />}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => openEdit(l)}>
                   <Pencil className="w-3.5 h-3.5" />
@@ -295,6 +360,45 @@ export function DeanLocationsPage() {
 
       {/* Modal detalle de sede */}
       <LocationDetailModal location={selectedLocation} onClose={() => setSelectedLocation(null)} />
+
+      {/* Modal QR del día — T-08.1 */}
+      <Dialog open={Boolean(qrModal)} onOpenChange={(open) => !open && setQrModal(null)}>
+        <DialogContent className="sm:max-w-sm">
+          {qrModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <QrCode className="w-4 h-4" /> QR de hoy — {qrModal.campusName}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-2">
+                <img
+                  src={qrModal.qrDataUrl}
+                  alt={`QR ${qrModal.campusName}`}
+                  className="rounded-lg border shadow-sm"
+                  width={280}
+                  height={280}
+                />
+                {qrModal.shortCode && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 mb-1">Código manual (sin cámara)</p>
+                    <p className="text-3xl font-mono font-bold tracking-widest text-gray-900 select-all">
+                      {qrModal.shortCode}
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 text-center">
+                  Válido el <strong>{qrModal.date}</strong> hasta las 23:59.<br />
+                  El alumno escanea el QR o ingresa el código de 6 letras en la app.
+                </p>
+                <Button variant="outline" className="w-full" onClick={handleDownloadQr}>
+                  <Download className="w-4 h-4 mr-2" />Descargar PNG
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
