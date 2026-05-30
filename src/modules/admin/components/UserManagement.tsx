@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Copy, KeyRound, Loader2, Pencil, RefreshCw, Trash2, UserPlus } from 'lucide-react';
+import { BookOpen, Copy, IdCard, KeyRound, Loader2, Pencil, Puzzle, RefreshCw, ShieldCheck, Trash2, User, UserPlus } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
@@ -192,7 +192,7 @@ export function UserManagement() {
     toast.success('Link de restablecimiento copiado al portapapeles');
   };
 
-  const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+  const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-brand-100 text-brand-700' : 'bg-green-100 text-green-700';
   const roleLabel  = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
   return (
@@ -202,7 +202,7 @@ export function UserManagement() {
           <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
           <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso.</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setCreateOpen(true)}>
+        <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={() => setCreateOpen(true)}>
           <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
         </Button>
       </div>
@@ -234,7 +234,7 @@ export function UserManagement() {
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className={`hover:bg-gray-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
+                  <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
@@ -291,14 +291,14 @@ export function UserManagement() {
       {/* Modal crear usuario */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-2xl">
-          <DialogHeader><DialogTitle>Nuevo usuario</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-brand-700" />Nuevo usuario</DialogTitle></DialogHeader>
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="create-fullName" className="text-xs uppercase tracking-wide text-gray-600">Nombre completo</Label>
+              <Label htmlFor="create-fullName" className="text-xs uppercase tracking-wide text-brand-700"><User className="h-3.5 w-3.5" />Nombre completo</Label>
               <Input id="create-fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="María Fernanda García" required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-gray-600">Carné / Código</Label>
+              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-brand-700"><IdCard className="h-3.5 w-3.5" />Carné / Código</Label>
               <Input
                 id="create-studentCode"
                 value={studentCode}
@@ -308,32 +308,32 @@ export function UserManagement() {
                 required
               />
               {derivedEmail && (
-                <p className="text-xs text-gray-400">
-                  Correo de acceso: <span className="text-gray-700 font-medium select-all">{derivedEmail}</span>
+                <p className="text-xs text-slate-500">
+                  Correo de acceso: <span className="text-brand-800 font-medium select-all">{derivedEmail}</span>
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="create-role" className="text-xs uppercase tracking-wide text-gray-600">Rol</Label>
-              <select id="create-role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <Label htmlFor="create-role" className="text-xs uppercase tracking-wide text-brand-700"><Puzzle className="h-3.5 w-3.5" />Rol</Label>
+              <select id="create-role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                 {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {role === 'STUDENT' && (
               <div className="space-y-1.5">
-                <Label htmlFor="create-career" className="text-xs uppercase tracking-wide text-gray-600">Carrera</Label>
-                <select id="create-career" value={career} onChange={(e) => setCareer(e.target.value)} className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <Label htmlFor="create-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
+                <select id="create-career" value={career} onChange={(e) => setCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                   {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="create-password" className="text-xs uppercase tracking-wide text-gray-600">Contraseña temporal</Label>
+              <Label htmlFor="create-password" className="text-xs uppercase tracking-wide text-brand-700"><ShieldCheck className="h-3.5 w-3.5" />Contraseña temporal</Label>
               <Input id="create-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required />
-              <p className="text-xs text-gray-400">Se muestra en texto para que puedas copiarla.</p>
+              <p className="text-xs text-slate-500">Se muestra en texto para que puedas copiarla.</p>
             </div>
             <div className="sm:col-span-2 flex justify-end pt-2">
-              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" disabled={isSubmitting} className="bg-brand-800 hover:bg-brand-900 text-white shadow-sm shadow-brand-900/15">
                 {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : <><UserPlus className="w-4 h-4 mr-2" />Crear usuario</>}
               </Button>
             </div>
@@ -344,13 +344,13 @@ export function UserManagement() {
       {/* Modal credenciales creadas */}
       <Dialog open={Boolean(createdCreds)} onOpenChange={() => setCreatedCreds(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Usuario creado exitosamente</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" />Usuario creado exitosamente</DialogTitle></DialogHeader>
           {createdCreds && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
                 Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.
               </p>
-              <div className="space-y-3 rounded-lg bg-gray-50 p-4">
+              <div className="space-y-3 rounded-lg bg-brand-50 p-4">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Correo de acceso</p>
                   <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export function UserManagement() {
                 El panel del alumno empieza en /rotations al iniciar sesión
               </Badge>
               <div className="flex justify-end">
-                <Button onClick={() => setCreatedCreds(null)} className="bg-blue-600 hover:bg-blue-700 text-white">Entendido</Button>
+                <Button onClick={() => setCreatedCreds(null)} className="bg-brand-700 hover:bg-brand-800 text-white">Entendido</Button>
               </div>
             </div>
           )}
@@ -384,28 +384,28 @@ export function UserManagement() {
       {/* Modal editar */}
       <Dialog open={Boolean(editingUser)} onOpenChange={(open) => { if (!open) setEditingUser(null); }}>
         <DialogContent className="sm:max-w-xl">
-          <DialogHeader><DialogTitle>Editar usuario</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5 text-brand-700" />Editar usuario</DialogTitle></DialogHeader>
           <form onSubmit={handleEdit} className="grid grid-cols-1 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-name" className="text-xs uppercase tracking-wide text-gray-600">Nombre completo</Label>
+              <Label htmlFor="edit-name" className="text-xs uppercase tracking-wide text-brand-700"><User className="h-3.5 w-3.5" />Nombre completo</Label>
               <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-role" className="text-xs uppercase tracking-wide text-gray-600">Rol</Label>
-              <select id="edit-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <Label htmlFor="edit-role" className="text-xs uppercase tracking-wide text-brand-700"><Puzzle className="h-3.5 w-3.5" />Rol</Label>
+              <select id="edit-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                 {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {editRole === 'STUDENT' && (
               <div className="space-y-1.5">
-                <Label htmlFor="edit-career" className="text-xs uppercase tracking-wide text-gray-600">Carrera</Label>
-                <select id="edit-career" value={editCareer} onChange={(e) => setEditCareer(e.target.value)} className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <Label htmlFor="edit-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
+                <select id="edit-career" value={editCareer} onChange={(e) => setEditCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                   {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             )}
             <div className="flex justify-end pt-2">
-              <Button type="submit" disabled={isSavingEdit} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" disabled={isSavingEdit} className="bg-brand-800 hover:bg-brand-900 text-white shadow-sm shadow-brand-900/15">
                 {isSavingEdit ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : 'Guardar cambios'}
               </Button>
             </div>
@@ -417,7 +417,7 @@ export function UserManagement() {
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar usuario</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-red-600" />Eliminar usuario</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Eliminar <strong>{deleteTarget?.email}</strong>? Esta acción no se puede deshacer.
             </AlertDialogDescription>

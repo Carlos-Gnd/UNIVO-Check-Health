@@ -219,13 +219,13 @@ export function RotationsCalendarPage() {
                   key={day.toISOString()}
                   onClick={() => role === 'SUPERVISOR' && setSelectedDay(day)}
                   className={`min-h-28 rounded-lg border p-2 text-left transition-colors ${
-                    inMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 text-gray-400'
+                    inMonth ? 'bg-white hover:bg-brand-50/40' : 'bg-brand-50/20 text-gray-400'
                   }`}
                 >
                   <p className="text-xs font-semibold">{format(day, 'd')}</p>
                   <div className="mt-1 space-y-1">
                     {(role === 'STUDENT' ? studentEntries : entries).slice(0, 2).map((e, idx) => (
-                      <div key={`${e.studentName}-${idx}`} className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-800">
+                      <div key={`${e.studentName}-${idx}`} className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-700">
                         {role === 'STUDENT' ? e.campusName : e.studentName}
                       </div>
                     ))}

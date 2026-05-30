@@ -225,8 +225,8 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Total Estudiantes</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
-              <Users className="w-4 h-4 text-slate-400" />
+            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
+              <Users className="w-4 h-4 text-brand-500" />
             </div>
           </CardHeader>
           <CardContent>
@@ -238,8 +238,8 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Asistencias Hoy</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
-              <CheckCircle className="w-4 h-4 text-slate-400" />
+            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-brand-500" />
             </div>
           </CardHeader>
           <CardContent>
@@ -251,8 +251,8 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Prácticas Activas</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-slate-400" />
+            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-brand-500" />
             </div>
           </CardHeader>
           <CardContent>
@@ -264,8 +264,8 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">Tasa de Asistencia</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-slate-400" />
+            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-brand-500" />
             </div>
           </CardHeader>
           <CardContent>
@@ -280,7 +280,7 @@ export function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-600" />
+            <Activity className="w-4 h-4 text-brand-700" />
             Indicadores Clave del Ciclo
           </h3>
           <span className="text-xs text-gray-400">
@@ -454,7 +454,7 @@ export function Dashboard() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="asistencias" fill="#3b82f6" name="Asistencias" />
+                  <Bar dataKey="asistencias" fill="var(--ch-navy-500)" name="Asistencias" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -498,7 +498,7 @@ export function Dashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-blue-600" />
+                <MapPin className="w-4 h-4 text-brand-700" />
                 Estudiantes Activos por Sede
               </CardTitle>
               <CardDescription>
@@ -568,10 +568,10 @@ export function Dashboard() {
                       style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)', zIndex: isExpanded ? 20 : 10 }}
                     >
                       {/* Pulso animado para sedes con estudiantes activos */}
-                      <span className="absolute inset-0 rounded-full bg-blue-400 opacity-20 animate-ping" />
+                      <span className="absolute inset-0 rounded-full bg-brand-400 opacity-20 animate-ping" />
                       <div
                         className={`relative rounded-xl border-2 shadow-md cursor-pointer transition-all duration-200 bg-white ${
-                          isExpanded ? 'border-blue-600 shadow-lg' : 'border-blue-400 hover:border-blue-600'
+                          isExpanded ? 'border-brand-700 shadow-lg' : 'border-brand-400 hover:border-brand-700'
                         }`}
                         onClick={() => setExpandedSede(isExpanded ? null : group.siteName)}
                       >
@@ -579,7 +579,7 @@ export function Dashboard() {
                           <p className="text-xs font-bold text-gray-900 truncate max-w-[130px]">
                             {group.siteName.replace(/^(Hospital|Unidad de Salud|Centro de) /, '')}
                           </p>
-                          <p className="text-xs text-blue-600 font-semibold">
+                          <p className="text-xs text-brand-700 font-semibold">
                             {group.students.length} activo{group.students.length !== 1 ? 's' : ''}
                           </p>
                           {/* Lista compacta de estudiantes */}
@@ -588,7 +588,7 @@ export function Dashboard() {
                               {group.students.map((s) => (
                                 <button
                                   key={s.studentId}
-                                  className="block w-full text-left text-xs text-gray-700 hover:text-blue-600 truncate"
+                                  className="block w-full text-left text-xs text-gray-700 hover:text-brand-700 truncate"
                                   onClick={(e) => { e.stopPropagation(); setSelectedStudent(s); }}
                                 >
                                   • {s.studentName.split(' ').slice(0, 2).join(' ')}
@@ -606,8 +606,8 @@ export function Dashboard() {
               {/* Leyenda de sedes */}
               <div className="flex flex-wrap gap-2">
                 {sedeGroups.map((group) => (
-                  <Badge key={group.siteName} className="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-normal">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block mr-1.5" />
+                  <Badge key={group.siteName} className="bg-brand-50 text-brand-700 border border-brand-200 text-xs font-normal">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 inline-block mr-1.5" />
                     {group.siteName} · {group.students.length}
                   </Badge>
                 ))}
@@ -635,9 +635,9 @@ export function Dashboard() {
                     <p className="text-xs text-gray-500 mb-1">Sede</p>
                     <p className="font-medium text-gray-900 text-xs leading-tight">{selectedStudent.siteName}</p>
                   </div>
-                  <div className="rounded-lg bg-blue-50 p-3">
-                    <p className="text-xs text-blue-600 mb-1">Horas hoy</p>
-                    <p className="text-xl font-bold text-blue-700">{selectedStudent.hoursToday.toFixed(2)} h</p>
+                  <div className="rounded-lg bg-brand-50 p-3">
+                    <p className="text-xs text-brand-700 mb-1">Horas hoy</p>
+                    <p className="text-xl font-bold text-brand-700">{selectedStudent.hoursToday.toFixed(2)} h</p>
                   </div>
                   <div className="rounded-lg bg-green-50 p-3">
                     <p className="text-xs text-green-600 mb-1">Total ciclo</p>
@@ -678,7 +678,7 @@ export function Dashboard() {
               activeStudents.map((student) => (
                 <div
                   key={`${student.studentId}-${student.practiceId}`}
-                  className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg bg-gray-50 p-4"
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg bg-brand-50/40 p-4"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-900">{student.studentName}</p>
@@ -714,7 +714,7 @@ export function Dashboard() {
               recentActivity.map((activity) => (
                 <div
                   key={activity.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-brand-50/40 rounded-lg"
                 >
                   <div className="flex items-center gap-4">
                     <div

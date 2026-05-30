@@ -125,13 +125,13 @@ function LiveMap({ campusFilter, careerFilter }: { campusFilter: string; careerF
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-blue-600" />Estudiantes activos en tiempo real
+          <MapPin className="w-4 h-4 text-brand-700" />Estudiantes activos en tiempo real
         </CardTitle>
         <div className="flex items-center gap-2">
           <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
             {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
           </Badge>
-          <Badge className="bg-blue-100 text-blue-700">{studentCount} en sedes</Badge>
+          <Badge className="bg-brand-100 text-brand-700">{studentCount} en sedes</Badge>
         </div>
       </CardHeader>
       <CardContent className="p-0 overflow-hidden rounded-b-lg">
@@ -310,7 +310,7 @@ export function DeanDashboardPage() {
                   <p className="mt-2 text-sm text-gray-600">
                     {s.compliancePercentage}% cumplimiento · {s.goalHours - s.completedHours} h faltantes
                   </p>
-                  <Button variant="link" className="mt-2 h-auto p-0 text-blue-700" onClick={() => openStudentProfile(s.id)}>
+                  <Button variant="link" className="mt-2 h-auto p-0 text-brand-700" onClick={() => openStudentProfile(s.id)}>
                     Ver perfil
                   </Button>
                 </div>
@@ -365,7 +365,7 @@ export function DeanDashboardPage() {
               <button
                 key={l.id}
                 onClick={() => navigate(`/dean/locations`)}
-                className="rounded-lg border p-4 text-left hover:bg-gray-50 transition-colors"
+                className="rounded-lg border p-4 text-left hover:bg-brand-50 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-gray-900 truncate">{l.name}</p>
@@ -404,8 +404,8 @@ function StatCard({
     <Card className={danger ? 'border-red-200' : ''}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-        <div className={`w-8 h-8 rounded-md flex items-center justify-center ${danger ? 'bg-red-50' : 'bg-slate-50'}`}>
-          <Icon className={`h-4 w-4 ${danger ? 'text-red-500' : 'text-slate-400'}`} />
+        <div className={`w-8 h-8 rounded-md flex items-center justify-center ${danger ? 'bg-red-50' : 'bg-brand-50'}`}>
+          <Icon className={`h-4 w-4 ${danger ? 'text-red-500' : 'text-brand-500'}`} />
         </div>
       </CardHeader>
       <CardContent>

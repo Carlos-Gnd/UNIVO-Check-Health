@@ -30,7 +30,7 @@ export function Practices() {
 
   const statusColor = (start: string, end: string) => {
     const now = new Date();
-    if (now < new Date(start)) return 'bg-blue-100 text-blue-800';
+    if (now < new Date(start)) return 'bg-brand-100 text-brand-800';
     if (now > new Date(end)) return 'bg-gray-100 text-gray-800';
     return 'bg-green-100 text-green-800';
   };
@@ -77,7 +77,7 @@ export function Practices() {
               </CardHeader>
               <CardContent className="space-y-3 flex-1">
                 <div className="flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                  <MapPin className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{p.location}</p>
                     <p className="text-xs text-gray-500">Ubicación</p>
@@ -86,7 +86,7 @@ export function Practices() {
 
                 {p.supervisor && (
                   <div className="flex items-start gap-2.5">
-                    <User className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <User className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{p.supervisor}</p>
                       <p className="text-xs text-gray-500">Supervisor</p>
@@ -96,7 +96,7 @@ export function Practices() {
 
                 {p.schedule && (
                   <div className="flex items-start gap-2.5">
-                    <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <Clock className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">{p.schedule}</p>
                       <p className="text-xs text-gray-500">Horario</p>
@@ -106,7 +106,7 @@ export function Practices() {
 
                 {p.startDate && p.endDate && (
                   <div className="flex items-start gap-2.5">
-                    <Calendar className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <Calendar className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">
                         {format(new Date(p.startDate), 'dd/MM/yyyy')} — {format(new Date(p.endDate), 'dd/MM/yyyy')}
@@ -117,9 +117,9 @@ export function Practices() {
                 )}
 
                 <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-3">
-                  <div className="text-center p-2.5 bg-blue-50 rounded-lg">
-                    <p className="text-xl font-semibold text-blue-900">{stats.activeStudents}</p>
-                    <p className="text-xs text-blue-600">Estudiantes</p>
+                  <div className="text-center p-2.5 bg-brand-50 rounded-lg">
+                    <p className="text-xl font-semibold text-brand-900">{stats.activeStudents}</p>
+                    <p className="text-xs text-brand-700">Estudiantes</p>
                   </div>
                   <div className="text-center p-2.5 bg-green-50 rounded-lg">
                     <p className="text-xl font-semibold text-green-900">{stats.totalAttendance}</p>

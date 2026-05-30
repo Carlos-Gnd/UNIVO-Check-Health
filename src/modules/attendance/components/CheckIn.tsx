@@ -208,7 +208,7 @@ function FeedEvent({ event }: {
 }) {
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${
-      event.isNew ? 'bg-blue-50 border-blue-200 animate-in slide-in-from-top-2' : 'bg-gray-50 border-transparent'
+      event.isNew ? 'bg-brand-50 border-brand-200 animate-in slide-in-from-top-2' : 'bg-gray-50 border-transparent'
     }`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
         event.type === 'checkin' ? 'bg-green-100' : 'bg-orange-100'
@@ -266,7 +266,7 @@ function AttendanceHistory({ students, practices }: { students: Student[]; pract
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <History className="w-4 h-4 text-blue-600" />
+          <History className="w-4 h-4 text-brand-700" />
           Historial de Asistencias
         </CardTitle>
         <CardDescription>Selecciona un estudiante para ver su historial completo</CardDescription>
@@ -647,7 +647,7 @@ const handleCheckOut = async (attendanceId: string) => {
         {/* Formulario de check-in */}
         <Card>
           <CardHeader>
-            <CardTitle>Nuevo Registro</CardTitle>
+            <CardTitle>Nuevo registro</CardTitle>
             <CardDescription>Completa la información para registrar asistencia</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -788,7 +788,7 @@ const handleCheckOut = async (attendanceId: string) => {
                         Entrada: {format(new Date(record.checkIn), 'HH:mm')}
                       </p>
                       {/* T-03.6 — Reloj de jornada sincronizado con hora del servidor */}
-                      <p className="text-xs font-mono font-semibold text-blue-600 mt-1 flex items-center gap-1">
+                      <p className="text-xs font-mono font-semibold text-brand-700 mt-1 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatElapsed(record.checkIn, serverTime)}
                       </p>
@@ -847,7 +847,7 @@ const handleCheckOut = async (attendanceId: string) => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-brand-700" />
                 Actividad del Grupo — Tiempo Real
               </CardTitle>
               <CardDescription>
@@ -915,12 +915,12 @@ const handleCheckOut = async (attendanceId: string) => {
               </p>
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-brand-50 rounded-lg">
               <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <span className="text-sm font-medium text-blue-900">Activos</span>
+                <Clock className="w-5 h-5 text-brand-700" />
+                <span className="text-sm font-medium text-brand-800">Activos</span>
               </div>
-              <p className="text-2xl font-semibold text-blue-900">
+              <p className="text-2xl font-semibold text-brand-900">
                 {todayAttendance.filter((a) => !a.checkOut).length}
               </p>
             </div>
