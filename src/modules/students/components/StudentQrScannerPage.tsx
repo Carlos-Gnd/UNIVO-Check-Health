@@ -7,6 +7,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { CheckCircle2, Clock, Keyboard, Loader2, QrCode, XCircle } from 'lucide-react';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getDeviceFingerprint, getDeviceInfo } from '@/modules/attendance/services/attendance.service';
 import { analyzeFakeGpsPattern } from '@/shared/backend/checkHealthBackend';
@@ -290,7 +291,10 @@ export function StudentQrScannerPage() {
 
   return (
     <div className="space-y-4 max-w-lg mx-auto">
-      <h2 className="text-2xl font-semibold text-gray-900">Registrar entrada</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-2xl font-semibold text-gray-900">Registrar entrada</h2>
+        <HelpTooltip side="right" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Debes estar dentro de la sede y dentro de tu horario para que el registro se acepte." />
+      </div>
 
       {/* Selector de modo */}
       {(state === 'idle' || cameraError) && (
