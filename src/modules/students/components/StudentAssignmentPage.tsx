@@ -6,26 +6,48 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Badge } from '@/shared/components/ui/badge';
 import { supabase } from '@/shared/backend/supabaseClient';
 
-type CampusInfo = {
-  id: string;
-  name: string;
+const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']; // index = ISO weekday
+
+type DaySlot = { weekday: number; from: string; to: string };
+
+type Assignment = {
+  campusName: string;
   address: string;
   supervisorName: string;
   supervisorPhone: string;
-  schedule: string;
+  period: string;
   startDate: string;
   endDate: string;
-  checkInFrom: string;
-  checkInTo: string;
   lat: number;
   lng: number;
-  isActive: boolean;
+  campusActive: boolean;
+  slots: DaySlot[];
 };
 
+// Filas de teacher_groups con sede + horario embebidos (RLS acota a la propia asignación).
+type AssignmentRow = {
+  period: string;
+  start_date: string | null;
+  end_date: string | null;
+  campus: {
+    name: string | null;
+    location_label: string | null;
+    supervisor_name: string | null;
+    supervisor_phone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    is_active: boolean | null;
+  } | null;
+  schedules: { weekday: number; check_in_from: string | null; check_in_to: string | null }[] | null;
+};
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function StudentAssignmentPage() {
-  const [campus, setCampus] = useState<CampusInfo | null>(null);
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasAttendances, setHasAttendances] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -33,47 +55,43 @@ export function StudentAssignmentPage() {
       const userId = sessionData.session?.user.id;
       if (!userId) { setLoading(false); return; }
 
-      // Buscar la asistencia más reciente para obtener la sede asignada
-      const { data: att } = await supabase
-        .from('attendances')
-        .select('campus_id, date')
-        .eq('student_id', userId)
-        .order('date', { ascending: false })
-        .limit(1)
-        .single();
+      const { data } = await supabase
+        .from('teacher_groups')
+        .select(`
+          period, start_date, end_date,
+          campus:campuses(name, location_label, supervisor_name, supervisor_phone, latitude, longitude, is_active),
+          schedules:student_schedules(weekday, check_in_from, check_in_to)
+        `)
+        .eq('student_id', userId);
 
-      if (!att?.campus_id) {
-        setHasAttendances(false);
-        setLoading(false);
-        return;
-      }
+      const rows = (data ?? []) as unknown as AssignmentRow[];
+      if (rows.length === 0) { setLoading(false); return; }
 
-      setHasAttendances(true);
+      // Elegir la rotación vigente hoy; si ninguna, la de fin más reciente.
+      const today = todayIso();
+      const active = rows.find(
+        (r) => (!r.start_date || r.start_date <= today) && (!r.end_date || r.end_date >= today),
+      );
+      const chosen = active ?? [...rows].sort((a, b) => (b.end_date ?? '').localeCompare(a.end_date ?? ''))[0];
 
-      const { data: c } = await supabase
-        .from('campuses')
-        .select('id, name, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, check_in_from, check_in_to, latitude, longitude, is_active')
-        .eq('id', att.campus_id)
-        .single();
+      const slots: DaySlot[] = (chosen.schedules ?? [])
+        .filter((s) => s.check_in_from && s.check_in_to)
+        .map((s) => ({ weekday: s.weekday, from: (s.check_in_from ?? '').slice(0, 5), to: (s.check_in_to ?? '').slice(0, 5) }))
+        .sort((a, b) => a.weekday - b.weekday);
 
-      if (c) {
-        setCampus({
-          id: c.id as string,
-          name: c.name as string,
-          address: (c.location_label as string) ?? (c.name as string),
-          supervisorName: (c.supervisor_name as string) ?? '—',
-          supervisorPhone: (c.supervisor_phone as string) ?? '',
-          schedule: (c.schedule as string) ?? '',
-          startDate: (c.start_date as string) ?? '',
-          endDate: (c.end_date as string) ?? '',
-          checkInFrom: (c.check_in_from as string) ?? '',
-          checkInTo: (c.check_in_to as string) ?? '',
-          lat: Number(c.latitude),
-          lng: Number(c.longitude),
-          isActive: Boolean(c.is_active),
-        });
-      }
-
+      setAssignment({
+        campusName: chosen.campus?.name ?? 'Sede sin nombre',
+        address: chosen.campus?.location_label ?? chosen.campus?.name ?? '',
+        supervisorName: chosen.campus?.supervisor_name ?? '—',
+        supervisorPhone: chosen.campus?.supervisor_phone ?? '',
+        period: chosen.period,
+        startDate: chosen.start_date ?? '',
+        endDate: chosen.end_date ?? '',
+        lat: Number(chosen.campus?.latitude ?? 0),
+        lng: Number(chosen.campus?.longitude ?? 0),
+        campusActive: Boolean(chosen.campus?.is_active),
+        slots,
+      });
       setLoading(false);
     };
 
@@ -89,7 +107,7 @@ export function StudentAssignmentPage() {
     );
   }
 
-  if (!hasAttendances || !campus) {
+  if (!assignment) {
     return (
       <div className="max-w-lg mx-auto space-y-4">
         <h2 className="text-2xl font-semibold text-gray-900">Mi sede y encargado</h2>
@@ -97,8 +115,8 @@ export function StudentAssignmentPage() {
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Building2 className="w-10 h-10 text-gray-300" />
             <p className="text-sm text-gray-500">
-              Aún no tienes registros de asistencia.<br />
-              Tu sede aparecerá aquí una vez que realices tu primer check-in.
+              Aún no tienes una sede asignada.<br />
+              Tu coordinador asignará tu sede, docente y horario de práctica.
             </p>
           </CardContent>
         </Card>
@@ -106,8 +124,8 @@ export function StudentAssignmentPage() {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const isActive = campus.isActive && (!campus.endDate || campus.endDate >= today);
+  const today = todayIso();
+  const isActive = assignment.campusActive && (!assignment.endDate || assignment.endDate >= today);
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
@@ -118,7 +136,7 @@ export function StudentAssignmentPage() {
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Building2 className="w-4 h-4 text-brand-700" />
-            {campus.name}
+            {assignment.campusName}
           </CardTitle>
           <Badge className={isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
             {isActive ? 'Activa' : 'Inactiva'}
@@ -127,35 +145,31 @@ export function StudentAssignmentPage() {
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-start gap-2 text-gray-700">
             <MapPin className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
-            <span>{campus.address}</span>
+            <span>{assignment.address}</span>
           </div>
 
-          {campus.schedule && (
+          {assignment.slots.length > 0 && (
             <div className="flex items-start gap-2 text-gray-700">
               <CalendarDays className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
-              <span>{campus.schedule}</span>
+              <div className="space-y-0.5">
+                <p className="font-medium text-gray-800">Horario de práctica</p>
+                {assignment.slots.map((s) => (
+                  <div key={s.weekday} className="flex items-center gap-2 text-gray-600">
+                    <Clock className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <span className="w-20 shrink-0">{DAY_NAMES[s.weekday]}</span>
+                    <strong>{s.from} – {s.to}</strong>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {(campus.checkInFrom || campus.checkInTo) && (
-            <div className="flex items-center gap-2 text-gray-700">
-              <Clock className="w-4 h-4 text-brand-400 shrink-0" />
-              <span>
-                Ventana de check-in:&nbsp;
-                <strong>
-                  {campus.checkInFrom ? campus.checkInFrom.slice(0, 5) : '—'}
-                  {campus.checkInTo ? ` – ${campus.checkInTo.slice(0, 5)}` : ''}
-                </strong>
-              </span>
-            </div>
-          )}
-
-          {campus.startDate && campus.endDate && (
+          {assignment.startDate && assignment.endDate && (
             <div className="rounded-md bg-brand-50 px-3 py-2 text-xs text-brand-800">
-              Período:&nbsp;
-              <strong>{format(parseISO(campus.startDate), "d 'de' MMMM yyyy", { locale: es })}</strong>
+              Período <strong>{assignment.period}</strong>:&nbsp;
+              <strong>{format(parseISO(assignment.startDate), "d 'de' MMMM yyyy", { locale: es })}</strong>
               &nbsp;al&nbsp;
-              <strong>{format(parseISO(campus.endDate), "d 'de' MMMM yyyy", { locale: es })}</strong>
+              <strong>{format(parseISO(assignment.endDate), "d 'de' MMMM yyyy", { locale: es })}</strong>
             </div>
           )}
         </CardContent>
@@ -170,12 +184,12 @@ export function StudentAssignmentPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <p className="font-semibold text-gray-900">{campus.supervisorName}</p>
-          {campus.supervisorPhone && (
+          <p className="font-semibold text-gray-900">{assignment.supervisorName}</p>
+          {assignment.supervisorPhone && (
             <div className="flex items-center gap-2 text-gray-600">
               <Phone className="w-4 h-4 text-brand-400 shrink-0" />
-              <a href={`tel:${campus.supervisorPhone}`} className="hover:text-brand-700">
-                {campus.supervisorPhone}
+              <a href={`tel:${assignment.supervisorPhone}`} className="hover:text-brand-700">
+                {assignment.supervisorPhone}
               </a>
             </div>
           )}
@@ -183,7 +197,7 @@ export function StudentAssignmentPage() {
       </Card>
 
       {/* Mini mapa embebido */}
-      {campus.lat && campus.lng && (
+      {assignment.lat !== 0 && assignment.lng !== 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -197,7 +211,7 @@ export function StudentAssignmentPage() {
               className="w-full h-48"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              src={`https://maps.google.com/maps?q=${campus.lat},${campus.lng}&z=16&output=embed`}
+              src={`https://maps.google.com/maps?q=${assignment.lat},${assignment.lng}&z=16&output=embed`}
             />
           </CardContent>
         </Card>

@@ -46,10 +46,18 @@ function buildMonthGrid(month: Date): Date[] {
   return days;
 }
 
+// JS getDay() es 0=domingo..6=sábado; lo paso a ISO 1=lunes..7=domingo.
+function isoWeekday(date: Date): number {
+  const d = date.getDay();
+  return d === 0 ? 7 : d;
+}
+
 function dayEntries(date: Date, windows: RotationWindow[]): DayItem[] {
+  const iso = isoWeekday(date);
   return windows
     .filter((w) =>
-      isWithinInterval(date, { start: parseISO(w.startDate), end: parseISO(w.endDate) }),
+      isWithinInterval(date, { start: parseISO(w.startDate), end: parseISO(w.endDate) }) &&
+      w.weekdays.includes(iso),
     )
     .map((w) => ({
       studentName: w.studentName,
@@ -214,23 +222,25 @@ export function RotationsCalendarPage() {
               const entries = dayEntries(day, visibleWindows);
               const isFutureOrToday = !isBefore(day, new Date(today.getFullYear(), today.getMonth(), today.getDate()));
               const studentEntries = role === 'STUDENT' ? entries.filter(() => isFutureOrToday) : entries;
+              const dayList = role === 'STUDENT' ? studentEntries : entries;
               return (
                 <button
                   key={day.toISOString()}
-                  onClick={() => role === 'SUPERVISOR' && setSelectedDay(day)}
+                  onClick={() => dayList.length > 0 && setSelectedDay(day)}
+                  disabled={dayList.length === 0}
                   className={`min-h-28 rounded-lg border p-2 text-left transition-colors ${
-                    inMonth ? 'bg-white hover:bg-brand-50/40' : 'bg-brand-50/20 text-gray-400'
-                  }`}
+                    inMonth ? 'bg-white' : 'bg-brand-50/20 text-gray-400'
+                  } ${dayList.length > 0 ? 'cursor-pointer hover:bg-brand-50/40' : 'cursor-default'}`}
                 >
                   <p className="text-xs font-semibold">{format(day, 'd')}</p>
                   <div className="mt-1 space-y-1">
-                    {(role === 'STUDENT' ? studentEntries : entries).slice(0, 2).map((e, idx) => (
+                    {dayList.slice(0, 2).map((e, idx) => (
                       <div key={`${e.studentName}-${idx}`} className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-700">
                         {role === 'STUDENT' ? e.campusName : e.studentName}
                       </div>
                     ))}
-                    {(role === 'STUDENT' ? studentEntries : entries).length > 2 && (
-                      <p className="text-[10px] text-gray-500">+{(role === 'STUDENT' ? studentEntries : entries).length - 2} más</p>
+                    {dayList.length > 2 && (
+                      <p className="text-[10px] text-gray-500">+{dayList.length - 2} más</p>
                     )}
                   </div>
                 </button>
