@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 
@@ -44,6 +45,28 @@ const ROLES = [
   { value: 'COORDINATOR',  label: 'Coordinador' },
   { value: 'ADMIN',        label: 'Administrador / Decano' },
 ];
+
+// Contraseña temporal fuerte (12 chars, 4 clases) con crypto. Reemplaza el clásico "admin123".
+function generateTempPassword(): string {
+  const lower = 'abcdefghijkmnpqrstuvwxyz';
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const digits = '23456789';
+  const symbols = '!@#$%*?';
+  const all = lower + upper + digits + symbols;
+  const rand = (n: number) => {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] % n;
+  };
+  const pick = (s: string) => s[rand(s.length)];
+  const chars = [pick(lower), pick(upper), pick(digits), pick(symbols)];
+  for (let i = 0; i < 8; i++) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
 
 interface UserRow {
   id: string;
@@ -89,6 +112,12 @@ export function UserManagement() {
     setRole('STUDENT'); setPassword('');
   };
 
+  const openCreate = () => {
+    resetCreateForm();
+    setPassword(generateTempPassword());
+    setCreateOpen(true);
+  };
+
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     const { data, error } = await supabase
@@ -107,11 +136,13 @@ export function UserManagement() {
     const code  = studentCode.trim().toUpperCase();
     const email = `${code}${UNIVO_DOMAIN}`;
 
-    if (role === 'STUDENT' && !/^U\d{8}$/.test(code)) {
-      toast.error('Carné de estudiante: U + 8 dígitos (ej. U20240001)');
+    if (role === 'STUDENT') {
+      if (!/^U\d{8}$/.test(code)) { toast.error('Carné de estudiante: U + 8 dígitos (ej. U20240001)'); return; }
+    } else if (!/^[A-Z0-9]{4,9}$/.test(code)) {
+      toast.error('Código: 4 a 9 caracteres alfanuméricos, sin espacios ni símbolos.');
       return;
     }
-    if (code.length < 4) { toast.error('El código debe tener al menos 4 caracteres'); return; }
+    if (fullName.trim().length < 3) { toast.error('Ingresa el nombre completo (mínimo 3 caracteres).'); return; }
     if (password.length < 8) { toast.error('La contraseña debe tener al menos 8 caracteres'); return; }
 
     setIsSubmitting(true);
@@ -202,7 +233,7 @@ export function UserManagement() {
           <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
           <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso.</p>
         </div>
-        <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={() => setCreateOpen(true)}>
+        <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={openCreate}>
           <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
         </Button>
       </div>
@@ -298,13 +329,15 @@ export function UserManagement() {
               <Input id="create-fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="María Fernanda García" required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-brand-700"><IdCard className="h-3.5 w-3.5" />Carné / Código</Label>
+              <Label htmlFor="create-studentCode" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><IdCard className="h-3.5 w-3.5" />Carné / Código
+                <HelpTooltip text="Para estudiantes: U + 8 dígitos (ej. U20240001). Para docentes/coordinadores: 4 a 9 caracteres alfanuméricos. Con este código se arma el correo de acceso institucional." />
+              </Label>
               <Input
                 id="create-studentCode"
                 value={studentCode}
                 onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
-                placeholder="U20240001"
-                maxLength={role === 'STUDENT' ? 9 : 20}
+                placeholder={role === 'STUDENT' ? 'U20240001' : 'Ej. DOC0001'}
+                maxLength={9}
                 required
               />
               {derivedEmail && (
@@ -314,7 +347,9 @@ export function UserManagement() {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="create-role" className="text-xs uppercase tracking-wide text-brand-700"><Puzzle className="h-3.5 w-3.5" />Rol</Label>
+              <Label htmlFor="create-role" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><Puzzle className="h-3.5 w-3.5" />Rol
+                <HelpTooltip text="Estudiante: marca asistencia y sube justificaciones. Docente: supervisa a su grupo y evalúa. Coordinador: gestiona asignaciones y revisa incidencias. Administrador/Decano: control total, incluido crear usuarios." />
+              </Label>
               <select id="create-role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                 {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
@@ -328,9 +363,16 @@ export function UserManagement() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="create-password" className="text-xs uppercase tracking-wide text-brand-700"><ShieldCheck className="h-3.5 w-3.5" />Contraseña temporal</Label>
-              <Input id="create-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required />
-              <p className="text-xs text-slate-500">Se muestra en texto para que puedas copiarla.</p>
+              <Label htmlFor="create-password" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" />Contraseña temporal
+                <HelpTooltip text="Se genera fuerte automáticamente. Cópiala y compártela con el usuario: él la cambia desde su perfil al entrar. El botón ↻ genera otra." />
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input id="create-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required />
+                <Button type="button" variant="outline" size="sm" title="Generar contraseña fuerte" onClick={() => setPassword(generateTempPassword())}>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">Generada automáticamente. Puedes editarla o regenerarla; se mostrará para copiarla.</p>
             </div>
             <div className="sm:col-span-2 flex justify-end pt-2">
               <Button type="submit" disabled={isSubmitting} className="bg-brand-800 hover:bg-brand-900 text-white shadow-sm shadow-brand-900/15">
