@@ -36,41 +36,49 @@ export function StudentProgressPage() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <h2 className="text-2xl font-semibold text-gray-900">Progreso de horas</h2>
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900">Progreso de horas</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Cumplimiento del período actual</p>
+      </div>
 
       {/* Indicador principal */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-600" /> Cumplimiento del período
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
-            <span>{completed} h completadas</span>
-            <span>{pct}%</span>
+        <CardContent className="pt-6 pb-6 space-y-5">
+          {/* Porcentaje grande centrado */}
+          <div className="text-center">
+            <div className={`text-5xl font-bold tabular-nums ${pct >= 85 ? 'text-emerald-600' : pct >= 60 ? 'text-amber-600' : 'text-red-500'}`}>
+              {pct}%
+            </div>
+            <p className="text-sm text-slate-500 mt-1">{completed} de {required} horas</p>
           </div>
-          <div className="h-4 w-full rounded-full bg-gray-200 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${barColor}`}
-              style={{ width: `${pct}%` }}
-            />
+
+          {/* Barra de progreso */}
+          <div className="space-y-2">
+            <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>0 h</span>
+              <span>Meta: {required} h</span>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 text-right">Meta: {required} h</p>
         </CardContent>
       </Card>
 
       {/* Tarjetas de resumen */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={Clock} label="Horas completadas" value={`${completed} h`} color="text-blue-600" />
-        <StatCard icon={Target} label="Meta del período" value={`${required} h`} color="text-gray-600" />
-        <StatCard icon={TrendingUp} label="Horas restantes" value={`${remaining} h`} color={remaining === 0 ? 'text-green-600' : 'text-amber-600'} />
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard icon={Clock} label="Completadas" value={`${completed} h`} color="text-slate-700" />
+        <StatCard icon={Target} label="Meta" value={`${required} h`} color="text-slate-700" />
+        <StatCard icon={TrendingUp} label="Restantes" value={`${remaining} h`} color={remaining === 0 ? 'text-emerald-600' : 'text-amber-600'} />
       </div>
 
       {pct >= 100 && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="py-4 text-center text-green-700 text-sm font-medium">
-            ¡Meta alcanzada! Has completado las horas requeridas del período.
+        <Card className="border-emerald-200 bg-emerald-50">
+          <CardContent className="py-4 text-center text-emerald-700 text-sm font-medium">
+            Meta alcanzada — Has completado las horas requeridas del período.
           </CardContent>
         </Card>
       )}
@@ -81,10 +89,9 @@ export function StudentProgressPage() {
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
   return (
     <Card>
-      <CardContent className="pt-4 pb-4 text-center space-y-1">
-        <Icon className={`w-5 h-5 mx-auto ${color}`} />
-        <p className={`text-xl font-semibold ${color}`}>{value}</p>
-        <p className="text-xs text-gray-500">{label}</p>
+      <CardContent className="pt-5 pb-5 text-center space-y-1.5">
+        <p className={`text-xl font-bold tabular-nums ${color}`}>{value}</p>
+        <p className="text-xs text-slate-400">{label}</p>
       </CardContent>
     </Card>
   );

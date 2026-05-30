@@ -216,55 +216,61 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Dashboard</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Resumen general del sistema de asistencias
-        </p>
+        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Resumen general del sistema de asistencias</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Estudiantes</CardTitle>
-            <Users className="w-4 h-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium text-slate-500">Total Estudiantes</CardTitle>
+            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
+              <Users className="w-4 h-4 text-slate-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">{stats.totalStudents}</div>
-            <p className="text-xs text-gray-500 mt-1">Activos en prácticas</p>
+            <div className="text-2xl font-bold text-slate-900">{stats.totalStudents}</div>
+            <p className="text-xs text-slate-400 mt-0.5">Activos en prácticas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Asistencias Hoy</CardTitle>
-            <CheckCircle className="w-4 h-4 text-green-600" />
+            <CardTitle className="text-sm font-medium text-slate-500">Asistencias Hoy</CardTitle>
+            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-slate-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">{stats.todayAttendance}</div>
-            <p className="text-xs text-gray-500 mt-1">Registros completados</p>
+            <div className="text-2xl font-bold text-slate-900">{stats.todayAttendance}</div>
+            <p className="text-xs text-slate-400 mt-0.5">Registros completados</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Prácticas Activas</CardTitle>
-            <Calendar className="w-4 h-4 text-purple-600" />
+            <CardTitle className="text-sm font-medium text-slate-500">Prácticas Activas</CardTitle>
+            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-slate-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">{stats.totalPractices}</div>
-            <p className="text-xs text-gray-500 mt-1">En este semestre</p>
+            <div className="text-2xl font-bold text-slate-900">{stats.totalPractices}</div>
+            <p className="text-xs text-slate-400 mt-0.5">En este semestre</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Tasa de Asistencia</CardTitle>
-            <TrendingUp className="w-4 h-4 text-cyan-600" />
+            <CardTitle className="text-sm font-medium text-slate-500">Tasa de Asistencia</CardTitle>
+            <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-slate-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">{stats.attendanceRate}%</div>
-            <p className="text-xs text-gray-500 mt-1">Promedio general</p>
+            <div className="text-2xl font-bold text-slate-900">{stats.attendanceRate}%</div>
+            <p className="text-xs text-slate-400 mt-0.5">Promedio general</p>
           </CardContent>
         </Card>
       </div>
@@ -305,10 +311,12 @@ export function Dashboard() {
                   style={{ width: `${cycleIndicators.overallCompliance}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {cycleIndicators.overallCompliance >= 85 ? '✓ Cumplimiento satisfactorio'
-                  : cycleIndicators.overallCompliance >= 70 ? '⚠ Requiere atención'
-                  : '✗ Cumplimiento crítico'}
+              <p className="text-xs text-slate-400 mt-2">
+                {cycleIndicators.overallCompliance >= 85
+                  ? 'Cumplimiento satisfactorio'
+                  : cycleIndicators.overallCompliance >= 70
+                  ? 'Requiere atención'
+                  : 'Cumplimiento crítico'}
               </p>
             </CardContent>
           </Card>

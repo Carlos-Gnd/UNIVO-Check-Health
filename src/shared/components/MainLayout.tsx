@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { LoadingScreen } from './LoadingScreen';
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -34,6 +35,7 @@ import type { User } from '@supabase/supabase-js';
 type AppRole = 'Encargado' | 'Decano' | 'Alumno';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
+const APP_LOGO_SRC = '/images/isologo.png';
 
 function mapAppRole(rawRole: string | null | undefined): AppRole {
   const normalized = (rawRole ?? '').toUpperCase().trim();
@@ -172,8 +174,8 @@ export function MainLayout() {
         <div className="w-full max-w-6xl rounded-2xl overflow-hidden border border-blue-100 bg-white/95 backdrop-blur shadow-[0_20px_60px_rgba(14,116,144,0.15)]">
           <div className="lg:hidden p-5 border-b border-blue-100 bg-gradient-to-r from-white to-cyan-50/70">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-sm">
-                <Stethoscope className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-xl bg-white border border-blue-100 flex items-center justify-center shadow-sm overflow-hidden">
+                <img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-10 h-10 object-contain" />
               </div>
               <div>
                 <h1 className="text-sm sm:text-base font-bold tracking-normal sm:tracking-wide leading-tight text-slate-900">UNIVO Check-Health</h1>
@@ -184,8 +186,8 @@ export function MainLayout() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2">
             <section className="hidden lg:block p-8 sm:p-10 border-r border-blue-100 bg-gradient-to-br from-white to-cyan-50/60">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-md">
-                <Stethoscope className="w-10 h-10 text-white" />
+              <div className="w-24 h-24 rounded-2xl bg-white border border-blue-100 flex items-center justify-center shadow-md overflow-hidden">
+                <img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-20 h-20 object-contain" />
               </div>
               <h1 className="mt-6 text-3xl font-bold tracking-wide text-slate-900">UNIVO Check-Health</h1>
               <p className="mt-1 text-sm tracking-[0.2em] uppercase text-slate-500">Área de Salud</p>
@@ -212,20 +214,16 @@ export function MainLayout() {
   }
 
   if (isResolvingRole) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">
-        Verificando rol...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center shrink-0"><Stethoscope className="w-6 h-6 text-white" /></div>
+              <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"><img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-8 h-8 object-contain" /></div>
               <div><h1 className="text-base sm:text-lg leading-tight font-semibold text-gray-900">UNIVO Check-Health</h1><p className="text-xs text-gray-500">Sistema de Asistencias</p></div>
             </div>
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100">{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
@@ -235,17 +233,67 @@ export function MainLayout() {
 
       <div className="max-w-screen-2xl mx-auto flex w-full">
         <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)]">
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{navigation.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.name} to={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}><Icon className="w-5 h-5 shrink-0" /><span className="text-sm font-medium">{item.name}</span></Link>; })}</nav>
-          <div className="p-4 border-t border-gray-200 space-y-3 shrink-0"><div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-lg"><p className="text-sm font-semibold text-gray-900 truncate">{displayName || currentUser.email}</p><p className="text-xs text-gray-600">{currentRole}</p></div><Button onClick={handleLogout} variant="outline" className="w-full justify-start"><LogOut className="w-4 h-4 mr-2" />Cerrar sesión</Button></div>
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                    active
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="p-4 border-t border-slate-100 space-y-3 shrink-0">
+            <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+              <p className="text-sm font-semibold text-slate-900 truncate">{displayName || currentUser.email}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{currentRole}</p>
+            </div>
+            <Button onClick={handleLogout} variant="outline" className="w-full justify-start text-slate-600 hover:text-slate-900">
+              <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
+            </Button>
+          </div>
         </aside>
 
         {isMobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 top-16 z-40 bg-white overflow-y-auto">
-            <nav className="p-4 space-y-1">
-              {navigation.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.name} to={item.href} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}><Icon className="w-5 h-5 shrink-0" /><span className="text-sm font-medium">{item.name}</span></Link>; })}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="px-4 py-2 mb-3"><p className="text-sm font-semibold text-gray-900 truncate">{displayName || currentUser.email}</p><p className="text-xs text-gray-500">{currentRole}</p></div>
-                <Button onClick={handleLogout} variant="outline" className="w-full justify-start"><LogOut className="w-4 h-4 mr-2" />Cerrar sesión</Button>
+            <nav className="p-3 space-y-0.5">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                      active
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{displayName || currentUser.email}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{currentRole}</p>
+                </div>
+                <Button onClick={handleLogout} variant="outline" className="w-full justify-start text-slate-600">
+                  <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
+                </Button>
               </div>
             </nav>
           </div>

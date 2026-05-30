@@ -191,8 +191,8 @@ export function DeanDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Dashboard de Decanato</h2>
-        <p className="text-sm text-gray-600">Vista general del cumplimiento de prácticas por sede y alumno.</p>
+        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Vista general del cumplimiento de prácticas por sede y alumno.</p>
       </div>
 
       {latestSharedDeviceAlert && (
@@ -345,14 +345,16 @@ function StatCard({
   danger?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={danger ? 'border-red-200' : ''}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm text-gray-600">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${danger ? 'text-red-600' : 'text-blue-600'}`} />
+        <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
+        <div className={`w-8 h-8 rounded-md flex items-center justify-center ${danger ? 'bg-red-50' : 'bg-slate-50'}`}>
+          <Icon className={`h-4 w-4 ${danger ? 'text-red-500' : 'text-slate-400'}`} />
+        </div>
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-semibold ${danger ? 'text-red-600' : 'text-gray-900'}`}>{value}</div>
-        <p className="text-xs text-gray-500">{subtitle}</p>
+        <div className={`text-2xl font-bold ${danger ? 'text-red-600' : 'text-slate-900'}`}>{value}</div>
+        <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
       </CardContent>
     </Card>
   );
