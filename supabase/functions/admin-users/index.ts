@@ -137,9 +137,27 @@ Deno.serve(async (req: Request) => {
 
     case 'delete': {
       if (!body.id) return json({ error: 'id requerido' }, 400);
+
+      // attendances.student_id NO tiene ON DELETE CASCADE → bloquea el borrado del
+      // perfil. Las borramos antes (y las justificaciones, por su FK a attendances).
+      // El resto (teacher_groups, push_tokens, weekly_evaluations…) cae por CASCADE.
+      await admin.from('justifications').delete().eq('student_id', body.id);
+      const { error: attErr } = await admin.from('attendances').delete().eq('student_id', body.id);
+      if (attErr) {
+        return json({ error: `No se pudieron eliminar las asistencias del usuario: ${attErr.message}` }, 400);
+      }
+
+      const { error: profErr } = await admin.from('users').delete().eq('id', body.id);
+      if (profErr) {
+        return json({ error: `No se pudo eliminar el perfil: ${profErr.message}` }, 400);
+      }
+
+      // Si la cuenta de Auth ya no existe (p. ej. un perfil huérfano de un borrado
+      // previo a medias), no es un error: el objetivo ya se cumplió.
       const { error: authErr } = await admin.auth.admin.deleteUser(body.id);
-      if (authErr) return json({ error: `Error al eliminar en Auth: ${authErr.message}` }, 400);
-      await admin.from('users').delete().eq('id', body.id);
+      if (authErr && !/not[ _-]?found|user.*not|no.*user/i.test(authErr.message ?? '')) {
+        return json({ error: `Perfil eliminado, pero falló al borrar en Auth: ${authErr.message}` }, 400);
+      }
       return json({ ok: true });
     }
 

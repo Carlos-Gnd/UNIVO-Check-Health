@@ -31,8 +31,21 @@ async function invokeAdmin<T = Record<string, unknown>>(
   const { data, error } = await supabase.functions.invoke('admin-users', {
     body: { action, ...payload },
   });
-  if (error || !data?.ok) {
-    return { ok: false, message: data?.error ?? error?.message ?? 'Error en la operación.' };
+  if (error) {
+    // supabase-js marca toda respuesta no-2xx como error y NO parsea el body,
+    // así que leemos el JSON del Response para recuperar el mensaje real del servidor.
+    let message = error.message ?? 'Error en la operación.';
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const parsed = await ctx.json();
+        if (parsed?.error) message = parsed.error as string;
+      } catch { /* el body no era JSON; nos quedamos con el mensaje genérico */ }
+    }
+    return { ok: false, message };
+  }
+  if (!data?.ok) {
+    return { ok: false, message: data?.error ?? 'Error en la operación.' };
   }
   return { ok: true, data: data as T };
 }
