@@ -63,7 +63,7 @@ export function Reports() {
       present:  { cls: 'bg-green-100 text-green-800',  label: 'Presente' },
       late:     { cls: 'bg-yellow-100 text-yellow-800', label: 'Tardanza' },
       absent:   { cls: 'bg-red-100 text-red-800',      label: 'Ausente' },
-      excused:  { cls: 'bg-blue-100 text-blue-800',    label: 'Justificado' },
+      excused:  { cls: 'bg-brand-100 text-brand-800',    label: 'Justificado' },
     };
     const { cls, label } = map[status] ?? { cls: 'bg-gray-100 text-gray-700', label: status };
     return <Badge className={cls}>{label}</Badge>;

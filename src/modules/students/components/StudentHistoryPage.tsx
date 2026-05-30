@@ -110,7 +110,10 @@ export function StudentHistoryPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900">Historial de asistencias</h2>
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900">Historial de asistencias</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Registro completo de entradas y salidas</p>
+      </div>
 
       {/* Filtros */}
       <Card>

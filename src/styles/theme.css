@@ -1,84 +1,140 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ─── Layer 1: Primitives ─────────────────────────────────────────────────── */
 :root {
+  /* Navy scale — primary brand color derived from #1a2d6b */
+  --ch-navy-50:  #f0f3fa;
+  --ch-navy-100: #dde3f5;
+  --ch-navy-200: #b3c1ea;
+  --ch-navy-300: #7a93d8;
+  --ch-navy-400: #4d68c0;
+  --ch-navy-500: #2e48a4;
+  --ch-navy-600: #243487;
+  --ch-navy-700: #1a2d6b;
+  --ch-navy-800: #111c42;
+  --ch-navy-900: #0a1128;
+
+  /* Gold scale — accent color derived from #F5A623 */
+  --ch-gold-50:  #fff8ed;
+  --ch-gold-100: #fdefd9;
+  --ch-gold-200: #fcdcae;
+  --ch-gold-300: #faca7e;
+  --ch-gold-400: #f7b74d;
+  --ch-gold-500: #F5A623;
+  --ch-gold-600: #e08f00;
+  --ch-gold-700: #c97d00;
+  --ch-gold-800: #a06000;
+  --ch-gold-900: #7a4800;
+
+  /* Neutral scale */
+  --ch-neutral-50:  #f8f8fb;
+  --ch-neutral-100: #f0f0f4;
+  --ch-neutral-200: #e2e2ea;
+  --ch-neutral-300: #c4c4d0;
+  --ch-neutral-400: #a8a8b8;
+  --ch-neutral-500: #8b8b9e;
+  --ch-neutral-600: #646474;
+  --ch-neutral-700: #484857;
+  --ch-neutral-800: #2d2d3a;
+  --ch-neutral-900: #1a1a24;
+
+  /* ─── Layer 2: Semantic ───────────────────────────────────────────────────── */
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
-  --font-weight-medium: 500;
+  --font-body: 'Nunito Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-body);
+  --font-weight-medium: 600;
   --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Attendance status */
+  --status-present: #22c55e;
+  --status-absent:  #ef4444;
+  --status-late:    #F5A623;
+
+  /* ─── Layer 3: Component / shadcn tokens ──────────────────────────────────── */
+  --background: #f2f5fb;
+  --foreground: var(--ch-neutral-900);
+  --card: #ffffff;
+  --card-foreground: var(--ch-neutral-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--ch-neutral-900);
+
+  --primary: var(--ch-navy-700);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ch-navy-50);
+  --secondary-foreground: var(--ch-navy-700);
+  --accent: var(--ch-navy-50);
+  --accent-foreground: var(--ch-navy-700);
+  --muted: #eef3fb;
+  --muted-foreground: var(--ch-neutral-500);
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #d8deec;
+  --input: transparent;
+  --input-background: var(--ch-neutral-100);
+  --switch-background: var(--ch-neutral-300);
+  --ring: var(--ch-navy-700);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Charts */
+  --chart-1: var(--ch-navy-500);
+  --chart-2: var(--ch-gold-500);
+  --chart-3: var(--ch-navy-300);
+  --chart-4: var(--ch-gold-300);
+  --chart-5: var(--ch-navy-700);
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--ch-neutral-800);
+  --sidebar-primary: var(--ch-navy-700);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--ch-navy-50);
+  --sidebar-accent-foreground: var(--ch-navy-700);
+  --sidebar-border: #d8deec;
+  --sidebar-ring: var(--ch-navy-700);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --font-weight-medium: 500;
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: var(--ch-navy-400);
+  --primary-foreground: #ffffff;
+  --secondary: var(--ch-navy-800);
+  --secondary-foreground: var(--ch-navy-100);
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: var(--ch-navy-800);
+  --accent-foreground: var(--ch-navy-100);
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --border: #334155;
+  --input: #334155;
+  --ring: var(--ch-navy-400);
+  --font-weight-medium: 600;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --chart-1: var(--ch-navy-400);
+  --chart-2: var(--ch-gold-400);
+  --chart-3: var(--ch-navy-200);
+  --chart-4: var(--ch-gold-200);
+  --chart-5: var(--ch-navy-600);
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: var(--ch-navy-400);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--ch-navy-800);
+  --sidebar-accent-foreground: var(--ch-navy-100);
+  --sidebar-border: #334155;
+  --sidebar-ring: var(--ch-navy-400);
 }
 
 @theme inline {
+  /* shadcn base tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -117,6 +173,38 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Brand color scale → bg-brand-*, text-brand-* utilities */
+  --color-brand-50:  var(--ch-navy-50);
+  --color-brand-100: var(--ch-navy-100);
+  --color-brand-200: var(--ch-navy-200);
+  --color-brand-300: var(--ch-navy-300);
+  --color-brand-400: var(--ch-navy-400);
+  --color-brand-500: var(--ch-navy-500);
+  --color-brand-600: var(--ch-navy-600);
+  --color-brand-700: var(--ch-navy-700);
+  --color-brand-800: var(--ch-navy-800);
+  --color-brand-900: var(--ch-navy-900);
+
+  /* Gold scale → bg-gold-*, text-gold-* utilities */
+  --color-gold-50:  var(--ch-gold-50);
+  --color-gold-100: var(--ch-gold-100);
+  --color-gold-200: var(--ch-gold-200);
+  --color-gold-300: var(--ch-gold-300);
+  --color-gold-400: var(--ch-gold-400);
+  --color-gold-500: var(--ch-gold-500);
+  --color-gold-600: var(--ch-gold-600);
+  --color-gold-700: var(--ch-gold-700);
+  --color-gold-800: var(--ch-gold-800);
+  --color-gold-900: var(--ch-gold-900);
+
+  /* Semantic status → text-present, text-absent, text-late */
+  --color-present: var(--status-present);
+  --color-absent:  var(--status-absent);
+  --color-late:    var(--status-late);
+
+  /* Surface utility → bg-surface */
+  --color-surface: #f6f8fd;
 }
 
 @layer base {
@@ -126,15 +214,20 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
   }
 
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
+  ::selection {
+    background: var(--ch-gold-200);
+    color: var(--ch-navy-900);
+  }
 
   html {
     font-size: var(--font-size);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
   }
 
   h1 {
@@ -178,4 +271,22 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+table thead,
+table thead tr {
+  background: var(--ch-navy-800) !important;
+  color: #ffffff !important;
+}
+
+table thead th {
+  color: #ffffff !important;
+  border-color: var(--ch-navy-700) !important;
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+table thead th:first-child {
+  box-shadow: inset 4px 0 0 var(--ch-gold-500);
 }

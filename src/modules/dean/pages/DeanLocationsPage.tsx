@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Download, Loader2, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Compass, Download, FileText, Loader2, MapPin, MapPinned, Pencil, Phone, Plus, QrCode, Radio, Search, Stethoscope, Timer, Trash2 } from 'lucide-react';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import type { Location } from '@/modules/dean/types';
 import { createCampus, updateCampus, deleteCampus, toggleCampusActive, type CampusFormData } from '@/modules/dean/services/dean.service';
@@ -162,14 +162,14 @@ export function DeanLocationsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-2xl font-semibold text-gray-900">Sedes</h2>
-        <Button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={openCreate} className="bg-brand-700 hover:bg-brand-800 text-white">
           <Plus className="w-4 h-4 mr-1.5" />Nueva sede
         </Button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="relative md:col-span-2">
-          <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-3.5 h-4 w-4 text-brand-400" />
           <Input className="pl-9" placeholder="Buscar sede" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
@@ -268,62 +268,65 @@ export function DeanLocationsPage() {
       <Dialog open={showForm} onOpenChange={(open) => !isSaving && setShowForm(open)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Editar sede' : 'Nueva sede'}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {editingId ? <Pencil className="h-5 w-5 text-brand-700" /> : <Building2 className="h-5 w-5 text-brand-700" />}
+              {editingId ? 'Editar sede' : 'Nueva sede'}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Nombre de la sede *</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Building2 className="h-3.5 w-3.5" />Nombre de la sede *</Label>
               <Input value={form.name} onChange={set('name')} placeholder="Hospital Nacional Rosales" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Latitud *</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><MapPin className="h-3.5 w-3.5" />Latitud *</Label>
               <Input value={form.latitude} onChange={set('latitude')} placeholder="13.7013" type="number" step="any" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Longitud *</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Compass className="h-3.5 w-3.5" />Longitud *</Label>
               <Input value={form.longitude} onChange={set('longitude')} placeholder="-89.2045" type="number" step="any" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Radio GPS (metros, mín. 50)</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Radio className="h-3.5 w-3.5" />Radio GPS (metros, mín. 50)</Label>
               <Input value={form.radius_meters} onChange={set('radius_meters')} placeholder="100" type="number" min="50" max="1000" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Dirección / Etiqueta</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><MapPinned className="h-3.5 w-3.5" />Dirección / Etiqueta</Label>
               <Input value={form.location_label} onChange={set('location_label')} placeholder="Hospital Nacional Rosales, SS" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Supervisor encargado</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Stethoscope className="h-3.5 w-3.5" />Supervisor encargado</Label>
               <Input value={form.supervisor_name} onChange={set('supervisor_name')} placeholder="Dr. Roberto Martínez" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Teléfono supervisor</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Phone className="h-3.5 w-3.5" />Teléfono supervisor</Label>
               <Input value={form.supervisor_phone} onChange={set('supervisor_phone')} placeholder="2222-3333" />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Horario</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Clock className="h-3.5 w-3.5" />Horario</Label>
               <Input value={form.schedule} onChange={set('schedule')} placeholder="Lunes a Viernes, 7:00 AM - 3:00 PM" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Fecha inicio</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Fecha inicio</Label>
               <Input value={form.start_date} onChange={set('start_date')} type="date" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Fecha fin</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Fecha fin</Label>
               <Input value={form.end_date} onChange={set('end_date')} type="date" />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Descripción</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><FileText className="h-3.5 w-3.5" />Descripción</Label>
               <Input value={form.description} onChange={set('description')} placeholder="Descripción breve de la práctica…" />
             </div>
             <div className="sm:col-span-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Ventana horaria de check-in (opcional)</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Hora inicio</Label>
+                  <Label className="text-xs text-brand-700"><Timer className="h-3.5 w-3.5" />Hora inicio</Label>
                   <Input value={form.check_in_from} onChange={set('check_in_from')} type="time" placeholder="07:00" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Hora fin</Label>
+                  <Label className="text-xs text-brand-700"><Timer className="h-3.5 w-3.5" />Hora fin</Label>
                   <Input value={form.check_in_to} onChange={set('check_in_to')} type="time" placeholder="09:00" />
                 </div>
               </div>
@@ -331,7 +334,7 @@ export function DeanLocationsPage() {
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" disabled={isSaving} onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" disabled={isSaving} className="bg-brand-700 hover:bg-brand-800 text-white">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
                 {editingId ? 'Guardar cambios' : 'Crear sede'}
               </Button>
@@ -343,7 +346,7 @@ export function DeanLocationsPage() {
       {/* Confirmación de eliminación */}
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Eliminar sede</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-red-600" />Eliminar sede</DialogTitle></DialogHeader>
           <p className="text-sm text-gray-700">
             ¿Seguro que deseas eliminar <strong>{deleteTarget?.name}</strong>?
             Esta acción no se puede deshacer.

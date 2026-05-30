@@ -23,14 +23,14 @@ const STATUS_COLORS: Record<string, string> = {
   present: 'bg-green-100 text-green-800',
   late: 'bg-yellow-100 text-yellow-800',
   absent: 'bg-red-100 text-red-800',
-  excused: 'bg-blue-100 text-blue-800',
+  excused: 'bg-brand-100 text-brand-800',
 };
 
 const STATUS_ICONS: Record<string, JSX.Element> = {
   present: <CheckCircle className="w-4 h-4 text-green-600" />,
   late: <Clock className="w-4 h-4 text-yellow-600" />,
   absent: <XCircle className="w-4 h-4 text-red-600" />,
-  excused: <HelpCircle className="w-4 h-4 text-blue-600" />,
+  excused: <HelpCircle className="w-4 h-4 text-brand-700" />,
 };
 
 interface Props {
@@ -80,7 +80,7 @@ export function AttendanceHistory({ studentId, studentName }: Props) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <History className="w-5 h-5 text-blue-600" />
+              <History className="w-5 h-5 text-brand-700" />
               Historial de Asistencias
             </CardTitle>
             <CardDescription>{studentName} · {filtered.length} registros</CardDescription>
@@ -105,7 +105,7 @@ export function AttendanceHistory({ studentId, studentName }: Props) {
         ) : (
           <div className="space-y-3">
             {visible.map(record => (
-              <div key={record.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-white transition-colors">
+              <div key={record.id} className="flex items-start gap-3 p-3 rounded-lg border border-brand-100 bg-brand-50/40 hover:bg-white transition-colors">
                 <div className="mt-0.5">{STATUS_ICONS[record.status]}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 flex-wrap">

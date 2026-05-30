@@ -60,7 +60,7 @@ export function Students() {
       <Card>
         <CardContent className="pt-5">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-400" />
             <Input
               placeholder="Buscar por nombre, carnet o carrera…"
               value={searchTerm}
@@ -81,7 +81,7 @@ export function Students() {
                 <div className="flex items-start gap-3">
                   <Avatar className="w-14 h-14 shrink-0">
                     <AvatarImage src={s.photo} alt={s.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-brand-500 to-brand-300 text-white text-sm">
                       {initials(s.name)}
                     </AvatarFallback>
                   </Avatar>
@@ -93,11 +93,11 @@ export function Students() {
               </CardHeader>
               <CardContent className="space-y-2 pt-0">
                 <div className="flex items-center gap-2 text-sm">
-                  <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+                  <GraduationCap className="w-4 h-4 text-brand-400 shrink-0" />
                   <span className="text-gray-600 truncate">{s.career}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Mail className="w-4 h-4 text-brand-400 shrink-0" />
                   <span className="text-gray-600 truncate text-xs">{s.email}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t">
@@ -149,7 +149,7 @@ export function Students() {
                           <div className="flex items-center gap-3">
                             <Avatar className="shrink-0">
                               <AvatarImage src={s.photo} alt={s.name} />
-                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs">
+                              <AvatarFallback className="bg-gradient-to-br from-brand-500 to-brand-300 text-white text-xs">
                                 {initials(s.name)}
                               </AvatarFallback>
                             </Avatar>
@@ -164,7 +164,7 @@ export function Students() {
                           <Badge className={rateBadgeClass(stats.rate)}>{stats.rate}%</Badge>
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(s)} className="text-blue-600 hover:text-blue-800 whitespace-nowrap">
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(s)} className="text-brand-700 hover:text-brand-900 whitespace-nowrap">
                             <History className="w-4 h-4 mr-1" />Historial
                           </Button>
                         </TableCell>
@@ -180,7 +180,7 @@ export function Students() {
 
       {/* Panel historial */}
       {selectedStudent && (
-        <Card className="border-blue-200">
+        <Card className="border-brand-200">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base">Historial — {selectedStudent.name}</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(null)}>

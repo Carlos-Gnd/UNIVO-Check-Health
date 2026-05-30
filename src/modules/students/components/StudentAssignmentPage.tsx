@@ -117,7 +117,7 @@ export function StudentAssignmentPage() {
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-blue-600" />
+            <Building2 className="w-4 h-4 text-brand-700" />
             {campus.name}
           </CardTitle>
           <Badge className={isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
@@ -126,20 +126,20 @@ export function StudentAssignmentPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-start gap-2 text-gray-700">
-            <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+            <MapPin className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
             <span>{campus.address}</span>
           </div>
 
           {campus.schedule && (
             <div className="flex items-start gap-2 text-gray-700">
-              <CalendarDays className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+              <CalendarDays className="w-4 h-4 text-brand-400 mt-0.5 shrink-0" />
               <span>{campus.schedule}</span>
             </div>
           )}
 
           {(campus.checkInFrom || campus.checkInTo) && (
             <div className="flex items-center gap-2 text-gray-700">
-              <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+              <Clock className="w-4 h-4 text-brand-400 shrink-0" />
               <span>
                 Ventana de check-in:&nbsp;
                 <strong>
@@ -151,7 +151,7 @@ export function StudentAssignmentPage() {
           )}
 
           {campus.startDate && campus.endDate && (
-            <div className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            <div className="rounded-md bg-brand-50 px-3 py-2 text-xs text-brand-800">
               Período:&nbsp;
               <strong>{format(parseISO(campus.startDate), "d 'de' MMMM yyyy", { locale: es })}</strong>
               &nbsp;al&nbsp;
@@ -165,7 +165,7 @@ export function StudentAssignmentPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <UserCircle className="w-4 h-4 text-blue-600" />
+            <UserCircle className="w-4 h-4 text-brand-700" />
             Doctor encargado
           </CardTitle>
         </CardHeader>
@@ -173,8 +173,8 @@ export function StudentAssignmentPage() {
           <p className="font-semibold text-gray-900">{campus.supervisorName}</p>
           {campus.supervisorPhone && (
             <div className="flex items-center gap-2 text-gray-600">
-              <Phone className="w-4 h-4 text-gray-400 shrink-0" />
-              <a href={`tel:${campus.supervisorPhone}`} className="hover:text-blue-600">
+              <Phone className="w-4 h-4 text-brand-400 shrink-0" />
+              <a href={`tel:${campus.supervisorPhone}`} className="hover:text-brand-700">
                 {campus.supervisorPhone}
               </a>
             </div>
@@ -187,7 +187,7 @@ export function StudentAssignmentPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-blue-600" />
+              <MapPin className="w-4 h-4 text-brand-700" />
               Ubicación
             </CardTitle>
           </CardHeader>

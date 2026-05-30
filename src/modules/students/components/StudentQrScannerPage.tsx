@@ -297,13 +297,13 @@ export function StudentQrScannerPage() {
         <div className="flex rounded-lg border overflow-hidden">
           <button
             onClick={() => { setMode('camera'); setCameraError(''); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${mode === 'camera' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${mode === 'camera' ? 'bg-brand-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             <QrCode className="w-4 h-4" />Escanear QR
           </button>
           <button
             onClick={() => setMode('manual')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${mode === 'manual' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${mode === 'manual' ? 'bg-brand-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             <Keyboard className="w-4 h-4" />Código manual
           </button>
@@ -325,7 +325,7 @@ export function StudentQrScannerPage() {
                 ? <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{cameraError}</p>
                 : <p className="text-sm text-gray-600">Solicita el QR al encargado de tu sede y escanéalo.</p>}
               {!cameraError && (
-                <Button onClick={startScanner} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button onClick={startScanner} className="bg-brand-700 hover:bg-brand-800 text-white">
                   <QrCode className="w-4 h-4 mr-2" />Iniciar escáner
                 </Button>
               )}
@@ -379,7 +379,7 @@ export function StudentQrScannerPage() {
               <Button
                 onClick={handleManualSubmit}
                 disabled={isSubmittingManual || shortCode.length !== 6 || !selectedCampus}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-brand-700 hover:bg-brand-800 text-white"
               >
                 {isSubmittingManual ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Registrar entrada

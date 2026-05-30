@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileWarning, Loader2, Paperclip, Plus, Upload, X } from 'lucide-react';
+import { CalendarDays, FileText, FileWarning, Loader2, Paperclip, Plus, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -120,7 +120,7 @@ export function StudentJustificationsPage() {
           <h2 className="text-2xl font-semibold text-gray-900">Justificaciones</h2>
           <p className="text-sm text-gray-600">Solicita justificación para ausencias o tardanzas.</p>
         </div>
-        <Button onClick={openForm} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={openForm} className="bg-brand-700 hover:bg-brand-800 text-white">
           <Plus className="w-4 h-4 mr-1.5" />Nueva solicitud
         </Button>
       </div>
@@ -156,13 +156,13 @@ export function StudentJustificationsPage() {
                     href={row.documentUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs text-brand-700 hover:underline"
                   >
                     <Paperclip className="w-3 h-3" />Ver documento adjunto
                   </a>
                 )}
                 {row.reviewerNotes && (
-                  <div className="rounded bg-gray-50 px-3 py-2 text-xs text-gray-600 border">
+                  <div className="rounded bg-brand-50 px-3 py-2 text-xs text-gray-600 border border-brand-100">
                     <span className="font-medium">Nota del revisor:</span> {row.reviewerNotes}
                   </div>
                 )}
@@ -176,13 +176,13 @@ export function StudentJustificationsPage() {
       <Dialog open={showForm} onOpenChange={closeForm}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nueva solicitud de justificación</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><FileWarning className="h-5 w-5 text-brand-700" />Nueva solicitud de justificación</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-1">
             {/* Selección de asistencia */}
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Asistencia a justificar *</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Asistencia a justificar *</Label>
               <Select value={attendanceId} onValueChange={setAttendanceId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona una jornada" />
@@ -203,7 +203,7 @@ export function StudentJustificationsPage() {
 
             {/* Motivo */}
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Motivo *</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><FileText className="h-3.5 w-3.5" />Motivo *</Label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -214,14 +214,14 @@ export function StudentJustificationsPage() {
 
             {/* Zona drag-and-drop */}
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide">Documento de respaldo (opcional, máx. 10 MB)</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Paperclip className="h-3.5 w-3.5" />Documento de respaldo (opcional, máx. 10 MB)</Label>
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
-                  isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                  isDragging ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'
                 }`}
               >
                 <Upload className="w-6 h-6 text-gray-400" />
@@ -259,7 +259,7 @@ export function StudentJustificationsPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-brand-700 hover:bg-brand-800 text-white"
               >
                 {isSaving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
                 Enviar solicitud
