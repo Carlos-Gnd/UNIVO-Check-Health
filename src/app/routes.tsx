@@ -13,7 +13,7 @@ import { DeanJustificationsPage } from '@/modules/dean/pages/DeanJustificationsP
 import { UserManagement } from '@/modules/admin/components/UserManagement';
 import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
-import { StudentPlaceholderPage } from '@/modules/students/components/StudentPlaceholderPage';
+import { PlaceholderPage } from '@/shared/components/PlaceholderPage';
 import { StudentQrScannerPage } from '@/modules/students/components/StudentQrScannerPage';
 import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
 import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
@@ -80,6 +80,25 @@ const StudentAssignmentRoute = () => (
   </RoleGuard>
 );
 
+// Rutas del Docente (T-00.1). Las páginas reales las completan T-23.1, T-26.2 y T-28.1.
+const TeacherDashboardRoute = () => (
+  <RoleGuard allow={['DOCENTE', 'TEACHER']}>
+    <PlaceholderPage title="Mapa de mi grupo" note="El mapa de estudiantes activos de tu grupo se integrará en HU-23." />
+  </RoleGuard>
+);
+
+const TeacherEvaluationsRoute = () => (
+  <RoleGuard allow={['DOCENTE', 'TEACHER']}>
+    <PlaceholderPage title="Evaluación semanal" note="El formulario de evaluación cualitativa se integrará en HU-26." />
+  </RoleGuard>
+);
+
+const TeacherHistoryRoute = () => (
+  <RoleGuard allow={['DOCENTE', 'TEACHER']}>
+    <PlaceholderPage title="Historial de decisiones" note="El historial de decisiones de incidencias se integrará en HU-28." />
+  </RoleGuard>
+);
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -101,6 +120,9 @@ export const router = createBrowserRouter([
       { path: 'dean/students', Component: DeanStudentsRoute },
       { path: 'dean/locations', Component: DeanLocationsRoute },
       { path: 'dean/justifications', Component: DeanJustificationsRoute },
+      { path: 'teacher/dashboard', Component: TeacherDashboardRoute },
+      { path: 'teacher/evaluations', Component: TeacherEvaluationsRoute },
+      { path: 'teacher/history', Component: TeacherHistoryRoute },
       { path: '*', Component: NotFound },
     ],
   },

@@ -17,14 +17,30 @@ import {
   AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { supabaseAdmin } from '@/shared/backend/supabaseAdmin';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
+
+// B-01: las operaciones privilegiadas viven en la Edge Function admin-users.
+// El cliente nunca maneja la service_role key.
+type AdminAction = 'create' | 'update' | 'delete' | 'reset-password';
+async function invokeAdmin<T = Record<string, unknown>>(
+  action: AdminAction,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; message?: string; data?: T }> {
+  const { data, error } = await supabase.functions.invoke('admin-users', {
+    body: { action, ...payload },
+  });
+  if (error || !data?.ok) {
+    return { ok: false, message: data?.error ?? error?.message ?? 'Error en la operación.' };
+  }
+  return { ok: true, data: data as T };
+}
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 const CAREERS = ['Enfermería', 'Medicina', 'Fisioterapia', 'Radiología', 'Laboratorio Clínico', 'Nutrición'];
 const ROLES = [
   { value: 'STUDENT',      label: 'Estudiante' },
+  { value: 'DOCENTE',      label: 'Docente' },
   { value: 'COORDINATOR',  label: 'Coordinador' },
   { value: 'ADMIN',        label: 'Administrador / Decano' },
 ];
@@ -99,30 +115,18 @@ export function UserManagement() {
     if (password.length < 8) { toast.error('La contraseña debe tener al menos 8 caracteres'); return; }
 
     setIsSubmitting(true);
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const result = await invokeAdmin('create', {
       email,
       password,
-      email_confirm: true,   // marca email como confirmado — login inmediato sin verificación
-    });
-
-    if (authError) {
-      toast.error(`Error al crear usuario: ${authError.message}`);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: profileError } = await supabaseAdmin.from('users').insert({
-      id:           authData.user.id,
       student_code: code,
-      full_name:    fullName.trim(),
-      email,
+      full_name: fullName.trim(),
       role,
-      career:       role === 'STUDENT' ? career : null,
+      career: role === 'STUDENT' ? career : null,
     });
     setIsSubmitting(false);
 
-    if (profileError) {
-      toast.error(`Auth creado pero perfil falló: ${profileError.message}`);
+    if (!result.ok) {
+      toast.error(result.message ?? 'Error al crear usuario');
       return;
     }
 
@@ -143,12 +147,14 @@ export function UserManagement() {
     e.preventDefault();
     if (!editingUser) return;
     setIsSavingEdit(true);
-    const { error } = await supabaseAdmin
-      .from('users')
-      .update({ full_name: editName.trim(), role: editRole, career: editRole === 'STUDENT' ? editCareer : null })
-      .eq('id', editingUser.id);
+    const result = await invokeAdmin('update', {
+      id: editingUser.id,
+      full_name: editName.trim(),
+      role: editRole,
+      career: editRole === 'STUDENT' ? editCareer : null,
+    });
     setIsSavingEdit(false);
-    if (error) { toast.error(`Error al actualizar: ${error.message}`); return; }
+    if (!result.ok) { toast.error(result.message ?? 'Error al actualizar'); return; }
     toast.success('Usuario actualizado');
     setEditingUser(null);
     void loadUsers();
@@ -157,10 +163,9 @@ export function UserManagement() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeletingUserId(deleteTarget.id);
-    const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(deleteTarget.id);
-    if (authErr) { setDeletingUserId(null); toast.error(`Error Auth: ${authErr.message}`); return; }
-    await supabaseAdmin.from('users').delete().eq('id', deleteTarget.id);
+    const result = await invokeAdmin('delete', { id: deleteTarget.id });
     setDeletingUserId(null);
+    if (!result.ok) { toast.error(result.message ?? 'Error al eliminar'); return; }
     toast.success('Usuario eliminado');
     setDeleteTarget(null);
     void loadUsers();
@@ -177,16 +182,13 @@ export function UserManagement() {
 
   const handleResetPassword = async (user: UserRow) => {
     setResetingId(user.id);
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: user.email,
-    });
+    const result = await invokeAdmin<{ action_link: string }>('reset-password', { email: user.email });
     setResetingId(null);
-    if (error || !data?.properties?.action_link) {
-      toast.error('No se pudo generar el link de restablecimiento');
+    if (!result.ok || !result.data?.action_link) {
+      toast.error(result.message ?? 'No se pudo generar el link de restablecimiento');
       return;
     }
-    await navigator.clipboard.writeText(data.properties.action_link).catch(() => undefined);
+    await navigator.clipboard.writeText(result.data.action_link).catch(() => undefined);
     toast.success('Link de restablecimiento copiado al portapapeles');
   };
 

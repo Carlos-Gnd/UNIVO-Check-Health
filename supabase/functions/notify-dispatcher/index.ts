@@ -181,6 +181,15 @@ const TEMPLATES: Record<string, {
       <p>El mismo dispositivo intentó registrar asistencia en dos sedes distintas simultáneamente.</p>
       <p>El intento fue registrado en auditoría.</p>`,
   },
+  CHECKOUT_REMINDER: {
+    title:        'Recordatorio de salida',
+    pushBody:     (p) => `Llevas ${p.hours_open} h sin marcar tu salida. No olvides registrar tu check-out.`,
+    emailSubject: () => 'Recordatorio: registra tu salida — UNIVO Check-Health',
+    emailHtml:    (p) => `
+      <h2>No olvides marcar tu salida</h2>
+      <p>Tienes una jornada abierta desde hace <strong>${p.hours_open} horas</strong> sin registrar check-out.</p>
+      <p>Ingresa a la app y marca tu salida para que tus horas se contabilicen correctamente.</p>`,
+  },
   JUSTIFICATION_RECEIVED: {
     title:        'Nueva solicitud de justificación',
     pushBody:     (p) => `${p.student_name ?? 'Estudiante'} (${p.student_code ?? ''}) envió una justificación para ${p.campus_name ?? 'su sede'}.`,

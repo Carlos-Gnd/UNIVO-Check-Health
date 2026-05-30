@@ -235,6 +235,49 @@ export async function submitJustification(params: {
   return { ok: true };
 }
 
+// T-32.1: escalar una justificación rechazada (coordinador la reabre a PENDIENTE).
+// La validación de rol y el cambio de estado ocurren en el RPC escalate_justification.
+export async function escalateJustification(id: string, nota: string): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase.rpc('escalate_justification', { p_id: id, p_nota: nota.trim() || null });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+// Justificaciones rechazadas que aún no han sido escaladas (candidatas a segunda revisión).
+export async function fetchRejectedJustifications(): Promise<PendingJustification[]> {
+  const { data, error } = await supabase
+    .from('justifications')
+    .select(`
+      id, attendance_id, student_id, motivo, documento_url, status, notas_revisor, creado_en, actualizado_en,
+      student:users!justifications_student_id_fkey(student_code, full_name, career),
+      attendance:attendances!justifications_attendance_id_fkey(date, check_in, check_out, campuses(name))
+    `)
+    .eq('status', 'RECHAZADO')
+    .eq('escalated', false)
+    .order('actualizado_en', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as unknown as JustificationRow[]).map((row) => ({
+    id: row.id,
+    attendanceId: row.attendance_id,
+    studentId: row.student_id,
+    studentCode: row.student?.student_code ?? 'Sin carnet',
+    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
+    career: row.student?.career ?? 'Sin carrera',
+    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
+    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
+    checkIn: row.attendance?.check_in ?? null,
+    checkOut: row.attendance?.check_out ?? null,
+    reason: row.motivo,
+    documentUrl: row.documento_url,
+    status: row.status,
+    reviewerNotes: row.notas_revisor,
+    createdAt: row.creado_en,
+    updatedAt: row.actualizado_en,
+  }));
+}
+
 export function subscribeToJustificationChanges(onChange: () => void) {
   const channel = supabase
     .channel('pending-justifications-review')

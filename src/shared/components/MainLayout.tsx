@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 
-type AppRole = 'Encargado' | 'Decano' | 'Alumno';
+type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 
@@ -40,6 +40,7 @@ function mapAppRole(rawRole: string | null | undefined): AppRole {
   const normalized = (rawRole ?? '').toUpperCase().trim();
   if (normalized === 'ADMIN' || normalized === 'ADMINISTRADOR') return 'Decano';
   if (normalized === 'STUDENT' || normalized === 'ESTUDIANTE' || normalized === 'ALUMNO') return 'Alumno';
+  if (normalized === 'DOCENTE' || normalized === 'TEACHER') return 'Docente';
   return 'Encargado';
 }
 
@@ -89,6 +90,7 @@ export function MainLayout() {
     if (!currentUser || isResolvingRole) return;
     if (currentRole === 'Alumno' && location.pathname === '/') navigate('/rotations', { replace: true });
     if (currentRole === 'Decano' && location.pathname === '/') navigate('/dean/dashboard', { replace: true });
+    if (currentRole === 'Docente' && location.pathname === '/') navigate('/teacher/dashboard', { replace: true });
   }, [currentUser, currentRole, isResolvingRole, location.pathname, navigate]);
 
   const navigation = currentRole === 'Decano'
@@ -108,6 +110,14 @@ export function MainLayout() {
           { name: 'Progreso de Horas', href: '/student/progress', icon: Gauge },
           { name: 'Justificaciones', href: '/student/justifications', icon: FileWarning },
           { name: 'Mi Sede y Encargado', href: '/student/assignment', icon: Hospital },
+        ]
+    : currentRole === 'Docente'
+      ? [
+          { name: 'Mi Grupo', href: '/teacher/dashboard', icon: LayoutDashboard },
+          { name: 'Calendario', href: '/rotations', icon: CalendarDays },
+          { name: 'Evaluaciones', href: '/teacher/evaluations', icon: ClipboardList },
+          { name: 'Justificaciones', href: '/dean/justifications', icon: FileWarning },
+          { name: 'Historial de Decisiones', href: '/teacher/history', icon: History },
         ]
       : [
           { name: 'Dashboard', href: '/', icon: LayoutDashboard },
