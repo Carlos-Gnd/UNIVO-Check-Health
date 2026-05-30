@@ -26,12 +26,13 @@ import {
   ClipboardList,
   UserCog,
 } from 'lucide-react';
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
@@ -57,6 +58,7 @@ export function MainLayout() {
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
   const [isResolvingRole, setIsResolvingRole] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -78,16 +80,45 @@ export function MainLayout() {
         if (session?.user) {
           setCurrentUser(session.user);
           void resolveRole(session.user.id, session.user.email ?? '');
+          // Sesión única: reclama (o reusa) el id de sesión para este usuario.
+          void claimSession(session.user.id).then((id) => { sessionIdRef.current = id; });
         } else {
           setCurrentUser(null);
           setCurrentRole('Encargado');
           setDisplayName('');
           setIsResolvingRole(false);
+          sessionIdRef.current = null;
+          clearLocalSession();
         }
       }
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  // Sesión única: si otro dispositivo inició sesión después, este cliente se cierra.
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    const verify = async () => {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      const result = await checkSession(currentUser.id, sid);
+      if (!cancelled && result === 'superseded') {
+        toast.error('Tu sesión se cerró porque iniciaste sesión en otro dispositivo.');
+        await supabase.auth.signOut();
+      }
+    };
+    const interval = setInterval(() => void verify(), 45000);
+    const onFocus = () => void verify();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser || isResolvingRole) return;
