@@ -64,22 +64,57 @@ Deno.serve(async (req: Request) => {
       if (!body.email || !body.password || !body.student_code) {
         return json({ error: 'Faltan datos requeridos.' }, 400);
       }
+
+      const code = body.student_code.trim().toUpperCase();
+      const email = body.email.trim().toLowerCase();
+      const role = (body.role ?? 'STUDENT').toUpperCase();
+
+      // Validaciones server-side (defensa en profundidad; el front también valida).
+      const ALLOWED_ROLES = ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN'];
+      if (!ALLOWED_ROLES.includes(role)) {
+        return json({ error: 'Rol no válido.' }, 400);
+      }
+      // student_code es varchar(9): un código más largo reventaría en BD.
+      if (role === 'STUDENT' ? !/^U\d{8}$/.test(code) : !/^[A-Z0-9]{4,9}$/.test(code)) {
+        return json({ error: role === 'STUDENT'
+          ? 'Carné de estudiante inválido (debe ser U + 8 dígitos).'
+          : 'Código inválido: 4 a 9 caracteres alfanuméricos.' }, 400);
+      }
+      if ((body.password ?? '').length < 8) {
+        return json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, 400);
+      }
+
+      // Pre-chequeo de duplicados → mensaje claro y sin dejar usuario huérfano en Auth.
+      const { data: dupes } = await admin
+        .from('users')
+        .select('student_code, email')
+        .or(`student_code.eq.${code},email.eq.${email}`);
+      if (dupes && dupes.length > 0) {
+        const byCode = dupes.some((d) => (d.student_code ?? '').toUpperCase() === code);
+        return json({ error: byCode
+          ? `Ya existe un usuario con el carné/código ${code}.`
+          : `Ya existe un usuario con el correo ${email}.` }, 409);
+      }
+
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
-        email: body.email,
+        email,
         password: body.password,
         email_confirm: true,
       });
       if (createErr || !created.user) {
-        return json({ error: `Error al crear usuario: ${createErr?.message ?? 'desconocido'}` }, 400);
+        const msg = (createErr?.message ?? '').toLowerCase().includes('already')
+          ? `Ya existe un usuario con el correo ${email}.`
+          : `Error al crear usuario: ${createErr?.message ?? 'desconocido'}`;
+        return json({ error: msg }, createErr?.message?.toLowerCase().includes('already') ? 409 : 400);
       }
 
       const { error: profileErr } = await admin.from('users').insert({
         id:           created.user.id,
-        student_code: body.student_code,
-        full_name:    body.full_name ?? '',
-        email:        body.email,
-        role:         body.role ?? 'STUDENT',
-        career:       body.career ?? null,
+        student_code: code,
+        full_name:    (body.full_name ?? '').trim(),
+        email,
+        role,
+        career:       role === 'STUDENT' ? (body.career ?? null) : null,
       });
       if (profileErr) {
         // Rollback del usuario Auth para no dejar huérfanos

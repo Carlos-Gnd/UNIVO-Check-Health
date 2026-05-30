@@ -24,6 +24,7 @@ import {
   FileWarning,
   Hospital,
   ClipboardList,
+  UserCog,
 } from 'lucide-react';
 import { useState, useEffect, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -101,6 +102,7 @@ export function MainLayout() {
         { name: 'Calendario', href: '/rotations', icon: CalendarDays },
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
+        { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
         { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
         { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
       ]
@@ -126,6 +128,7 @@ export function MainLayout() {
           { name: 'Calendario', href: '/rotations', icon: CalendarDays },
           { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
           { name: 'Estudiantes', href: '/students', icon: Users },
+          { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
           { name: 'Prácticas', href: '/practices', icon: Stethoscope },
           { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
           { name: 'Reportes', href: '/reports', icon: BarChart3 },

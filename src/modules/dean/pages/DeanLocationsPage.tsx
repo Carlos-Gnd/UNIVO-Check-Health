@@ -10,6 +10,8 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Switch } from '@/shared/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { CoordinatePicker } from '@/shared/components/CoordinatePicker';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 
@@ -278,6 +280,17 @@ export function DeanLocationsPage() {
               <Label className="text-xs uppercase tracking-wide text-brand-700"><Building2 className="h-3.5 w-3.5" />Nombre de la sede *</Label>
               <Input value={form.name} onChange={set('name')} placeholder="Hospital Nacional Rosales" required />
             </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />Ubicación en el mapa
+                <HelpTooltip text="Busca el hospital por su nombre y departamento (ej. 'Hospital San Juan de Dios, San Miguel') para ubicarlo con precisión. También puedes hacer clic en el punto exacto o arrastrar el marcador. No necesitas conocer las coordenadas: se llenan abajo automáticamente." />
+              </Label>
+              <CoordinatePicker
+                lat={form.latitude}
+                lng={form.longitude}
+                onChange={(la, ln) => setForm((prev) => ({ ...prev, latitude: la, longitude: ln }))}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wide text-brand-700"><MapPin className="h-3.5 w-3.5" />Latitud *</Label>
               <Input value={form.latitude} onChange={set('latitude')} placeholder="13.7013" type="number" step="any" required />
@@ -287,7 +300,10 @@ export function DeanLocationsPage() {
               <Input value={form.longitude} onChange={set('longitude')} placeholder="-89.2045" type="number" step="any" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-brand-700"><Radio className="h-3.5 w-3.5" />Radio GPS (metros, mín. 50)</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1">
+                <Radio className="h-3.5 w-3.5" />Radio GPS (metros, mín. 50)
+                <HelpTooltip text="Distancia máxima desde el punto de la sede en la que se acepta el check-in del alumno. Un radio menor (30–50 m) es más estricto contra ubicaciones falsas." />
+              </Label>
               <Input value={form.radius_meters} onChange={set('radius_meters')} placeholder="100" type="number" min="50" max="1000" />
             </div>
             <div className="space-y-1.5">
@@ -319,7 +335,10 @@ export function DeanLocationsPage() {
               <Input value={form.description} onChange={set('description')} placeholder="Descripción breve de la práctica…" />
             </div>
             <div className="sm:col-span-2">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Ventana horaria de check-in (opcional)</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                Ventana horaria de check-in (opcional)
+                <HelpTooltip text="Franja del día en que se acepta el check-in en esta sede. Es un límite general; el horario fino por alumno y día se define en Asignaciones. Si la dejas vacía, no hay restricción de hora." />
+              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-brand-700"><Timer className="h-3.5 w-3.5" />Hora inicio</Label>
