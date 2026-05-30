@@ -27,7 +27,6 @@ type QrModal = {
   campusName: string;
   qrDataUrl: string;
   shortCode: string;
-  date: string;
 };
 
 export function DeanLocationsPage() {
@@ -131,7 +130,7 @@ export function DeanLocationsPage() {
       toast.error(data?.error ?? 'No se pudo generar el QR. Verifica la configuración del servidor.');
       return;
     }
-    setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, shortCode: data.short_code ?? '', date: data.date });
+    setQrModal({ campusId, campusName, qrDataUrl: data.qr_data_url, shortCode: data.short_code ?? '' });
   };
 
   const handleToggleActive = async (l: Location) => {
@@ -147,7 +146,7 @@ export function DeanLocationsPage() {
     if (!qrModal) return;
     const a = document.createElement('a');
     a.href = qrModal.qrDataUrl;
-    a.download = `qr_${qrModal.campusName.replace(/\s+/g, '_')}_${qrModal.date}.png`;
+    a.download = `qr_${qrModal.campusName.replace(/\s+/g, '_')}.png`;
     a.click();
   };
 
@@ -246,7 +245,7 @@ export function DeanLocationsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  title="Generar QR del día"
+                  title="Generar QR de la sede (estático, imprimible)"
                   disabled={generatingQrId === l.id}
                   onClick={() => void handleGenerateQr(l.id, l.name)}
                 >
@@ -390,7 +389,7 @@ export function DeanLocationsPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <QrCode className="w-4 h-4" /> QR de hoy — {qrModal.campusName}
+                  <QrCode className="w-4 h-4" /> QR de la sede — {qrModal.campusName}
                 </DialogTitle>
               </DialogHeader>
               <div className="flex flex-col items-center gap-4 py-2">
@@ -410,8 +409,8 @@ export function DeanLocationsPage() {
                   </div>
                 )}
                 <p className="text-xs text-gray-500 text-center">
-                  Válido el <strong>{qrModal.date}</strong> hasta las 23:59.<br />
-                  El alumno escanea el QR o ingresa el código de 6 letras en la app.
+                  QR fijo de la sede: <strong>imprímelo y reutilízalo</strong>.<br />
+                  El alumno lo escanea o ingresa las 6 letras; la validación depende de su ubicación y horario.
                 </p>
                 <Button variant="outline" className="w-full" onClick={handleDownloadQr}>
                   <Download className="w-4 h-4 mr-2" />Descargar PNG

@@ -55,16 +55,12 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const nowSV = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
-  const today = nowSV.toISOString().slice(0, 10);
-  const expiry = new Date(`${today}T23:59:59-06:00`);
-
-  // Servir desde caché si el token del día ya existe
+  // QR ESTÁTICO: un token por sede, sin fecha ni expiración → se imprime y se reutiliza.
+  // Se sirve desde campus_qr si ya existe, para que el QR impreso siga siendo válido.
   const { data: cached } = await admin
-    .from('campus_daily_qr')
+    .from('campus_qr')
     .select('token, short_code')
     .eq('campus_id', body.campus_id)
-    .eq('qr_date', today)
     .single();
 
   let token: string;
@@ -72,26 +68,27 @@ Deno.serve(async (req: Request) => {
 
   if (cached?.token) {
     token = cached.token as string;
-    shortCode = (cached.short_code as string) ?? await deriveShortCode(body.campus_id, today, qrSecret);
+    shortCode = (cached.short_code as string) ?? await deriveShortCode(body.campus_id, 'STATIC', qrSecret);
   } else {
     const secretKey = new TextEncoder().encode(qrSecret);
-    token = await new jose.SignJWT({ campus_id: body.campus_id, date: today })
+    // Sin setExpirationTime → el token no caduca; la seguridad está en geofence,
+    // ventana horaria por alumno e IP, no en la rotación del QR.
+    token = await new jose.SignJWT({ campus_id: body.campus_id })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(expiry)
       .sign(secretKey);
-    shortCode = await deriveShortCode(body.campus_id, today, qrSecret);
+    shortCode = await deriveShortCode(body.campus_id, 'STATIC', qrSecret);
 
-    await admin.from('campus_daily_qr').upsert(
-      { campus_id: body.campus_id, qr_date: today, token, short_code: shortCode, created_at: new Date().toISOString() },
-      { onConflict: 'campus_id,qr_date' },
+    await admin.from('campus_qr').upsert(
+      { campus_id: body.campus_id, token, short_code: shortCode, updated_at: new Date().toISOString() },
+      { onConflict: 'campus_id' },
     );
   }
 
   const qrDataUrl: string = await QRCode.toDataURL(token, { width: 280, margin: 2, errorCorrectionLevel: 'M' });
 
   return new Response(
-    JSON.stringify({ token, short_code: shortCode, qr_data_url: qrDataUrl, date: today }),
+    JSON.stringify({ token, short_code: shortCode, qr_data_url: qrDataUrl, static: true }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 });
