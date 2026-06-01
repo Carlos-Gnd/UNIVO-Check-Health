@@ -166,22 +166,24 @@ export function RotationsCalendarPage() {
             {role === 'DEAN' && 'Vista global de rotaciones por sede y carrera.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportPdf}>
             <FileText className="h-4 w-4 mr-1.5" />PDF
           </Button>
           <Button variant="outline" size="sm" onClick={() => void exportXlsx()}>
             <Download className="h-4 w-4 mr-1.5" />Excel
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <p className="min-w-44 text-center text-sm font-medium capitalize">
-            {format(month, 'MMMM yyyy', { locale: es })}
-          </p>
-          <Button variant="outline" size="icon" onClick={() => setMonth((m) => addMonths(m, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2 ml-auto md:ml-0">
+            <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <p className="min-w-32 sm:min-w-44 text-center text-sm font-medium capitalize">
+              {format(month, 'MMMM yyyy', { locale: es })}
+            </p>
+            <Button variant="outline" size="icon" onClick={() => setMonth((m) => addMonths(m, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -213,9 +215,9 @@ export function RotationsCalendarPage() {
           <CardTitle className="text-base">Vista mensual</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {DAY_NAMES.map((name) => (
-              <div key={name} className="text-xs font-medium text-gray-500 text-center">{name}</div>
+              <div key={name} className="text-[10px] sm:text-xs font-medium text-gray-500 text-center">{name}</div>
             ))}
             {monthDays.map((day) => {
               const inMonth = day.getMonth() === month.getMonth();
@@ -228,19 +230,22 @@ export function RotationsCalendarPage() {
                   key={day.toISOString()}
                   onClick={() => dayList.length > 0 && setSelectedDay(day)}
                   disabled={dayList.length === 0}
-                  className={`min-h-28 rounded-lg border p-2 text-left transition-colors ${
+                  className={`min-h-16 sm:min-h-28 rounded-lg border p-1 sm:p-2 text-left transition-colors ${
                     inMonth ? 'bg-white' : 'bg-brand-50/20 text-gray-400'
                   } ${dayList.length > 0 ? 'cursor-pointer hover:bg-brand-50/40' : 'cursor-default'}`}
                 >
-                  <p className="text-xs font-semibold">{format(day, 'd')}</p>
-                  <div className="mt-1 space-y-1">
+                  <p className="text-[10px] sm:text-xs font-semibold">{format(day, 'd')}</p>
+                  <div className="mt-0.5 sm:mt-1 space-y-0.5 sm:space-y-1">
                     {dayList.slice(0, 2).map((e, idx) => (
-                      <div key={`${e.studentName}-${idx}`} className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-700">
+                      <div key={`${e.studentName}-${idx}`} className="hidden sm:block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-700">
                         {role === 'STUDENT' ? e.campusName : e.studentName}
                       </div>
                     ))}
+                    {dayList.length > 0 && (
+                      <div className="sm:hidden w-2 h-2 rounded-full bg-brand-500 mt-1" />
+                    )}
                     {dayList.length > 2 && (
-                      <p className="text-[10px] text-gray-500">+{dayList.length - 2} más</p>
+                      <p className="hidden sm:block text-[10px] text-gray-500">+{dayList.length - 2} más</p>
                     )}
                   </div>
                 </button>

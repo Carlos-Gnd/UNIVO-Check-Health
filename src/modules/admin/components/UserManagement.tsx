@@ -259,7 +259,7 @@ export function UserManagement() {
           </Button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nombre</th>

@@ -446,7 +446,7 @@ export function Dashboard() {
             <CardDescription>Últimos 5 días</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px] sm:h-[280px]">
+            <div className="h-[200px] sm:h-[260px] md:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -467,7 +467,7 @@ export function Dashboard() {
             <CardDescription>Distribución de asistencias</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px] sm:h-[280px]">
+            <div className="h-[200px] sm:h-[260px] md:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

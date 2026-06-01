@@ -26,7 +26,21 @@ const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
   localStorage.setItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY, JSON.stringify([...ids]));
 };
 
-function LiveMap({ campusFilter, careerFilter }: { campusFilter: string; careerFilter: string }) {
+function LiveMap({
+  campusFilter,
+  careerFilter,
+  campusOptions,
+  careerOptions,
+  onCampusChange,
+  onCareerChange,
+}: {
+  campusFilter: string;
+  careerFilter: string;
+  campusOptions: { id: string; name: string }[];
+  careerOptions: string[];
+  onCampusChange: (v: string) => void;
+  onCareerChange: (v: string) => void;
+}) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
@@ -123,19 +137,48 @@ function LiveMap({ campusFilter, careerFilter }: { campusFilter: string; careerF
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-brand-700" />Estudiantes activos en tiempo real
-        </CardTitle>
-        <div className="flex items-center gap-2">
-          <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
-            {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
-          </Badge>
-          <Badge className="bg-brand-100 text-brand-700">{studentCount} en sedes</Badge>
+      <CardHeader className="space-y-3">
+        {/* Fila 1: título + badges de estado */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <CardTitle className="flex items-center gap-2 min-w-0">
+            <MapPin className="w-4 h-4 shrink-0 text-brand-700" />
+            <span className="truncate">Estudiantes activos en tiempo real</span>
+          </CardTitle>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+              {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
+            </Badge>
+            <Badge className="bg-brand-100 text-brand-700">{studentCount} en sedes</Badge>
+          </div>
+        </div>
+        {/* Fila 2: filtros — apilados en móvil, en fila en sm+ */}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select value={campusFilter} onValueChange={onCampusChange}>
+            <SelectTrigger className="w-full sm:w-44 h-8 text-xs">
+              <SelectValue placeholder="Todas las sedes" />
+            </SelectTrigger>
+            <SelectContent className="z-[1000]">
+              <SelectItem value="all">Todas las sedes</SelectItem>
+              {campusOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={careerFilter} onValueChange={onCareerChange}>
+            <SelectTrigger className="w-full sm:w-44 h-8 text-xs">
+              <SelectValue placeholder="Todas las carreras" />
+            </SelectTrigger>
+            <SelectContent className="z-[1000]">
+              <SelectItem value="all">Todas las carreras</SelectItem>
+              {careerOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
-      <CardContent className="p-0 overflow-hidden rounded-b-lg">
-        <div ref={mapRef} style={{ height: 320 }} />
+      <CardContent className="p-0">
+        {/* Wrapper fijo: Leaflet no puede modificar este div — define dimensiones y clip */}
+        <div style={{ position: 'relative', width: '100%', height: '320px', overflow: 'hidden', borderRadius: '0 0 0.5rem 0.5rem' }}>
+          {/* mapRef: Leaflet overrides position→relative aquí, pero height:100% sigue resolviendo 320px */}
+          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -252,7 +295,7 @@ export function DeanDashboardPage() {
       )}
 
       {/* T-07.5: Tarjetas de indicadores */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Alumnos Activos" value={globalStats.totalStudents} subtitle="en prácticas este período" icon={Users} />
         <StatCard title="Tasa de Cumplimiento Global" value={`${globalStats.globalComplianceRate}%`} subtitle="promedio de todos los alumnos" icon={CheckCircle2} />
         <StatCard title="Alumnos en Riesgo" value={globalStats.atRiskCount} subtitle={`menos del ${globalStats.riskThreshold}% de cumplimiento`} icon={AlertTriangle} danger />
@@ -263,7 +306,7 @@ export function DeanDashboardPage() {
         {/* T-07.2: Cumplimiento por sede */}
         <Card>
           <CardHeader><CardTitle>Cumplimiento por Sede</CardTitle></CardHeader>
-          <CardContent className="h-80">
+          <CardContent className="h-64 sm:h-80">
             {chartData.length === 0 ? (
               <p className="text-sm text-gray-400 text-center pt-16">Sin datos de sedes activas</p>
             ) : (
@@ -333,31 +376,20 @@ export function DeanDashboardPage() {
         </Card>
       </div>
 
-      {/* T-18.3: Filtros de mapa (estado en URL) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Select value={campusFilter} onValueChange={(v) => setMapFilter('campus', v)}>
-          <SelectTrigger><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las sedes</SelectItem>
-            {campusOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={careerFilter} onValueChange={(v) => setMapFilter('career', v)}>
-          <SelectTrigger><SelectValue placeholder="Todas las carreras" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las carreras</SelectItem>
-            {careerOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* T-18.1 / T-18.2: Mapa Realtime con filtros y tooltip con carnet */}
-      <LiveMap campusFilter={campusFilter} careerFilter={careerFilter} />
+      {/* Mapa Realtime con filtros integrados en la tarjeta */}
+      <LiveMap
+        campusFilter={campusFilter}
+        careerFilter={careerFilter}
+        campusOptions={campusOptions}
+        careerOptions={careerOptions}
+        onCampusChange={(v) => setMapFilter('campus', v)}
+        onCareerChange={(v) => setMapFilter('career', v)}
+      />
 
       {/* T-07.1: Resumen por sede */}
       <Card>
         <CardHeader><CardTitle>Resumen rápido de sedes</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {locations.length === 0 ? (
             <p className="text-sm text-gray-400 col-span-3 text-center py-6">Sin sedes registradas</p>
           ) : (

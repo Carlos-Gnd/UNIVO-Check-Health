@@ -161,13 +161,14 @@ export function DeanAssignmentsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Asignaciones</h1>
           <p className="mt-1 text-sm text-gray-500">Asigna a cada alumno su sede, docente, coordinador y horario de práctica por día.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={load} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />Actualizar
           </Button>
@@ -177,8 +178,48 @@ export function DeanAssignmentsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
+      {/* Tarjetas — móvil y tablet (<lg) */}
+      <div className="lg:hidden space-y-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />Cargando…
+          </div>
+        ) : assignments.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-10">Sin asignaciones. Crea la primera con "Nueva asignación".</p>
+        ) : (
+          assignments.map((a) => (
+            <div key={a.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{nameMaps.person.get(a.student_id) ?? '—'}</p>
+                  <Badge className="mt-1 bg-brand-100 text-brand-700">{a.period}</Badge>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-50"
+                    onClick={() => setDeleteTarget(a)} disabled={deletingId === a.id}>
+                    {deletingId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 text-sm">
+                <div><span className="text-xs text-gray-400 uppercase tracking-wide">Sede</span><p className="text-gray-700 truncate">{a.campus_id ? (nameMaps.campus.get(a.campus_id) ?? '—') : '—'}</p></div>
+                <div><span className="text-xs text-gray-400 uppercase tracking-wide">Docente</span><p className="text-gray-700 truncate">{nameMaps.person.get(a.teacher_id) ?? '—'}</p></div>
+                {a.coordinator_id && (
+                  <div className="sm:col-span-2"><span className="text-xs text-gray-400 uppercase tracking-wide">Coordinador</span><p className="text-gray-700 truncate">{nameMaps.person.get(a.coordinator_id)}</p></div>
+                )}
+              </div>
+              {scheduleSummary(a.id) !== 'Sin horario' && (
+                <p className="text-xs text-gray-500 border-t pt-2">{scheduleSummary(a.id)}</p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Tabla — desktop (≥lg) */}
+      <div className="hidden lg:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Alumno</th>
@@ -222,7 +263,7 @@ export function DeanAssignmentsPage() {
 
       {/* Modal crear / editar */}
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCog className="h-5 w-5 text-brand-700" />{editingId ? 'Editar asignación' : 'Nueva asignación'}
@@ -245,7 +286,7 @@ export function DeanAssignmentsPage() {
               <Field label="Período" help="Ciclo académico de la rotación, en formato AÑO-CICLO (ej. 2026-1 para el primer ciclo de 2026).">
                 <Input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-1" />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Inicio rotación" help="Primer y último día de la rotación del alumno en esta sede. Definen en qué fechas aparece en el calendario.">
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </Field>
@@ -266,14 +307,16 @@ export function DeanAssignmentsPage() {
                 {days.map((d) => {
                   const dayLabel = DAYS.find((x) => x.weekday === d.weekday)?.label ?? '';
                   return (
-                    <div key={d.weekday} className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 w-32 shrink-0">
+                    <div key={d.weekday} className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2 w-28 shrink-0">
                         <Switch checked={d.enabled} onCheckedChange={(v) => setDay(d.weekday, { enabled: v })} aria-label={`Activar ${dayLabel}`} />
                         <span className={`text-sm ${d.enabled ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{dayLabel}</span>
                       </div>
-                      <Input type="time" value={d.from} disabled={!d.enabled} onChange={(e) => setDay(d.weekday, { from: e.target.value })} className="w-32" />
-                      <span className="text-gray-400 text-sm">a</span>
-                      <Input type="time" value={d.to} disabled={!d.enabled} onChange={(e) => setDay(d.weekday, { to: e.target.value })} className="w-32" />
+                      <div className="flex items-center gap-2">
+                        <Input type="time" value={d.from} disabled={!d.enabled} onChange={(e) => setDay(d.weekday, { from: e.target.value })} className="w-28" />
+                        <span className="text-gray-400 text-sm">a</span>
+                        <Input type="time" value={d.to} disabled={!d.enabled} onChange={(e) => setDay(d.weekday, { to: e.target.value })} className="w-28" />
+                      </div>
                     </div>
                   );
                 })}
