@@ -274,7 +274,7 @@ function AttendanceHistory({ students, practices }: { students: Student[]; pract
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <Select value={filterStudent} onValueChange={setFilterStudent}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder="Selecciona estudiante" />
             </SelectTrigger>
             <SelectContent>
@@ -284,7 +284,7 @@ function AttendanceHistory({ students, practices }: { students: Student[]; pract
             </SelectContent>
           </Select>
           <Select value={filterRange} onValueChange={(v: any) => setFilterRange(v)}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
