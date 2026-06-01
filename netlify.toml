@@ -11,6 +11,8 @@
   # Las variables VITE_* se configuran en Netlify → Site settings → Environment.
   # NO definir VITE_SUPABASE_SERVICE_ROLE: las operaciones admin viven en la
   # Edge Function admin-users (B-01), nunca en el cliente.
+  # La URL de Supabase aparece en migraciones SQL como valor de config — no es un secreto real.
+  SECRETS_SCAN_OMIT_PATHS = "supabase/migrations"
 
 # SPA fallback: React Router maneja el enrutamiento del lado del cliente
 [[redirects]]
