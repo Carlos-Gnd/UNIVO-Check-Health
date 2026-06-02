@@ -20,6 +20,7 @@ import { StudentProgressPage } from '@/modules/students/components/StudentProgre
 import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
 import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
 import { StudentAssignmentPage } from '@/modules/students/components/StudentAssignmentPage';
+import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecisionHistoryPage';
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -102,7 +103,7 @@ const TeacherEvaluationsRoute = () => (
 
 const TeacherHistoryRoute = () => (
   <RoleGuard allow={['DOCENTE', 'TEACHER']}>
-    <PlaceholderPage title="Historial de decisiones" note="El historial de decisiones de incidencias se integrará en HU-28." />
+    <TeacherDecisionHistoryPage />
   </RoleGuard>
 );
 
