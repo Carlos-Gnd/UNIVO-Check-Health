@@ -34,6 +34,7 @@ const defaultDays = (): DayRow[] =>
   DAYS.map((d) => ({ weekday: d.weekday, enabled: d.weekday <= 5, from: '07:00', to: '15:00' }));
 
 const emptyOptions: AssignmentOptions = { students: [], teachers: [], coordinators: [], campuses: [] };
+const periodPattern = /^\d{4}-[12]$/;
 
 export function DeanAssignmentsPage() {
   const [options, setOptions] = useState<AssignmentOptions>(emptyOptions);
@@ -112,6 +113,9 @@ export function DeanAssignmentsPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!studentId || !teacherId) { toast.error('El alumno y el docente son obligatorios.'); return; }
+    if (!campusId) { toast.error('La sede de practica es obligatoria.'); return; }
+    if (!period.trim()) { toast.error('El periodo es obligatorio.'); return; }
+    if (!periodPattern.test(period.trim())) { toast.error('Usa el formato de periodo AAAA-CICLO, por ejemplo 2026-1.'); return; }
     if (startDate && endDate && endDate < startDate) { toast.error('La fecha de fin no puede ser anterior al inicio.'); return; }
 
     const enabled = days.filter((d) => d.enabled);
@@ -125,8 +129,8 @@ export function DeanAssignmentsPage() {
       student_id: studentId,
       teacher_id: teacherId,
       coordinator_id: coordinatorId || null,
-      campus_id: campusId || null,
-      period,
+      campus_id: campusId,
+      period: period.trim(),
       start_date: startDate || null,
       end_date: endDate || null,
       schedules: enabled.map((d) => ({ weekday: d.weekday, check_in_from: d.from, check_in_to: d.to })),
@@ -274,7 +278,7 @@ export function DeanAssignmentsPage() {
               <Field label="Alumno" required>
                 <NativeSelect value={studentId} onChange={setStudentId} placeholder="Selecciona alumno" options={options.students.map((s) => ({ value: s.id, label: s.label }))} />
               </Field>
-              <Field label="Sede de práctica">
+              <Field label="Sede de práctica" required>
                 <NativeSelect value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
               </Field>
               <Field label="Docente supervisor" required>
@@ -283,7 +287,7 @@ export function DeanAssignmentsPage() {
               <Field label="Coordinador" help="Persona que supervisa la asignación a nivel administrativo y revisa incidencias. Puede ser un coordinador o el decano.">
                 <NativeSelect value={coordinatorId} onChange={setCoordinatorId} placeholder="Selecciona coordinador" options={options.coordinators.map((c) => ({ value: c.id, label: c.label }))} />
               </Field>
-              <Field label="Período" help="Ciclo académico de la rotación, en formato AÑO-CICLO (ej. 2026-1 para el primer ciclo de 2026).">
+              <Field label="Período" required help="Ciclo académico de la rotación, en formato AÑO-CICLO (ej. 2026-1 para el primer ciclo de 2026).">
                 <Input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-1" />
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

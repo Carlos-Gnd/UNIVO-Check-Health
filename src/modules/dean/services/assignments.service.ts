@@ -103,17 +103,40 @@ export async function fetchAllSchedules(): Promise<Map<string, ScheduleSlot[]>> 
 }
 
 export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolean; message?: string }> {
+  const period = form.period.trim() || '2026-1';
+
+  if (!form.campus_id) {
+    return { ok: false, message: 'La sede de practica es obligatoria.' };
+  }
+
   const payload = {
     student_id: form.student_id,
     teacher_id: form.teacher_id,
     coordinator_id: form.coordinator_id,
     campus_id: form.campus_id,
-    period: form.period.trim() || '2026-1',
+    period,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
   };
 
   let assignmentId = form.id;
+  let conflictQuery = supabase
+    .from('teacher_groups')
+    .select('id')
+    .eq('student_id', form.student_id)
+    .eq('campus_id', form.campus_id)
+    .eq('period', period)
+    .limit(1);
+
+  if (assignmentId) {
+    conflictQuery = conflictQuery.neq('id', assignmentId);
+  }
+
+  const { data: conflicts, error: conflictError } = await conflictQuery;
+  if (conflictError) return { ok: false, message: conflictError.message };
+  if ((conflicts ?? []).length > 0) {
+    return { ok: false, message: 'Este alumno ya tiene una asignacion para esa sede y periodo. Edita la asignacion existente para reasignarlo.' };
+  }
 
   if (assignmentId) {
     const { error } = await supabase.from('teacher_groups').update(payload).eq('id', assignmentId);
