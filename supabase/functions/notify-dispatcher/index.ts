@@ -204,6 +204,18 @@ const TEMPLATES: Record<string, {
       </ul>
       <p>Ingresa al panel del coordinador para revisar y aprobar o rechazar la solicitud.</p>`,
   },
+  JUSTIFICATION_DECISION: {
+    title:        'Justificacion revisada',
+    pushBody:     (p) => `Tu justificacion fue ${p.status === 'APROBADO' ? 'aprobada' : 'rechazada'}.`,
+    emailSubject: (p) => `Tu justificacion fue ${p.status === 'APROBADO' ? 'aprobada' : 'rechazada'} - UNIVO Check-Health`,
+    emailHtml:    (p) => `
+      <h2>Resultado de tu justificacion</h2>
+      <p>Tu solicitud de justificacion para la asistencia del <strong>${p.attendance_date ?? '-'}</strong>
+         en <strong>${p.campus_name ?? 'tu sede'}</strong> fue
+         <strong>${p.status === 'APROBADO' ? 'aprobada' : 'rechazada'}</strong>.</p>
+      <p><strong>Comentario del revisor:</strong> ${p.reviewer_notes || 'Sin comentario adicional.'}</p>
+      <p>Ingresa al sistema para revisar el detalle de tus justificaciones.</p>`,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
