@@ -6,15 +6,28 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/components/ui/input-otp';
 import { toast } from 'sonner';
+import { supabase } from '@/shared/backend/supabaseClient';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 
-async function verifySecurityAnswer(_email: string, _answer: string) {
-  // TODO: conectar con backend cuando Carlos y Nelson terminen el flujo de recuperacion.
+async function requestRecoveryOtp(email: string, answer: string) {
+  const { data, error } = await supabase.functions.invoke<{ ok?: boolean; message?: string; error?: string }>('recovery-otp', {
+    body: { action: 'request', email, answer },
+  });
+  if (error || data?.ok !== true) {
+    throw new Error(data?.error ?? error?.message ?? 'No se pudo enviar el codigo.');
+  }
+  return data.message ?? 'Codigo enviado al correo de respaldo.';
 }
 
-async function verifyRecoveryOtp(_email: string, _code: string) {
-  // TODO: conectar con backend cuando Carlos y Nelson terminen el flujo de recuperacion.
+async function verifyRecoveryOtp(email: string, code: string) {
+  const { data, error } = await supabase.functions.invoke<{ ok?: boolean; message?: string; error?: string }>('recovery-otp', {
+    body: { action: 'verify', email, code },
+  });
+  if (error || data?.ok !== true) {
+    throw new Error(data?.error ?? error?.message ?? 'No se pudo validar el codigo.');
+  }
+  return data.message ?? 'Codigo verificado correctamente.';
 }
 
 export function RecoveryPage() {
@@ -37,10 +50,16 @@ export function RecoveryPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    await verifySecurityAnswer(normalizedEmail, answer.trim());
-    setIsSubmitting(false);
-    setStep(2);
+    try {
+      setIsSubmitting(true);
+      const message = await requestRecoveryOtp(normalizedEmail, answer.trim());
+      toast.success(message);
+      setStep(2);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo enviar el codigo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOtpSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -50,10 +69,15 @@ export function RecoveryPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    await verifyRecoveryOtp(normalizedEmail, otp);
-    setIsSubmitting(false);
-    toast.success('Codigo recibido. El backend de recuperacion queda pendiente.');
+    try {
+      setIsSubmitting(true);
+      const message = await verifyRecoveryOtp(normalizedEmail, otp);
+      toast.success(message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo validar el codigo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
