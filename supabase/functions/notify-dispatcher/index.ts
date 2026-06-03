@@ -216,6 +216,31 @@ const TEMPLATES: Record<string, {
       <p><strong>Comentario del revisor:</strong> ${p.reviewer_notes || 'Sin comentario adicional.'}</p>
       <p>Ingresa al sistema para revisar el detalle de tus justificaciones.</p>`,
   },
+  JUSTIFICATION_ESCALATED: {
+    title:        'Justificacion escalada',
+    pushBody:     (p) => p.recipient_role === 'teacher'
+      ? `${p.student_name ?? 'Un estudiante'} tiene una justificacion escalada para segunda revision.`
+      : 'Tu justificacion fue escalada para segunda revision.',
+    emailSubject: (p) => p.recipient_role === 'teacher'
+      ? `Justificacion escalada - ${p.student_name ?? 'Estudiante'}`
+      : 'Tu justificacion fue escalada - UNIVO Check-Health',
+    emailHtml:    (p) => p.recipient_role === 'teacher'
+      ? `
+      <h2>Justificacion escalada para segunda revision</h2>
+      <p><strong>${p.student_name ?? 'Un estudiante'}</strong> (${p.student_code ?? ''}) tiene una justificacion escalada.</p>
+      <ul>
+        <li><strong>Fecha de asistencia:</strong> ${p.attendance_date ?? '-'}</li>
+        <li><strong>Sede:</strong> ${p.campus_name ?? 'Sede desconocida'}</li>
+        <li><strong>Nota de escalamiento:</strong> ${p.escalation_note ?? 'Sin nota adicional.'}</li>
+      </ul>
+      <p>Ingresa al panel de justificaciones para revisar el caso.</p>`
+      : `
+      <h2>Tu justificacion fue escalada</h2>
+      <p>Tu solicitud para la asistencia del <strong>${p.attendance_date ?? '-'}</strong>
+         en <strong>${p.campus_name ?? 'tu sede'}</strong> fue escalada para segunda revision.</p>
+      <p><strong>Nota:</strong> ${p.escalation_note ?? 'Sin nota adicional.'}</p>
+      <p>Recibiras una nueva decision cuando el caso sea revisado.</p>`,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
