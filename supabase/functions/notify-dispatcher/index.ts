@@ -99,9 +99,10 @@ async function sendFcmPush(token: string, title: string, body: string): Promise<
 // ─────────────────────────────────────────────────────────────────────────────
 // Resend email
 // ─────────────────────────────────────────────────────────────────────────────
-async function sendEmail(to: string, subject: string, bodyHtml: string): Promise<void> {
+async function sendEmail(to: string, subject: string, bodyHtml: string): Promise<{ ok: boolean; error?: string }> {
   const key = Deno.env.get('RESEND_API_KEY');
-  if (!key || !to) return;
+  if (!key) return { ok: false, error: 'missing_resend_api_key' };
+  if (!to) return { ok: false, error: 'missing_email_address' };
 
   const html = `
     <!DOCTYPE html><html lang="es">
@@ -116,11 +117,22 @@ async function sendEmail(to: string, subject: string, bodyHtml: string): Promise
       <div class="footer">UNIVO Check-Health — Sistema de Registro y Control de Asistencias</div>
     </div></body></html>`;
 
-  await fetch('https://api.resend.com/emails', {
-    method:  'POST',
-    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
-  }).catch(() => undefined);
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, error: text || `resend_http_${res.status}` };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'email_fetch_failed' };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -311,12 +323,55 @@ Deno.serve(async (req: Request) => {
       results.push('push_no_token');
     }
   } else if (item.channel === 'email') {
-    if (recipientEmail) {
-      await sendEmail(recipientEmail, template.emailSubject(payload), template.emailHtml(payload));
-      results.push('email_sent');
+    const subject = template.emailSubject(payload);
+    const html = template.emailHtml(payload);
+    const delivery = {
+      email_channel_used: null as 'primary' | 'backup' | null,
+      primary_email: recipientEmail || null,
+      backup_email: null as string | null,
+      primary_error: null as string | null,
+      backup_error: null as string | null,
+    };
+
+    const primaryResult = recipientEmail
+      ? await sendEmail(recipientEmail, subject, html)
+      : { ok: false, error: 'email_no_address' };
+
+    if (primaryResult.ok) {
+      delivery.email_channel_used = 'primary';
+      results.push('email_sent_primary');
     } else {
-      results.push('email_no_address');
+      delivery.primary_error = primaryResult.error ?? 'email_primary_failed';
+      const payloadBackupEmail = (payload.backup_email as string | undefined)?.trim() ?? '';
+      const { data: userEmailRow } = await admin
+        .from('users')
+        .select('backup_email')
+        .eq('id', item.target_user_id)
+        .maybeSingle();
+      const backupEmail = payloadBackupEmail || ((userEmailRow?.backup_email as string | null) ?? '');
+      delivery.backup_email = backupEmail || null;
+
+      if (backupEmail && backupEmail !== recipientEmail) {
+        const backupResult = await sendEmail(backupEmail, subject, html);
+        if (backupResult.ok) {
+          delivery.email_channel_used = 'backup';
+          results.push('email_sent_backup');
+        } else {
+          delivery.backup_error = backupResult.error ?? 'email_backup_failed';
+          results.push('email_failed');
+        }
+      } else {
+        results.push('email_failed_no_backup');
+      }
     }
+
+    await admin
+      .from('notification_outbox')
+      .update({
+        status: delivery.email_channel_used ? 'sent' : 'failed',
+        payload: { ...payload, delivery },
+      })
+      .eq('id', item.id);
   }
 
   return new Response(JSON.stringify({ ok: true, results }), {
