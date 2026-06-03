@@ -278,6 +278,45 @@ export async function fetchRejectedJustifications(): Promise<PendingJustificatio
   }));
 }
 
+export type AllJustification = PendingJustification & { reviewerName: string | null };
+
+export async function fetchAllJustifications(): Promise<AllJustification[]> {
+  const { data, error } = await supabase
+    .from('justifications')
+    .select(`
+      id, attendance_id, student_id, motivo, documento_url, status, notas_revisor, creado_en, actualizado_en,
+      student:users!justifications_student_id_fkey(student_code, full_name, career),
+      attendance:attendances!justifications_attendance_id_fkey(date, check_in, check_out, campuses(name)),
+      reviewer:users!revisado_por(full_name)
+    `)
+    .order('creado_en', { ascending: false });
+
+  if (error || !data) {
+    if (error) console.error('Error loading all justifications', error);
+    return [];
+  }
+
+  return (data as unknown as (JustificationRow & { reviewer?: { full_name: string | null } | null })[]).map((row) => ({
+    id: row.id,
+    attendanceId: row.attendance_id,
+    studentId: row.student_id,
+    studentCode: row.student?.student_code ?? 'Sin carnet',
+    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
+    career: row.student?.career ?? 'Sin carrera',
+    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
+    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
+    checkIn: row.attendance?.check_in ?? null,
+    checkOut: row.attendance?.check_out ?? null,
+    reason: row.motivo,
+    documentUrl: row.documento_url,
+    status: row.status,
+    reviewerNotes: row.notas_revisor,
+    createdAt: row.creado_en,
+    updatedAt: row.actualizado_en,
+    reviewerName: row.reviewer?.full_name ?? null,
+  }));
+}
+
 export function subscribeToJustificationChanges(onChange: () => void) {
   const channel = supabase
     .channel('pending-justifications-review')

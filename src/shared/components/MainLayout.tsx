@@ -1,3 +1,4 @@
+import type React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { LoadingScreen } from './LoadingScreen';
 import { initFcm } from '@/shared/utils/firebase';
@@ -25,6 +26,7 @@ import {
   Hospital,
   ClipboardList,
   UserCog,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -36,6 +38,7 @@ import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/si
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
+type NavItem = { name: string; href: string; icon: React.ElementType; badge?: number };
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 const APP_LOGO_SRC = '/images/isologo.png';
@@ -58,6 +61,7 @@ export function MainLayout() {
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
   const [isResolvingRole, setIsResolvingRole] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -121,13 +125,27 @@ export function MainLayout() {
   }, [currentUser]);
 
   useEffect(() => {
+    if (currentRole !== 'Decano') return;
+    const load = () => {
+      void supabase
+        .from('justifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PENDIENTE')
+        .then(({ count }) => setPendingCount(count ?? 0));
+    };
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [currentRole]);
+
+  useEffect(() => {
     if (!currentUser || isResolvingRole) return;
     if (currentRole === 'Alumno' && location.pathname === '/') navigate('/rotations', { replace: true });
     if (currentRole === 'Decano' && location.pathname === '/') navigate('/dean/dashboard', { replace: true });
     if (currentRole === 'Docente' && location.pathname === '/') navigate('/teacher/dashboard', { replace: true });
   }, [currentUser, currentRole, isResolvingRole, location.pathname, navigate]);
 
-  const navigation = currentRole === 'Decano'
+  const navigation: NavItem[] = currentRole === 'Decano'
     ? [
         { name: 'Dashboard', href: '/dean/dashboard', icon: LayoutDashboard },
         { name: 'Calendario', href: '/rotations', icon: CalendarDays },
@@ -135,6 +153,7 @@ export function MainLayout() {
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
         { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
         { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
+        { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle, badge: pendingCount },
         { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
       ]
     : currentRole === 'Alumno'
@@ -153,6 +172,7 @@ export function MainLayout() {
           { name: 'Evaluaciones', href: '/teacher/evaluations', icon: ClipboardList },
           { name: 'Justificaciones', href: '/dean/justifications', icon: FileWarning },
           { name: 'Historial de Decisiones', href: '/teacher/history', icon: History },
+          { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle },
         ]
       : [
           { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -162,6 +182,7 @@ export function MainLayout() {
           { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
           { name: 'Prácticas', href: '/practices', icon: Stethoscope },
           { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
+          { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle },
           { name: 'Reportes', href: '/reports', icon: BarChart3 },
         ];
 
@@ -299,7 +320,12 @@ export function MainLayout() {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.name}</span>
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge != null && item.badge > 0 && (
+                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -333,7 +359,12 @@ export function MainLayout() {
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
-                    <span>{item.name}</span>
+                    <span className="flex-1">{item.name}</span>
+                    {item.badge != null && item.badge > 0 && (
+                      <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
