@@ -376,16 +376,6 @@ export function DeanDashboardPage() {
         </Card>
       </div>
 
-      {/* Mapa Realtime con filtros integrados en la tarjeta */}
-      <LiveMap
-        campusFilter={campusFilter}
-        careerFilter={careerFilter}
-        campusOptions={campusOptions}
-        careerOptions={careerOptions}
-        onCampusChange={(v) => setMapFilter('campus', v)}
-        onCareerChange={(v) => setMapFilter('career', v)}
-      />
-
       {/* T-07.1: Resumen por sede */}
       <Card>
         <CardHeader><CardTitle>Resumen rápido de sedes</CardTitle></CardHeader>
@@ -415,6 +405,16 @@ export function DeanDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Mapa Realtime con filtros integrados en la tarjeta */}
+      <LiveMap
+        campusFilter={campusFilter}
+        careerFilter={careerFilter}
+        campusOptions={campusOptions}
+        careerOptions={careerOptions}
+        onCampusChange={(v) => setMapFilter('campus', v)}
+        onCareerChange={(v) => setMapFilter('career', v)}
+      />
     </div>
   );
 }
