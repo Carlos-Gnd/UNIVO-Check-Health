@@ -22,6 +22,8 @@ import { StudentHistoryPage } from '@/modules/students/components/StudentHistory
 import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
 import { StudentAssignmentPage } from '@/modules/students/components/StudentAssignmentPage';
 import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecisionHistoryPage';
+import { RecoveryPage } from '@/modules/auth/RecoveryPage';
+import { ProfilePage } from '@/modules/profile/ProfilePage';
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -115,6 +117,7 @@ const TeacherHistoryRoute = () => (
 );
 
 export const router = createBrowserRouter([
+  { path: '/auth/recovery', Component: RecoveryPage },
   {
     path: '/',
     Component: MainLayout,
@@ -125,6 +128,7 @@ export const router = createBrowserRouter([
       { path: 'practices', Component: Practices },
       { path: 'reports', Component: Reports },
       { path: 'users', Component: UsersRoute },
+      { path: 'profile', Component: ProfilePage },
       { path: 'rotations', Component: RotationsCalendarPage },
       { path: 'student/qr', Component: StudentQrRoute },
       { path: 'student/history', Component: StudentHistoryRoute },

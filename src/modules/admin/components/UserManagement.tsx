@@ -175,6 +175,12 @@ export function UserManagement() {
     }
 
     setCreatedCreds({ email, password });
+    void supabase.functions
+      .invoke('send-credentials', { body: { email, password } })
+      .then(({ error }) => {
+        if (error) toast.error('Usuario creado, pero no se pudieron enviar las credenciales');
+        else toast.success('Credenciales enviadas al correo institucional');
+      });
     resetCreateForm();
     setCreateOpen(false);
     void loadUsers();

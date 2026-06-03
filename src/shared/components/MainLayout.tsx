@@ -27,6 +27,7 @@ import {
   ClipboardList,
   UserCog,
   AlertTriangle,
+  UserCircle,
 } from 'lucide-react';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -274,7 +275,7 @@ export function MainLayout() {
               <p className="text-xs uppercase tracking-[0.22em] text-brand-600 text-center mb-5 sm:mb-6">Acceso al sistema</p>
               <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
                 <div className="space-y-2"><Label htmlFor="email" className="text-brand-900 uppercase tracking-wide text-xs">Correo institucional</Label><Input id="email" type="email" placeholder={`U20240000${UNIVO_DOMAIN}`} value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" /></div>
-                <div className="space-y-2"><Label htmlFor="password" className="text-brand-900 uppercase tracking-wide text-xs">Contraseña</Label><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" required /><button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-500 hover:text-gold-700" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div></div>
+                <div className="space-y-2"><Label htmlFor="password" className="text-brand-900 uppercase tracking-wide text-xs">Contraseña</Label><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" required /><button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-500 hover:text-gold-700" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div><div className="text-right"><Link to="/auth/recovery" className="text-xs font-medium text-brand-700 hover:text-gold-700">¿Olvidaste tu contraseña?</Link></div></div>
                 <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-brand-800 hover:bg-brand-900 text-white font-semibold tracking-wide shadow-sm shadow-brand-900/15">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
             </section>
@@ -331,10 +332,15 @@ export function MainLayout() {
             })}
           </nav>
           <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/30">
-            <div className="border-l-4 border-gold-500 bg-white p-3 rounded-md shadow-sm">
-              <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
-              <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
-            </div>
+            <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-white p-3 shadow-sm transition-colors hover:bg-brand-50">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
+                <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
+              </div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-700">
+                <UserCircle className="h-5 w-5" />
+              </div>
+            </Link>
             <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
               <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
             </Button>
@@ -369,10 +375,15 @@ export function MainLayout() {
                 );
               })}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                <div className="border-l-4 border-gold-500 bg-white p-3 rounded-md shadow-sm">
-                  <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
-                  <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
-                </div>
+                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-white p-3 shadow-sm transition-colors hover:bg-brand-50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
+                    <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
+                  </div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-700">
+                    <UserCircle className="h-5 w-5" />
+                  </div>
+                </Link>
                 <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
                   <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
                 </Button>
