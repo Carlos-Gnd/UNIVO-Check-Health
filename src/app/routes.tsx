@@ -11,6 +11,7 @@ import { DeanStudentsPage } from '@/modules/dean/pages/DeanStudentsPage';
 import { DeanLocationsPage } from '@/modules/dean/pages/DeanLocationsPage';
 import { DeanJustificationsPage } from '@/modules/dean/pages/DeanJustificationsPage';
 import { DeanAssignmentsPage } from '@/modules/dean/pages/DeanAssignmentsPage';
+import { IncidentsDashboardPage } from '@/modules/dean/pages/IncidentsDashboardPage';
 import { UserManagement } from '@/modules/admin/components/UserManagement';
 import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
@@ -43,6 +44,12 @@ const DeanLocationsRoute = () => (
 const DeanJustificationsRoute = () => (
   <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE']}>
     <DeanJustificationsPage />
+  </RoleGuard>
+);
+
+const IncidentsDashboardRoute = () => (
+  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE']}>
+    <IncidentsDashboardPage />
   </RoleGuard>
 );
 
@@ -129,6 +136,7 @@ export const router = createBrowserRouter([
       { path: 'dean/locations', Component: DeanLocationsRoute },
       { path: 'dean/justifications', Component: DeanJustificationsRoute },
       { path: 'dean/assignments', Component: AssignmentsRoute },
+      { path: 'dean/incidents', Component: IncidentsDashboardRoute },
       { path: 'teacher/dashboard', Component: TeacherDashboardRoute },
       { path: 'teacher/evaluations', Component: TeacherEvaluationsRoute },
       { path: 'teacher/history', Component: TeacherHistoryRoute },
