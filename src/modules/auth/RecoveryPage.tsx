@@ -1,14 +1,23 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, CheckCircle2, KeyRound, Loader2, ShieldQuestion } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Info, KeyRound, Loader2, ShieldQuestion } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/components/ui/input-otp';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
+
+// Recupera la pregunta de seguridad del usuario para mostrársela (no es secreta).
+// Devuelve null si el correo no existe o no tiene pregunta configurada.
+async function fetchSecurityQuestion(email: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('get_security_question', { p_email: email });
+  if (error) return null;
+  return (data as string | null) ?? null;
+}
 
 async function requestRecoveryOtp(email: string, answer: string) {
   const { data, error } = await supabase.functions.invoke<{ ok?: boolean; message?: string; error?: string }>('recovery-otp', {
@@ -35,9 +44,19 @@ export function RecoveryPage() {
   const [email, setEmail] = useState('');
   const [answer, setAnswer] = useState('');
   const [otp, setOtp] = useState('');
+  const [question, setQuestion] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
+
+  // Al salir del campo de correo, intenta mostrar la pregunta de seguridad del usuario.
+  const handleEmailBlur = async () => {
+    if (!normalizedEmail.endsWith(UNIVO_DOMAIN)) {
+      setQuestion(null);
+      return;
+    }
+    setQuestion(await fetchSecurityQuestion(normalizedEmail));
+  };
 
   const handleAnswerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -120,6 +139,7 @@ export function RecoveryPage() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  onBlur={handleEmailBlur}
                   placeholder={`U20240000${UNIVO_DOMAIN}`}
                   required
                 />
@@ -128,7 +148,26 @@ export function RecoveryPage() {
                 <Label htmlFor="security-answer" className="flex items-center gap-1 text-xs uppercase tracking-wide text-brand-700">
                   <ShieldQuestion className="h-3.5 w-3.5" />
                   Respuesta de seguridad
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" tabIndex={-1} aria-label="Más información" className="text-brand-400 hover:text-brand-700">
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-balance">
+                      No distingue mayúsculas/minúsculas ni espacios al inicio o final.
+                    </TooltipContent>
+                  </Tooltip>
                 </Label>
+                {question ? (
+                  <p className="rounded-md border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-900">
+                    {question}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    Escribe tu correo para ver tu pregunta de seguridad.
+                  </p>
+                )}
                 <Input
                   id="security-answer"
                   value={answer}

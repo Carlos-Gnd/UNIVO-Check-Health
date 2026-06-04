@@ -1,14 +1,13 @@
-// Fase 2: procesa un item de notification_outbox → FCM HTTP v1 push + Resend email
+// Fase 2: procesa un item de notification_outbox → FCM HTTP v1 push + Gmail email
 // Invocado por el trigger fn_dispatch_outbox_item vía pg_net.
 // Secrets requeridos en Supabase:
 //   DISPATCH_WEBHOOK_SECRET  — secreto compartido con el trigger SQL
 //   FCM_SERVICE_ACCOUNT_JSON — JSON de cuenta de servicio de Firebase (minificado, 1 línea)
-//   RESEND_API_KEY           — API key de resend.com
+//   GMAIL_USER / GMAIL_APP_PASSWORD — credenciales SMTP (ver _shared/mailer.ts)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-
-const FROM_EMAIL = 'UNIVO Check-Health <noreply@univo.edu.sv>';
+import { sendMail, wrapHtml } from '../_shared/mailer.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FCM HTTP v1 — autenticación con service account (OAuth2 JWT bearer)
@@ -97,42 +96,10 @@ async function sendFcmPush(token: string, title: string, body: string): Promise<
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resend email
+// Gmail email (SMTP vía _shared/mailer.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, bodyHtml: string): Promise<{ ok: boolean; error?: string }> {
-  const key = Deno.env.get('RESEND_API_KEY');
-  if (!key) return { ok: false, error: 'missing_resend_api_key' };
-  if (!to) return { ok: false, error: 'missing_email_address' };
-
-  const html = `
-    <!DOCTYPE html><html lang="es">
-    <head><meta charset="UTF-8"><style>
-      body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; }
-      .card { background: white; border-radius: 12px; padding: 32px; max-width: 540px; margin: 0 auto; }
-      h2 { color: #1e3a5f; margin-top: 0; }
-      p  { color: #374151; line-height: 1.6; }
-      .footer { font-size: 12px; color: #9ca3af; margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 16px; }
-    </style></head>
-    <body><div class="card">${bodyHtml}
-      <div class="footer">UNIVO Check-Health — Sistema de Registro y Control de Asistencias</div>
-    </div></body></html>`;
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method:  'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      return { ok: false, error: text || `resend_http_${res.status}` };
-    }
-
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'email_fetch_failed' };
-  }
+  return await sendMail({ to, subject, html: wrapHtml(bodyHtml) });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

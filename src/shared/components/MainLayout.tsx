@@ -36,12 +36,11 @@ import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
+import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
 type NavItem = { name: string; href: string; icon: React.ElementType; badge?: number };
-
-const UNIVO_DOMAIN = '@univo.edu.sv';
 const APP_LOGO_SRC = '/images/isologo.png';
 
 function mapAppRole(rawRole: string | null | undefined): AppRole {
@@ -194,10 +193,11 @@ export function MainLayout() {
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
+    // Acepta carné (autocompleta @univo.edu.sv) o correo institucional completo.
+    const normalizedEmail = toInstitutionalEmail(email);
 
     if (!normalizedEmail.endsWith(UNIVO_DOMAIN)) {
-      toast.error(`Solo se permiten correos institucionales (${UNIVO_DOMAIN})`);
+      toast.error(`Usa tu carné o correo institucional (${UNIVO_DOMAIN})`);
       return;
     }
 
@@ -274,7 +274,7 @@ export function MainLayout() {
             <section className="p-5 sm:p-8 lg:p-10 bg-gradient-to-br from-brand-50/40 to-white">
               <p className="text-xs uppercase tracking-[0.22em] text-brand-600 text-center mb-5 sm:mb-6">Acceso al sistema</p>
               <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-                <div className="space-y-2"><Label htmlFor="email" className="text-brand-900 uppercase tracking-wide text-xs">Correo institucional</Label><Input id="email" type="email" placeholder={`U20240000${UNIVO_DOMAIN}`} value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" /></div>
+                <div className="space-y-2"><Label htmlFor="email" className="text-brand-900 uppercase tracking-wide text-xs">Carné o correo institucional</Label><Input id="email" type="text" placeholder="U20240000" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" /></div>
                 <div className="space-y-2"><Label htmlFor="password" className="text-brand-900 uppercase tracking-wide text-xs">Contraseña</Label><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" required /><button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-500 hover:text-gold-700" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div><div className="text-right"><Link to="/auth/recovery" className="text-xs font-medium text-brand-700 hover:text-gold-700">¿Olvidaste tu contraseña?</Link></div></div>
                 <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-brand-800 hover:bg-brand-900 text-white font-semibold tracking-wide shadow-sm shadow-brand-900/15">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
