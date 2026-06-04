@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# Test coverage
+coverage/
+
 # Environment variables
 .env
 .env.local
@@ -27,7 +30,6 @@ Thumbs.db
 # TypeScript / tooling cache
 *.tsbuildinfo
 .cache/
-
 
 .claude
 # Vite cache

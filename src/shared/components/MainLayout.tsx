@@ -10,6 +10,8 @@ import {
   BarChart3,
   Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   LogOut,
@@ -36,12 +38,12 @@ import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
+import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
+import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
 type NavItem = { name: string; href: string; icon: React.ElementType; badge?: number };
-
-const UNIVO_DOMAIN = '@univo.edu.sv';
 const APP_LOGO_SRC = '/images/isologo.png';
 
 function mapAppRole(rawRole: string | null | undefined): AppRole {
@@ -54,6 +56,16 @@ function mapAppRole(rawRole: string | null | undefined): AppRole {
 
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem('checkhealth-sidebar-collapsed') === '1',
+  );
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      localStorage.setItem('checkhealth-sidebar-collapsed', prev ? '0' : '1');
+      return !prev;
+    });
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -62,6 +74,7 @@ export function MainLayout() {
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
   const [isResolvingRole, setIsResolvingRole] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
@@ -77,6 +90,15 @@ export function MainLayout() {
     setCurrentRole(mapAppRole(data?.role));
     setDisplayName(data?.full_name ?? fallbackEmail);
     setIsResolvingRole(false);
+
+    // must_change_password se consulta aparte: si la columna aún no existe
+    // (migración no aplicada), su error no debe romper la resolución de rol.
+    const { data: flag } = await supabase
+      .from('users')
+      .select('must_change_password')
+      .eq('id', userId)
+      .single();
+    setMustChangePassword(Boolean(flag?.must_change_password));
   };
 
   useEffect(() => {
@@ -91,6 +113,7 @@ export function MainLayout() {
           setCurrentUser(null);
           setCurrentRole('Encargado');
           setDisplayName('');
+          setMustChangePassword(false);
           setIsResolvingRole(false);
           sessionIdRef.current = null;
           clearLocalSession();
@@ -194,16 +217,22 @@ export function MainLayout() {
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
+    setIsLoading(true);
 
-    if (!normalizedEmail.endsWith(UNIVO_DOMAIN)) {
-      toast.error(`Solo se permiten correos institucionales (${UNIVO_DOMAIN})`);
+    // Resuelve el identificador (carné/código O correo) al correo real con el que
+    // autenticar. Si el carné no existe en BD, cae al autocompletado @univo.edu.sv.
+    const identifier = email.trim();
+    const { data: resolved } = await supabase.rpc('email_for_login', { p_identifier: identifier });
+    const loginEmail = ((resolved as string | null) ?? toInstitutionalEmail(identifier)).toLowerCase();
+
+    if (!loginEmail.endsWith(UNIVO_DOMAIN)) {
+      setIsLoading(false);
+      toast.error(`Usa tu carné o correo institucional (${UNIVO_DOMAIN})`);
       return;
     }
 
-    setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
+      email: loginEmail,
       password,
     });
     setIsLoading(false);
@@ -274,7 +303,7 @@ export function MainLayout() {
             <section className="p-5 sm:p-8 lg:p-10 bg-gradient-to-br from-brand-50/40 to-white">
               <p className="text-xs uppercase tracking-[0.22em] text-brand-600 text-center mb-5 sm:mb-6">Acceso al sistema</p>
               <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-                <div className="space-y-2"><Label htmlFor="email" className="text-brand-900 uppercase tracking-wide text-xs">Correo institucional</Label><Input id="email" type="email" placeholder={`U20240000${UNIVO_DOMAIN}`} value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" /></div>
+                <div className="space-y-2"><Label htmlFor="email" className="text-brand-900 uppercase tracking-wide text-xs">Carné o correo institucional</Label><Input id="email" type="text" placeholder="U20240000" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" /><p className="text-xs text-slate-500">Estudiantes: ingresa tu carné. Personal (decano, docente, encargado): tu correo institucional.</p></div>
                 <div className="space-y-2"><Label htmlFor="password" className="text-brand-900 uppercase tracking-wide text-xs">Contraseña</Label><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white border-brand-100 text-brand-900 placeholder:text-slate-400 focus-visible:ring-brand-700" required /><button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-500 hover:text-gold-700" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div><div className="text-right"><Link to="/auth/recovery" className="text-xs font-medium text-brand-700 hover:text-gold-700">¿Olvidaste tu contraseña?</Link></div></div>
                 <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-brand-800 hover:bg-brand-900 text-white font-semibold tracking-wide shadow-sm shadow-brand-900/15">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
@@ -288,6 +317,11 @@ export function MainLayout() {
 
   if (isResolvingRole) {
     return <LoadingScreen />;
+  }
+
+  // Contraseña temporal de un solo uso: bloquea la app hasta crear una nueva.
+  if (mustChangePassword) {
+    return <ForcePasswordChange onDone={() => setMustChangePassword(false)} />;
   }
 
   return (
@@ -305,8 +339,18 @@ export function MainLayout() {
       </header>
 
       <div className="max-w-screen-2xl mx-auto flex w-full">
-        <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 border-r border-brand-800/60 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(26,45,107,0.14)]">
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 border-r border-brand-800/60 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(26,45,107,0.14)] transition-[width] duration-200`}>
+          <div className={`flex p-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
+            <button
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+              aria-label={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+              className="p-1.5 rounded-md text-brand-100/80 hover:bg-white/10 hover:text-white"
+            >
+              {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            </button>
+          </div>
+          <nav className="flex-1 p-3 pt-0 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -314,15 +358,16 @@ export function MainLayout() {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                  title={isSidebarCollapsed ? item.name : undefined}
+                  className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-md text-sm transition-colors ${
                     active
                       ? 'bg-white text-brand-900 font-semibold border-l-4 border-gold-500 pl-2 shadow-sm'
                       : 'text-brand-100/85 hover:bg-white/10 hover:text-white border-l-4 border-transparent pl-2'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1">{item.name}</span>
-                  {item.badge != null && item.badge > 0 && (
+                  {!isSidebarCollapsed && <span className="flex-1">{item.name}</span>}
+                  {!isSidebarCollapsed && item.badge != null && item.badge > 0 && (
                     <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
                       {item.badge}
                     </span>
@@ -332,17 +377,30 @@ export function MainLayout() {
             })}
           </nav>
           <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/30">
-            <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-white p-3 shadow-sm transition-colors hover:bg-brand-50">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
-                <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
-              </div>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-700">
-                <UserCircle className="h-5 w-5" />
-              </div>
-            </Link>
-            <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
-              <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
+            {isSidebarCollapsed ? (
+              <Link to="/profile" title={displayName || currentUser.email} className="flex justify-center rounded-md bg-white p-2 shadow-sm hover:bg-brand-50">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-700">
+                  <UserCircle className="h-5 w-5" />
+                </div>
+              </Link>
+            ) : (
+              <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-white p-3 shadow-sm transition-colors hover:bg-brand-50">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
+                  <p className="text-xs text-brand-700 font-semibold mt-0.5">{currentRole}</p>
+                </div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-100 bg-brand-50 text-brand-700">
+                  <UserCircle className="h-5 w-5" />
+                </div>
+              </Link>
+            )}
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              title="Cerrar sesión"
+              className={`w-full bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
+            >
+              <LogOut className={`w-4 h-4 ${isSidebarCollapsed ? '' : 'mr-2'}`} />{!isSidebarCollapsed && 'Cerrar sesión'}
             </Button>
           </div>
         </aside>

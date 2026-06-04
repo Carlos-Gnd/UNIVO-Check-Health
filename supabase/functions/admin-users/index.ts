@@ -115,6 +115,9 @@ Deno.serve(async (req: Request) => {
         email,
         role,
         career:       role === 'STUDENT' ? (body.career ?? null) : null,
+        // La contraseña generada es de un solo uso: se obliga a cambiarla al
+        // primer ingreso (gate en MainLayout vía complete_password_change).
+        must_change_password: true,
       });
       if (profileErr) {
         // Rollback del usuario Auth para no dejar huérfanos
