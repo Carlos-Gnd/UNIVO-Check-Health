@@ -38,10 +38,11 @@ Deno.serve(async (req: Request) => {
     <h2>Bienvenido/a a UNIVO Check-Health</h2>
     <p>Hola ${full_name ?? ''}, se ha creado tu cuenta institucional. Estas son tus credenciales de acceso:</p>
     <div class="cred">
-      <p>Correo: <code>${email}</code></p>
-      <p>Contraseña temporal: <code>${password}</code></p>
+      <p>Usuario (carné o correo): <code>${email}</code></p>
+      <p>Contraseña temporal (un solo uso): <code>${password}</code></p>
     </div>
-    <p>Ingresa al sistema y, por seguridad, cambia tu contraseña desde tu perfil.</p>`);
+    <p><strong>Por seguridad, esta contraseña es de un solo uso.</strong> Al ingresar por primera vez,
+    el sistema te pedirá crear una contraseña nueva antes de continuar.</p>`);
 
   const result = await sendMail({ to: email, subject: 'Tus credenciales de acceso — UNIVO Check-Health', html });
   if (!result.ok) {

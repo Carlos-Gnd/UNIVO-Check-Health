@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Bell, Building2, Info, Loader2, Mail, Phone, Save, ShieldQuestion, Stethoscope, UserCircle } from 'lucide-react';
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { Bell, Building2, Camera, Image as ImageIcon, Info, KeyRound, Loader2, Mail, Phone, Save, ShieldQuestion, Stethoscope, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { Button } from '@/shared/components/ui/button';
@@ -7,6 +7,13 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { isAcceptablePassword, passwordStrength } from '@/shared/utils/passwordStrength';
+
+const STRENGTH_STYLE: Record<string, { bar: string; text: string; fill: number }> = {
+  'débil': { bar: 'bg-red-500', text: 'text-red-600', fill: 1 },
+  'media': { bar: 'bg-amber-500', text: 'text-amber-600', fill: 3 },
+  'fuerte': { bar: 'bg-green-600', text: 'text-green-700', fill: 5 },
+};
 
 type ProfileRole = 'STUDENT' | 'DOCENTE' | 'COORDINATOR' | 'ADMIN' | string;
 
@@ -26,6 +33,7 @@ interface UserProfile {
   phone: string | null;
   backup_email: string | null;
   security_question: string | null;
+  photo_url: string | null;
   notif_push: boolean;
   notif_email: boolean;
 }
@@ -62,8 +70,16 @@ export function ProfilePage() {
   const [notifEmail, setNotifEmail] = useState(true);
   const [specialty, setSpecialty] = useState('');
   const [campus, setCampus] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  // Cambio de contraseña (requiere la contraseña actual).
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -77,7 +93,7 @@ export function ProfilePage() {
 
       const { data, error } = await supabase
         .from('users')
-        .select('role, full_name, email, phone, backup_email, security_question, notif_push, notif_email')
+        .select('role, full_name, email, phone, backup_email, security_question, photo_url, notif_push, notif_email')
         .eq('id', authData.user.id)
         .single();
 
@@ -96,12 +112,68 @@ export function ProfilePage() {
       setBackupEmail(loadedProfile.backup_email ?? '');
       setSecurityQuestion(loadedProfile.security_question ?? '');
       setHasSecurityConfigured(Boolean(loadedProfile.security_question));
+      setAvatarUrl(loadedProfile.photo_url ?? null);
       setNotifPush(loadedProfile.notif_push);
       setNotifEmail(loadedProfile.notif_email);
     };
 
     void loadProfile();
   }, []);
+
+  // T-53.3: sube la foto al bucket avatars ({user_id}/avatar.<ext>, upsert) y
+  // persiste la URL pública en users.photo_url.
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // permite re-seleccionar el mismo archivo
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('La foto debe ser una imagen.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen no puede superar 2 MB.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        toast.error('Sesión no encontrada.');
+        return;
+      }
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${authData.user.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, cacheControl: '3600' });
+      if (uploadError) {
+        toast.error('No se pudo subir la foto.');
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      // Cache-busting para que el navegador no muestre la versión anterior.
+      const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ photo_url: publicUrl })
+        .eq('id', authData.user.id);
+      if (updateError) {
+        toast.error('La foto se subió pero no se pudo guardar en el perfil.');
+        return;
+      }
+
+      setAvatarUrl(publicUrl);
+      toast.success('Foto de perfil actualizada.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -166,6 +238,51 @@ export function ProfilePage() {
     }
   };
 
+  // Cambio de contraseña: verifica la actual reautenticando antes de actualizar.
+  const handleChangePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile) return;
+
+    if (!isAcceptablePassword(newPassword)) {
+      toast.error('La nueva contraseña es muy débil: usa al menos 8 caracteres combinando mayúsculas, números o símbolos.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Las contraseñas nuevas no coinciden.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      toast.error('La nueva contraseña debe ser distinta de la actual.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // Reautenticar con la contraseña actual para verificar identidad.
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: currentPassword,
+      });
+      if (verifyError) {
+        toast.error('La contraseña actual es incorrecta.');
+        return;
+      }
+
+      const { error: updError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updError) {
+        toast.error(updError.message || 'No se pudo cambiar la contraseña.');
+        return;
+      }
+
+      toast.success('Contraseña actualizada correctamente.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-[420px] items-center justify-center">
@@ -190,14 +307,37 @@ export function ProfilePage() {
       </div>
 
       <form onSubmit={handleSave} className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex items-start gap-3 border-b border-gray-100 pb-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-            <UserCircle className="h-6 w-6" />
+        <div className="flex items-start gap-4 border-b border-gray-100 pb-5">
+          <div className="relative shrink-0">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+              ) : (
+                <UserCircle className="h-9 w-9" />
+              )}
+            </div>
+            {isUploadingPhoto && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-900">{profile.full_name ?? profile.email}</h2>
             <p className="text-sm text-gray-500">{profile.email}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role}</p>
+            {/* Cámara (capture en móvil) o galería (selector de archivos). */}
+            <div className="mt-2 flex gap-2">
+              <label className={`inline-flex cursor-pointer items-center gap-1 rounded-md border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 ${isUploadingPhoto ? 'pointer-events-none opacity-50' : ''}`}>
+                <Camera className="h-3.5 w-3.5" /> Cámara
+                <input type="file" accept="image/*" capture="environment" className="hidden" disabled={isUploadingPhoto} onChange={handlePhotoChange} />
+              </label>
+              <label className={`inline-flex cursor-pointer items-center gap-1 rounded-md border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 ${isUploadingPhoto ? 'pointer-events-none opacity-50' : ''}`}>
+                <ImageIcon className="h-3.5 w-3.5" /> Galería
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={isUploadingPhoto} onChange={handlePhotoChange} />
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">JPG, PNG o WebP · máx 2 MB</p>
           </div>
         </div>
 
@@ -283,8 +423,7 @@ export function ProfilePage() {
                 <Label htmlFor="profile-security-answer" className="flex items-center gap-1 text-xs uppercase tracking-wide text-brand-700">
                   Respuesta de seguridad
                   <HelpTooltip>
-                    No distingue mayúsculas/minúsculas ni espacios al inicio/final. Tu respuesta se guarda
-                    cifrada (bcrypt); el sistema nunca la almacena en texto plano.
+                    No distingue mayúsculas/minúsculas ni espacios al inicio o final.
                   </HelpTooltip>
                 </Label>
                 <Input
@@ -326,6 +465,87 @@ export function ProfilePage() {
         <div className="mt-6 flex justify-end">
           <Button type="submit" disabled={isSaving} className="bg-brand-800 text-white hover:bg-brand-900">
             {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</> : <><Save className="mr-2 h-4 w-4" />Guardar cambios</>}
+          </Button>
+        </div>
+      </form>
+
+      {/* Cambio de contraseña (form aparte: requiere la contraseña actual). */}
+      <form onSubmit={handleChangePassword} className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-center gap-2 text-sm font-semibold text-brand-900">
+          <KeyRound className="h-4 w-4" />
+          Cambiar contraseña
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Ingresa tu contraseña actual y define una nueva.</p>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="current-password" className="text-xs uppercase tracking-wide text-brand-700">Contraseña actual</Label>
+            <Input
+              id="current-password"
+              type={showPasswords ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password" className="text-xs uppercase tracking-wide text-brand-700">Nueva contraseña</Label>
+            <Input
+              id="new-password"
+              type={showPasswords ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Mínimo 8 caracteres"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-new-password" className="text-xs uppercase tracking-wide text-brand-700">Repetir nueva</Label>
+            <Input
+              id="confirm-new-password"
+              type={showPasswords ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+        </div>
+
+        {newPassword.length > 0 && (() => {
+          const strength = passwordStrength(newPassword);
+          const style = STRENGTH_STYLE[strength.level];
+          const matches = confirmPassword.length > 0 && newPassword === confirmPassword;
+          return (
+            <div className="mt-3 space-y-1">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((seg) => (
+                  <div key={seg} className={`h-1.5 flex-1 rounded-full ${seg <= style.fill ? style.bar : 'bg-gray-200'}`} />
+                ))}
+              </div>
+              <p className={`text-xs font-medium ${style.text}`}>Seguridad: {strength.level}</p>
+              {confirmPassword.length > 0 && (
+                <p className={`text-xs ${matches ? 'text-green-700' : 'text-red-600'}`}>
+                  {matches ? 'Las contraseñas coinciden.' : 'Las contraseñas no coinciden.'}
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+        <div className="mt-4 flex items-center justify-between">
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <input type="checkbox" checked={showPasswords} onChange={(e) => setShowPasswords(e.target.checked)} />
+            Mostrar contraseñas
+          </label>
+          <Button
+            type="submit"
+            disabled={isChangingPassword || !isAcceptablePassword(newPassword) || newPassword !== confirmPassword || !currentPassword}
+            className="bg-brand-800 text-white hover:bg-brand-900"
+          >
+            {isChangingPassword ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cambiando...</> : <><KeyRound className="mr-2 h-4 w-4" />Cambiar contraseña</>}
           </Button>
         </div>
       </form>

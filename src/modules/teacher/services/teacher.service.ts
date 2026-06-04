@@ -5,7 +5,7 @@
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
 
-const CURRENT_PERIOD = '2026-1';
+export const CURRENT_PERIOD = '2026-1';
 
 export type TeacherStudent = {
   studentId: string;
