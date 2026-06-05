@@ -445,7 +445,7 @@ export function MainLayout() {
         </aside>
 
         {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-16 z-40 bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 overflow-y-auto">
+          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 overflow-y-auto">
             <nav className="p-3 space-y-1">
               {navigation.map((item) => {
                 const Icon = item.icon;
