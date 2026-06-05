@@ -3,6 +3,7 @@
 // vigente de los documentos legales. Sin aceptar, no se entra a la aplicación.
 
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { supabase } from '@/shared/backend/supabaseClient';
@@ -26,9 +27,9 @@ export function LegalConsent({ onAccept }: { onAccept: () => void }) {
   };
 
   const link = (href: string, label: string) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline hover:text-gold-700">
+    <Link to={href} className="text-brand-700 underline hover:text-gold-700">
       {label}
-    </a>
+    </Link>
   );
 
   return (

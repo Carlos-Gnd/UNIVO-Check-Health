@@ -1,11 +1,10 @@
 // Contenido legal de UNIVO Check-Health.
 //
-// LEGAL_VERSION: súbela (p. ej. a la fecha del cambio) cada vez que se modifique
+// LEGAL_VERSION: cada vez que se modifique
 // cualquiera de los tres documentos → los usuarios deberán volver a aceptar.
 //
 // NOTA: el texto es un BORRADOR funcional, estructurado para esta aplicación
 // (control de asistencia con GPS/IP/dispositivo). Debe ser revisado y aprobado
-// por la unidad jurídica de UNIVO antes de producción.
 
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -13,7 +12,7 @@ import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
 export const LEGAL_VERSION = '2026-06-05';
 
-const CONTACT_EMAIL = 'privacidad@univo.edu.sv';
+const CONTACT_EMAIL = 'correoprueba@univo.edu.sv';
 
 function LegalDoc({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
@@ -34,7 +33,7 @@ function LegalDoc({ title, updated, children }: { title: string; updated: string
         <h1 className="text-2xl font-bold text-brand-900">{title}</h1>
         <p className="text-xs text-slate-500 mt-1">Última actualización: {updated} · Versión {LEGAL_VERSION}</p>
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Borrador funcional sujeto a revisión por la unidad jurídica de UNIVO.
+          Borrador funcional sujeto a revisión de la Universidad de Oriente (UNIVO).
         </div>
         <div className="prose prose-sm max-w-none mt-6 space-y-5 text-slate-700 [&_h2]:text-brand-900 [&_h2]:font-semibold [&_h2]:text-base [&_h2]:mt-6 [&_h2]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1">
           {children}
@@ -61,7 +60,7 @@ export function PrivacyPolicyPage() {
 
       <h2>2. Datos que recopilamos</h2>
       <ul>
-        <li><strong>Identificación institucional:</strong> nombre, carné/código, correo institucional, carrera, nivel académico y rol.</li>
+        <li><strong>Identificación institucional:</strong> nombre, carnet/código, correo institucional, carrera, nivel académico y rol.</li>
         <li><strong>Ubicación (GPS):</strong> tu posición <em>únicamente en el momento de marcar entrada o salida</em>, para verificar que estás en la sede. No hay rastreo continuo.</li>
         <li><strong>Datos técnicos:</strong> dirección IP y una huella del dispositivo, como señales para detectar fraude o suplantación.</li>
         <li><strong>Registros de práctica:</strong> asistencias, horas, evaluaciones y documentos o fotos que adjuntes en justificaciones.</li>
@@ -85,7 +84,7 @@ export function PrivacyPolicyPage() {
 
       <h2>6. Destinatarios</h2>
       <p>
-        Acceden únicamente el personal autorizado (docentes supervisores, coordinación, decanato y
+        Acceden únicamente el personal autorizado (docentes supervisores, coordinación, decanos y
         representantes de sede) según su rol. La infraestructura se aloja en Supabase (proveedor de
         base de datos y autenticación).
       </p>
@@ -146,7 +145,7 @@ export function TermsPage() {
 
       <h2>1. Uso permitido</h2>
       <p>
-        La Aplicación es para el registro y control de asistencia en prácticas académicas de UNIVO.
+        La Aplicación es para el registro y control de asistencia en prácticas académicas de la Universidad de Oriente (UNIVO).
         Debes usar tu propia cuenta y mantener la confidencialidad de tu contraseña.
       </p>
 

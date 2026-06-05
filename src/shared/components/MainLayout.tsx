@@ -42,6 +42,7 @@ import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
 import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
 import { LegalConsent } from '@/modules/legal/LegalConsent';
 import { LEGAL_VERSION } from '@/modules/legal/legalContent';
+import { PermissionsSetup, PERMISSIONS_KEY } from '@/modules/auth/PermissionsSetup';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
@@ -78,6 +79,7 @@ export function MainLayout() {
   const [isResolvingRole, setIsResolvingRole] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(true);
+  const [needsPermissions, setNeedsPermissions] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
@@ -119,6 +121,7 @@ export function MainLayout() {
       (_event, session) => {
         if (session?.user) {
           setCurrentUser(session.user);
+          setNeedsPermissions(localStorage.getItem(PERMISSIONS_KEY) !== '1');
           void resolveRole(session.user.id, session.user.email ?? '');
           // Sesión única: reclama (o reusa) el id de sesión para este usuario.
           void claimSession(session.user.id).then((id) => { sessionIdRef.current = id; });
@@ -128,6 +131,7 @@ export function MainLayout() {
           setDisplayName('');
           setMustChangePassword(false);
           setLegalAccepted(true);
+          setNeedsPermissions(false);
           setIsResolvingRole(false);
           sessionIdRef.current = null;
           clearLocalSession();
@@ -354,10 +358,15 @@ export function MainLayout() {
     return <LegalConsent onAccept={() => setLegalAccepted(true)} />;
   }
 
+  // Onboarding de permisos (una vez por dispositivo, al primer inicio de sesión).
+  if (needsPermissions) {
+    return <PermissionsSetup onDone={() => setNeedsPermissions(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-surface to-white">
       <header className="bg-brand-700 border-b border-brand-800 shadow-[0_2px_16px_rgba(26,45,107,0.15)] sticky top-0 z-50 backdrop-blur">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white border border-gold-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-sm"><img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-8 h-8 object-contain" /></div>
@@ -368,7 +377,7 @@ export function MainLayout() {
         </div>
       </header>
 
-      <div className="max-w-screen-2xl mx-auto flex w-full">
+      <div className="max-w-[1800px] mx-auto flex w-full">
         <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 border-r border-brand-800/60 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(26,45,107,0.14)] transition-[width] duration-200`}>
           <div className={`flex p-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
             <button
