@@ -26,16 +26,21 @@ export function TeacherDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Mi grupo</h1>
-          <p className="mt-1 text-sm text-gray-500">Estudiantes activos de tu grupo en tiempo real.</p>
+      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Mi grupo</h1>
+              <p className="mt-0.5 text-sm text-brand-200">Estudiantes activos de tu grupo en tiempo real.</p>
+            </div>
+          </div>
+          <Button onClick={handleSignReport} disabled={isSigning} className="bg-white/10 border border-white/20 text-white hover:bg-white/20 backdrop-blur-sm font-semibold shrink-0">
+            {isSigning
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Firmando...</>
+              : <><FileSignature className="mr-2 h-4 w-4" />Firmar reporte del grupo</>}
+          </Button>
         </div>
-        <Button onClick={handleSignReport} disabled={isSigning} className="bg-brand-800 text-white hover:bg-brand-900">
-          {isSigning
-            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Firmando...</>
-            : <><FileSignature className="mr-2 h-4 w-4" />Firmar reporte del grupo</>}
-        </Button>
       </div>
 
       <StudentLiveMap title="Estudiantes activos de mi grupo" fetchSnapshot={fetchTeacherActiveSnapshot} />

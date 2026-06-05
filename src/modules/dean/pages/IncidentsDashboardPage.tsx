@@ -88,12 +88,17 @@ export function IncidentsDashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Panel de Incidencias</h2>
-          <p className="text-sm text-gray-600">Vista global de justificaciones abiertas y cerradas.</p>
+      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
+            <div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Panel de Incidencias</h2>
+              <p className="text-sm text-brand-200 mt-0.5">Vista global de justificaciones abiertas y cerradas.</p>
+            </div>
+          </div>
+          <Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>
         </div>
-        <Badge className="w-fit bg-amber-100 text-amber-700">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>
       </div>
 
       <Card>
@@ -188,9 +193,10 @@ type TableProps = {
 
 function IncidentsTable({ rows, page, totalPages, total, onPage, showReviewer, emptyMessage }: TableProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between py-3">
-        <CardTitle className="text-base">
+    <Card className="overflow-hidden border-brand-100 shadow-sm">
+      <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between py-3">
+        <CardTitle className="text-base flex items-center gap-2 text-white">
+          <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
           {total} registro{total !== 1 ? 's' : ''}
         </CardTitle>
       </CardHeader>

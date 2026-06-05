@@ -157,32 +157,37 @@ export function RotationsCalendarPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Calendario de rotaciones</h2>
-          <p className="text-sm text-gray-600">
-            {role === 'STUDENT' && 'Vista mensual de tus rotaciones futuras.'}
-            {role === 'SUPERVISOR' && 'Vista mensual de rotaciones de tus alumnos asignados.'}
-            {role === 'DEAN' && 'Vista global de rotaciones por sede y carrera.'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportPdf}>
-            <FileText className="h-4 w-4 mr-1.5" />PDF
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void exportXlsx()}>
-            <Download className="h-4 w-4 mr-1.5" />Excel
-          </Button>
-          <div className="flex items-center gap-2 ml-auto md:ml-0">
-            <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
-              <ChevronLeft className="h-4 w-4" />
+      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
+            <div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Calendario de rotaciones</h2>
+              <p className="text-sm text-brand-200 mt-0.5">
+                {role === 'STUDENT' && 'Vista mensual de tus rotaciones futuras.'}
+                {role === 'SUPERVISOR' && 'Vista mensual de rotaciones de tus alumnos asignados.'}
+                {role === 'DEAN' && 'Vista global de rotaciones por sede y carrera.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportPdf} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+              <FileText className="h-4 w-4 mr-1.5" />PDF
             </Button>
-            <p className="min-w-32 sm:min-w-44 text-center text-sm font-medium capitalize">
-              {format(month, 'MMMM yyyy', { locale: es })}
-            </p>
-            <Button variant="outline" size="icon" onClick={() => setMonth((m) => addMonths(m, 1))}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={() => void exportXlsx()} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+              <Download className="h-4 w-4 mr-1.5" />Excel
             </Button>
+            <div className="flex items-center gap-2 ml-auto md:ml-0">
+              <Button variant="outline" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <p className="min-w-32 sm:min-w-44 text-center text-sm font-medium capitalize text-white">
+                {format(month, 'MMMM yyyy', { locale: es })}
+              </p>
+              <Button variant="outline" size="icon" onClick={() => setMonth((m) => addMonths(m, 1))} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

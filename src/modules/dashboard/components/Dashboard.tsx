@@ -215,61 +215,70 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Resumen general del sistema de asistencias</p>
+      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
+          <div>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Dashboard</h2>
+            <p className="text-sm text-brand-200 mt-0.5">Resumen general del sistema de asistencias</p>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="overflow-hidden border-0 shadow-[0_2px_12px_rgba(26,45,107,0.1)] ring-1 ring-brand-100">
+          <div className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-700 to-gold-400" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
             <CardTitle className="text-sm font-medium text-slate-500">Total Estudiantes</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
-              <Users className="w-4 h-4 text-brand-500" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shadow-sm">
+              <Users className="w-4 h-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.totalStudents}</div>
+            <div className="text-2xl font-bold text-brand-800">{stats.totalStudents}</div>
             <p className="text-xs text-slate-400 mt-0.5">Activos en prácticas</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="overflow-hidden border-0 shadow-[0_2px_12px_rgba(26,45,107,0.1)] ring-1 ring-brand-100">
+          <div className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-700 to-gold-400" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
             <CardTitle className="text-sm font-medium text-slate-500">Asistencias Hoy</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
-              <CheckCircle className="w-4 h-4 text-brand-500" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shadow-sm">
+              <CheckCircle className="w-4 h-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.todayAttendance}</div>
+            <div className="text-2xl font-bold text-brand-800">{stats.todayAttendance}</div>
             <p className="text-xs text-slate-400 mt-0.5">Registros completados</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="overflow-hidden border-0 shadow-[0_2px_12px_rgba(26,45,107,0.1)] ring-1 ring-brand-100">
+          <div className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-700 to-gold-400" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
             <CardTitle className="text-sm font-medium text-slate-500">Prácticas Activas</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-brand-500" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shadow-sm">
+              <Calendar className="w-4 h-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.totalPractices}</div>
+            <div className="text-2xl font-bold text-brand-800">{stats.totalPractices}</div>
             <p className="text-xs text-slate-400 mt-0.5">En este semestre</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="overflow-hidden border-0 shadow-[0_2px_12px_rgba(26,45,107,0.1)] ring-1 ring-brand-100">
+          <div className="h-1 w-full bg-gradient-to-r from-brand-600 via-brand-700 to-gold-400" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
             <CardTitle className="text-sm font-medium text-slate-500">Tasa de Asistencia</CardTitle>
-            <div className="w-8 h-8 rounded-md bg-brand-50 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-brand-500" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shadow-sm">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.attendanceRate}%</div>
+            <div className="text-2xl font-bold text-brand-800">{stats.attendanceRate}%</div>
             <p className="text-xs text-slate-400 mt-0.5">Promedio general</p>
           </CardContent>
         </Card>
@@ -279,7 +288,8 @@ export function Dashboard() {
       {/* T-07.5: Tarjetas de indicadores clave del ciclo */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+          <h3 className="text-base font-semibold text-brand-800 flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full bg-gold-500 shrink-0" />
             <Activity className="w-4 h-4 text-brand-700" />
             Indicadores Clave del Ciclo
           </h3>
@@ -440,10 +450,13 @@ export function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Asistencias Semanales</CardTitle>
-            <CardDescription>Últimos 5 días</CardDescription>
+        <Card className="overflow-hidden border-brand-100 shadow-sm">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] pb-3">
+            <CardTitle className="flex items-center gap-2 text-white">
+              <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+              Asistencias Semanales
+            </CardTitle>
+            <CardDescription className="text-brand-200">Últimos 5 días</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[200px] sm:h-[260px] md:h-[280px]">
@@ -461,10 +474,13 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Estado de Hoy</CardTitle>
-            <CardDescription>Distribución de asistencias</CardDescription>
+        <Card className="overflow-hidden border-brand-100 shadow-sm">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] pb-3">
+            <CardTitle className="flex items-center gap-2 text-white">
+              <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+              Estado de Hoy
+            </CardTitle>
+            <CardDescription className="text-brand-200">Distribución de asistencias</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[200px] sm:h-[260px] md:h-[280px]">
@@ -493,22 +509,23 @@ export function Dashboard() {
       </div>
 
       {/* T-07.4 — Mapa de estudiantes activos por sede */}
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden border-brand-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-brand-700" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+                <MapPin className="w-4 h-4 text-gold-300" />
                 Estudiantes Activos por Sede
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-brand-200">
                 Jornadas en curso · actualiza cada 30 segundos
               </CardDescription>
             </div>
             {/* Filtros — afectan mapa e indicadores simultáneamente */}
             <div className="flex flex-wrap gap-2">
               <Select value={sedeFilter} onValueChange={(v) => { setSedeFilter(v); setExpandedSede(null); }}>
-                <SelectTrigger className="w-full sm:w-40 h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-40 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
                   <SelectValue placeholder="Sede" />
                 </SelectTrigger>
                 <SelectContent>
@@ -519,7 +536,7 @@ export function Dashboard() {
                 </SelectContent>
               </Select>
               <Select value={careerFilter} onValueChange={(v) => { setCareerFilter(v); setExpandedSede(null); }}>
-                <SelectTrigger className="w-full sm:w-40 h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-40 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
                   <SelectValue placeholder="Carrera" />
                 </SelectTrigger>
                 <SelectContent>
@@ -663,10 +680,13 @@ export function Dashboard() {
       </Dialog>
 
       {/* Estudiantes Activos (lista) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Estudiantes Activos</CardTitle>
-          <CardDescription>Consulta backend actualizada cada 30 segundos</CardDescription>
+      <Card className="overflow-hidden border-brand-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] pb-3">
+          <CardTitle className="flex items-center gap-2 text-white">
+            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+            Estudiantes Activos
+          </CardTitle>
+          <CardDescription className="text-brand-200">Consulta backend actualizada cada 30 segundos</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -699,10 +719,13 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Actividad Reciente</CardTitle>
-          <CardDescription>Últimos registros de asistencia</CardDescription>
+      <Card className="overflow-hidden border-brand-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] pb-3">
+          <CardTitle className="flex items-center gap-2 text-white">
+            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+            Actividad Reciente
+          </CardTitle>
+          <CardDescription className="text-brand-200">Últimos registros de asistencia</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
