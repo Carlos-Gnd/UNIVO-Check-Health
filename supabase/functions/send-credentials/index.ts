@@ -25,9 +25,12 @@ Deno.serve(async (req: Request) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return json({ error: 'Sesión inválida' }, 401);
 
+  // ADMIN y DOCENTE pueden crear usuarios (S4-04.2), así que ambos pueden disparar
+  // el envío de credenciales del usuario recién creado.
   const { data: profile } = await userClient.from('users').select('role').eq('id', user.id).single();
-  if ((profile?.role ?? '').toUpperCase() !== 'ADMIN') {
-    return json({ error: 'Solo un administrador puede enviar credenciales.' }, 403);
+  const requesterRole = (profile?.role ?? '').toUpperCase();
+  if (!['ADMIN', 'DOCENTE', 'TEACHER'].includes(requesterRole)) {
+    return json({ error: 'No tienes permiso para enviar credenciales.' }, 403);
   }
 
   const { email, password, full_name } = await req.json().catch(() => ({})) as

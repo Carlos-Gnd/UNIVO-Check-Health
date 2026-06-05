@@ -6,6 +6,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Combobox } from '@/shared/components/ui/combobox';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -281,16 +282,16 @@ export function DeanAssignmentsPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Alumno" required>
-                <NativeSelect value={studentId} onChange={setStudentId} placeholder="Selecciona alumno" options={options.students.map((s) => ({ value: s.id, label: s.label }))} />
+                <Combobox value={studentId} onChange={setStudentId} placeholder="Selecciona alumno" options={options.students.map((s) => ({ value: s.id, label: s.label }))} />
               </Field>
               <Field label="Sede de práctica" required>
-                <NativeSelect value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
+                <Combobox value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
               </Field>
               <Field label="Docente supervisor" required>
-                <NativeSelect value={teacherId} onChange={setTeacherId} placeholder="Selecciona docente" options={options.teachers.map((t) => ({ value: t.id, label: t.label }))} />
+                <Combobox value={teacherId} onChange={setTeacherId} placeholder="Selecciona docente" options={options.teachers.map((t) => ({ value: t.id, label: t.label }))} />
               </Field>
               <Field label="Coordinador" help="Persona que supervisa la asignación a nivel administrativo y revisa incidencias. Puede ser un coordinador o el decano.">
-                <NativeSelect value={coordinatorId} onChange={setCoordinatorId} placeholder="Selecciona coordinador" options={options.coordinators.map((c) => ({ value: c.id, label: c.label }))} />
+                <Combobox value={coordinatorId} onChange={setCoordinatorId} placeholder="Selecciona coordinador" options={options.coordinators.map((c) => ({ value: c.id, label: c.label }))} />
               </Field>
               <Field label="Período" required help="Ciclo académico de la rotación, en formato AÑO-CICLO (ej. 2026-1 para el primer ciclo de 2026).">
                 <Input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-1" />
@@ -381,22 +382,3 @@ function Field({ label, required, help, children }: { label: string; required?: 
   );
 }
 
-function NativeSelect({
-  value, onChange, options, placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}

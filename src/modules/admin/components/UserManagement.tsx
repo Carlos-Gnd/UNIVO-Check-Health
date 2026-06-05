@@ -91,8 +91,8 @@ interface UserRow {
   is_active: boolean;
 }
 
-// Muestra email + contraseña tras crear el usuario
-type CreatedCredentials = { email: string; password: string } | null;
+// Muestra email + contraseña tras crear el usuario (o restablecer su contraseña)
+type CreatedCredentials = { email: string; password: string; reset?: boolean } | null;
 
 export function UserManagement() {
   const [fullName, setFullName]           = useState('');
@@ -250,14 +250,14 @@ export function UserManagement() {
 
   const handleResetPassword = async (user: UserRow) => {
     setResetingId(user.id);
-    const result = await invokeAdmin<{ action_link: string }>('reset-password', { email: user.email });
+    const result = await invokeAdmin<{ password: string; email: string }>('reset-password', { email: user.email });
     setResetingId(null);
-    if (!result.ok || !result.data?.action_link) {
-      toast.error(result.message ?? 'No se pudo generar el link de restablecimiento');
+    if (!result.ok || !result.data?.password) {
+      toast.error(result.message ?? 'No se pudo restablecer la contraseña');
       return;
     }
-    await navigator.clipboard.writeText(result.data.action_link).catch(() => undefined);
-    toast.success('Link de restablecimiento copiado al portapapeles');
+    // Muestra la nueva contraseña temporal (el usuario la cambia al iniciar sesión).
+    setCreatedCreds({ email: user.email, password: result.data.password, reset: true });
   };
 
   const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-brand-100 text-brand-700' : 'bg-green-100 text-green-700';
@@ -423,11 +423,13 @@ export function UserManagement() {
       {/* Modal credenciales creadas */}
       <Dialog open={Boolean(createdCreds)} onOpenChange={() => setCreatedCreds(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" />Usuario creado exitosamente</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" />{createdCreds?.reset ? 'Contraseña restablecida' : 'Usuario creado exitosamente'}</DialogTitle></DialogHeader>
           {createdCreds && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.
+                {createdCreds.reset
+                  ? 'Comparte esta contraseña temporal con el usuario. Deberá cambiarla al iniciar sesión.'
+                  : 'Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.'}
               </p>
               <div className="space-y-3 rounded-lg bg-brand-50 p-4">
                 <div>
