@@ -25,6 +25,18 @@ type Body = {
   id?: string;
 };
 
+// Contraseña temporal fuerte (sin caracteres ambiguos). Se usa al restablecer.
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const specials = '!@#$%&*';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  let out = '';
+  for (let i = 0; i < 10; i++) out += chars[bytes[i] % chars.length];
+  out += specials[bytes[10] % specials.length];
+  out += String(bytes[11] % 10);
+  return out;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -203,21 +215,23 @@ Deno.serve(async (req: Request) => {
 
     case 'reset-password': {
       if (!body.email) return json({ error: 'email requerido' }, 400);
+      const email = body.email.trim().toLowerCase();
 
-      const { data: target } = await admin.from('users').select('role').eq('email', body.email.trim().toLowerCase()).single();
+      const { data: target } = await admin.from('users').select('id, role').eq('email', email).single();
       if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
       if (!canManageRole(target.role)) {
         return json({ error: 'No tienes permiso para restablecer la contraseña de este usuario.' }, 403);
       }
 
-      const { data, error } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email: body.email,
-      });
-      if (error || !data?.properties?.action_link) {
-        return json({ error: 'No se pudo generar el link de restablecimiento.' }, 400);
-      }
-      return json({ ok: true, action_link: data.properties.action_link });
+      // En vez de un link de recuperación (que dependía del Site URL de Supabase y
+      // apuntaba a localhost), se asigna una contraseña temporal de un solo uso y se
+      // exige cambiarla al primer ingreso — el mismo flujo robusto de la creación.
+      const tempPassword = generateTempPassword();
+      const { error: pwErr } = await admin.auth.admin.updateUserById(target.id, { password: tempPassword });
+      if (pwErr) return json({ error: `No se pudo restablecer la contraseña: ${pwErr.message}` }, 400);
+      await admin.from('users').update({ must_change_password: true }).eq('id', target.id);
+
+      return json({ ok: true, password: tempPassword, email });
     }
 
     default:
