@@ -4,8 +4,18 @@
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link rel="icon" type="image/png" href="public/images/Icon.png"/>
+      <link rel="icon" type="image/png" href="/images/Icon.png"/>
       <title>UNIVO Check-Health</title>
+
+      <!-- PWA instalable (siempre online, sin modo offline) -->
+      <link rel="manifest" href="/manifest.webmanifest" />
+      <meta name="theme-color" content="#1a2d6b" />
+      <link rel="apple-touch-icon" href="/images/icon-192.png" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      <meta name="apple-mobile-web-app-title" content="Check-Health" />
+      <meta name="mobile-web-app-capable" content="yes" />
+
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
 
       <!-- Google Fonts: Nunito Sans para una interfaz moderna y redondeada -->

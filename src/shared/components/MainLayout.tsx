@@ -40,6 +40,8 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
 import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
 import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
+import { LegalConsent } from '@/modules/legal/LegalConsent';
+import { LEGAL_VERSION } from '@/modules/legal/legalContent';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
@@ -75,6 +77,7 @@ export function MainLayout() {
   const [displayName, setDisplayName] = useState('');
   const [isResolvingRole, setIsResolvingRole] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
@@ -99,6 +102,16 @@ export function MainLayout() {
       .eq('id', userId)
       .single();
     setMustChangePassword(Boolean(flag?.must_change_password));
+
+    // Consentimiento legal. Fail-open si la columna aún no existe (migración no
+    // aplicada): no bloquear el acceso. Solo bloquea si se lee y la versión
+    // aceptada no coincide con la vigente.
+    const { data: legal, error: legalErr } = await supabase
+      .from('users')
+      .select('accepted_legal_version')
+      .eq('id', userId)
+      .single();
+    setLegalAccepted(legalErr ? true : legal?.accepted_legal_version === LEGAL_VERSION);
   };
 
   useEffect(() => {
@@ -114,6 +127,7 @@ export function MainLayout() {
           setCurrentRole('Encargado');
           setDisplayName('');
           setMustChangePassword(false);
+          setLegalAccepted(true);
           setIsResolvingRole(false);
           sessionIdRef.current = null;
           clearLocalSession();
@@ -197,6 +211,8 @@ export function MainLayout() {
           { name: 'Justificaciones', href: '/dean/justifications', icon: FileWarning },
           { name: 'Historial de Decisiones', href: '/teacher/history', icon: History },
           { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle },
+          { name: 'Sedes', href: '/dean/locations', icon: MapPin },
+          { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
         ]
       : [
           { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -309,7 +325,16 @@ export function MainLayout() {
               </form>
             </section>
           </div>
-          <div className="border-t border-brand-100 py-3.5 sm:py-4 px-4 text-center text-[11px] sm:text-xs text-slate-500">UNIVO Check-Health - Sistema de Registro y Control de Asistencias</div>
+          <div className="border-t border-brand-100 py-3.5 sm:py-4 px-4 text-center text-[11px] sm:text-xs text-slate-500">
+            <p>UNIVO Check-Health - Sistema de Registro y Control de Asistencias</p>
+            <p className="mt-1 space-x-2">
+              <Link to="/legal/privacy" className="text-brand-600 hover:text-gold-700">Privacidad</Link>
+              <span className="text-slate-300">·</span>
+              <Link to="/legal/cookies" className="text-brand-600 hover:text-gold-700">Cookies</Link>
+              <span className="text-slate-300">·</span>
+              <Link to="/legal/terms" className="text-brand-600 hover:text-gold-700">Términos</Link>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -322,6 +347,11 @@ export function MainLayout() {
   // Contraseña temporal de un solo uso: bloquea la app hasta crear una nueva.
   if (mustChangePassword) {
     return <ForcePasswordChange onDone={() => setMustChangePassword(false)} />;
+  }
+
+  // Consentimiento legal obligatorio al ingresar (privacidad, cookies, términos).
+  if (!legalAccepted) {
+    return <LegalConsent onAccept={() => setLegalAccepted(true)} />;
   }
 
   return (

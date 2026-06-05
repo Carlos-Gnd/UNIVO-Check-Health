@@ -29,6 +29,7 @@ export type Assignment = {
   period: string;
   start_date: string | null;
   end_date: string | null;
+  required_hours: number | null;
 };
 
 export type AssignmentForm = {
@@ -40,6 +41,7 @@ export type AssignmentForm = {
   period: string;
   start_date: string | null;
   end_date: string | null;
+  required_hours: number | null;
   schedules: ScheduleSlot[];
 };
 
@@ -75,7 +77,7 @@ export async function fetchAssignmentOptions(): Promise<AssignmentOptions> {
 export async function fetchAssignments(): Promise<Assignment[]> {
   const { data, error } = await supabase
     .from('teacher_groups')
-    .select('id, student_id, teacher_id, coordinator_id, campus_id, period, start_date, end_date')
+    .select('id, student_id, teacher_id, coordinator_id, campus_id, period, start_date, end_date, required_hours')
     .order('period', { ascending: false });
   if (error || !data) return [];
   return data as Assignment[];
@@ -117,6 +119,7 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
     period,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
+    required_hours: form.required_hours ?? null,
   };
 
   let assignmentId = form.id;

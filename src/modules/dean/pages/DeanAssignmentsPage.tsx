@@ -51,6 +51,7 @@ export function DeanAssignmentsPage() {
   const [period, setPeriod] = useState('2026-1');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [requiredHours, setRequiredHours] = useState('');
   const [days, setDays] = useState<DayRow[]>(defaultDays());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -82,7 +83,7 @@ export function DeanAssignmentsPage() {
   const resetForm = () => {
     setEditingId(null);
     setStudentId(''); setTeacherId(''); setCoordinatorId(''); setCampusId('');
-    setPeriod('2026-1'); setStartDate(''); setEndDate('');
+    setPeriod('2026-1'); setStartDate(''); setEndDate(''); setRequiredHours('');
     setDays(defaultDays());
   };
 
@@ -97,6 +98,7 @@ export function DeanAssignmentsPage() {
     setPeriod(a.period);
     setStartDate(a.start_date ?? '');
     setEndDate(a.end_date ?? '');
+    setRequiredHours(a.required_hours != null ? String(a.required_hours) : '');
     const slots = schedules.get(a.id) ?? [];
     setDays(DAYS.map((d) => {
       const slot = slots.find((s) => s.weekday === d.weekday);
@@ -117,6 +119,8 @@ export function DeanAssignmentsPage() {
     if (!period.trim()) { toast.error('El periodo es obligatorio.'); return; }
     if (!periodPattern.test(period.trim())) { toast.error('Usa el formato de periodo AAAA-CICLO, por ejemplo 2026-1.'); return; }
     if (startDate && endDate && endDate < startDate) { toast.error('La fecha de fin no puede ser anterior al inicio.'); return; }
+    const hoursTrim = requiredHours.trim();
+    if (hoursTrim && (!(Number(hoursTrim) > 0))) { toast.error('Las horas requeridas deben ser un número mayor que 0.'); return; }
 
     const enabled = days.filter((d) => d.enabled);
     if (enabled.length === 0) { toast.error('Define al menos un día de práctica en el horario.'); return; }
@@ -133,6 +137,7 @@ export function DeanAssignmentsPage() {
       period: period.trim(),
       start_date: startDate || null,
       end_date: endDate || null,
+      required_hours: hoursTrim ? Number(hoursTrim) : null,
       schedules: enabled.map((d) => ({ weekday: d.weekday, check_in_from: d.from, check_in_to: d.to })),
     });
     setIsSaving(false);
@@ -298,6 +303,13 @@ export function DeanAssignmentsPage() {
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </Field>
               </div>
+              <Field label="Horas requeridas del ciclo" help="Horas de práctica que este alumno debe cumplir en este ciclo. No todos los alumnos tienen las mismas. Déjalo vacío para usar las horas por defecto de la materia.">
+                <Input
+                  type="number" min={1} step="0.5" value={requiredHours}
+                  onChange={(e) => setRequiredHours(e.target.value)}
+                  placeholder="Por defecto de la materia (p. ej. 240)"
+                />
+              </Field>
             </div>
 
             <div className="rounded-lg border border-brand-100 bg-brand-50/40 p-4">
