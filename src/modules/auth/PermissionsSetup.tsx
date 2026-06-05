@@ -106,18 +106,41 @@ export function PermissionsSetup({ onDone }: { onDone: () => void }) {
           </p>
         )}
 
-        <Button
-          onClick={requestAll}
-          disabled={running}
-          className="w-full mt-6 h-11 bg-brand-800 hover:bg-brand-900 text-white font-semibold"
-        >
-          {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          {asked ? 'Volver a pedir permisos' : 'Conceder permisos'}
-        </Button>
-
-        <button type="button" onClick={finish} className="w-full mt-3 text-sm text-brand-700 hover:text-gold-700 font-medium">
-          {asked ? 'Continuar' : 'Omitir por ahora'}
-        </button>
+        {!asked ? (
+          <>
+            <Button
+              onClick={requestAll}
+              disabled={running}
+              className="w-full mt-6 h-11 bg-brand-800 hover:bg-brand-900 text-white font-semibold"
+            >
+              {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Conceder permisos
+            </Button>
+            <button type="button" onClick={finish} className="w-full mt-3 text-sm text-brand-700 hover:text-gold-700 font-medium">
+              Omitir por ahora
+            </button>
+          </>
+        ) : (
+          <>
+            <Button
+              onClick={finish}
+              className="w-full mt-6 h-11 bg-brand-800 hover:bg-brand-900 text-white font-semibold"
+            >
+              Continuar
+            </Button>
+            {/* Solo si algún permiso quedó denegado se ofrece reintentar. */}
+            {[gps, cam, notif].includes('denied') && (
+              <button
+                type="button"
+                onClick={requestAll}
+                disabled={running}
+                className="w-full mt-3 text-sm text-brand-700 hover:text-gold-700 font-medium disabled:opacity-50"
+              >
+                {running ? 'Pidiendo permisos…' : 'Volver a intentar los pendientes'}
+              </button>
+            )}
+          </>
+        )}
 
         <p className="mt-3 text-[11px] text-slate-400 text-center">
           Si rechazas alguno, podrás concederlo después desde los ajustes del navegador.
