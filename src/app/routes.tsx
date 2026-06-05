@@ -25,6 +25,7 @@ import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecis
 import { TeacherDashboardPage } from '@/modules/teacher/pages/TeacherDashboardPage';
 import { TeacherEvaluationsPage } from '@/modules/teacher/pages/TeacherEvaluationsPage';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
+import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
 import { ProfilePage } from '@/modules/profile/ProfilePage';
 
 const DeanDashboardRoute = () => (
@@ -40,7 +41,7 @@ const DeanStudentsRoute = () => (
 );
 
 const DeanLocationsRoute = () => (
-  <RoleGuard allow={['ADMIN']}>
+  <RoleGuard allow={['ADMIN', 'TEACHER', 'DOCENTE']}>
     <DeanLocationsPage />
   </RoleGuard>
 );
@@ -58,7 +59,7 @@ const IncidentsDashboardRoute = () => (
 );
 
 const UsersRoute = () => (
-  <RoleGuard allow={['ADMIN']}>
+  <RoleGuard allow={['ADMIN', 'TEACHER', 'DOCENTE']}>
     <UserManagement />
   </RoleGuard>
 );
@@ -120,6 +121,9 @@ const TeacherHistoryRoute = () => (
 
 export const router = createBrowserRouter([
   { path: '/auth/recovery', Component: RecoveryPage },
+  { path: '/legal/privacy', Component: PrivacyPolicyPage },
+  { path: '/legal/cookies', Component: CookiesPolicyPage },
+  { path: '/legal/terms', Component: TermsPage },
   {
     path: '/',
     Component: MainLayout,

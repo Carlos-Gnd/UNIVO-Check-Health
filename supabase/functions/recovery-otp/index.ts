@@ -60,6 +60,16 @@ Deno.serve(async (req: Request) => {
   if (!email.endsWith('@univo.edu.sv')) return json({ error: 'Correo institucional invalido.' }, 400);
 
   if (body.action === 'request') {
+    // Q-01 — Rate-limit por IP: frena el spray de correos / fuerza bruta de la
+    // respuesta de seguridad desde una misma red (complementa el límite per-email).
+    const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+    const { data: ipOk } = await admin.rpc('rate_limit_hit', {
+      p_bucket: 'otp_request', p_key: ip, p_max: 10, p_window_seconds: 600,
+    });
+    if (ipOk === false) {
+      return json({ error: 'Demasiadas solicitudes desde esta red. Intenta de nuevo más tarde.' }, 429);
+    }
+
     const answer = (body.answer ?? '').trim();
     if (answer.length < 2) return json({ error: 'Respuesta de seguridad requerida.' }, 400);
 

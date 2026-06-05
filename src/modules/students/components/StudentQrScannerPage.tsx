@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -55,9 +55,19 @@ async function getGps(): Promise<GeolocationCoordinates> {
   );
 }
 
+// Detiene la cámara y libera el stream. Html5Qrcode requiere stop() antes de clear().
+function teardownScanner(scanner: Html5Qrcode | null): void {
+  if (!scanner) return;
+  try {
+    void scanner.stop().then(() => scanner.clear()).catch(() => undefined);
+  } catch {
+    // ya estaba detenido
+  }
+}
+
 export function StudentQrScannerPage() {
   const scannerDivId = 'qr-reader';
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
 
   const [mode, setMode] = useState<Mode>('camera');
@@ -80,6 +90,8 @@ export function StudentQrScannerPage() {
   // Sensores
   const motionSamplesRef = useRef<MotionSensorSample[]>([]);
   const locationSamplesRef = useRef<GeoPointSample[]>([]);
+  const motionHandlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
+  const motionGrantedRef = useRef(false);
 
   // Cargar sedes activas para el modo manual
   useEffect(() => {
@@ -87,7 +99,11 @@ export function StudentQrScannerPage() {
       .then(({ data }) => { if (data) setCampuses(data as Campus[]); });
   }, []);
 
-  // Listener de acelerómetro
+  // Listener de acelerómetro (best-effort). En iOS 13+ el permiso debe pedirse
+  // desde un gesto del usuario (ver ensureMotionPermission); aquí solo se engancha
+  // directo en navegadores sin gate de permiso (Android Chrome, desktop). Si el
+  // navegador no expone DeviceMotion (Firefox desktop) o lo bloquea (Brave Shields),
+  // el evento simplemente nunca llega y el check-in continúa sin estas muestras.
   useEffect(() => {
     const handleMotion = (event: DeviceMotionEvent) => {
       const acc = event.accelerationIncludingGravity ?? event.acceleration;
@@ -100,14 +116,31 @@ export function StudentQrScannerPage() {
         { timestamp: Date.now(), accelerationMagnitude: +am.toFixed(4), rotationRateMagnitude: +rm.toFixed(4) },
       ].slice(-SENSOR_LIMIT);
     };
-    const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
-    if (typeof dm.requestPermission === 'function') {
-      dm.requestPermission().then((p) => { if (p === 'granted') window.addEventListener('devicemotion', handleMotion); }).catch(() => undefined);
-    } else {
+    motionHandlerRef.current = handleMotion;
+    const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+    if (typeof dm !== 'undefined' && typeof dm.requestPermission !== 'function') {
       window.addEventListener('devicemotion', handleMotion);
+      motionGrantedRef.current = true;
     }
-    return () => window.removeEventListener('devicemotion', handleMotion);
+    return () => { if (motionHandlerRef.current) window.removeEventListener('devicemotion', motionHandlerRef.current); };
   }, []);
+
+  // Pide el permiso de DeviceMotion en iOS DESDE un gesto del usuario (botón). Es
+  // best-effort: si no existe la API, el usuario niega, o el navegador lo bloquea,
+  // el check-in sigue sin sensores (la detección de fraude tolera 0 muestras).
+  const ensureMotionPermission = () => {
+    if (motionGrantedRef.current) return;
+    const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+    if (typeof dm === 'undefined' || typeof dm.requestPermission !== 'function') return;
+    dm.requestPermission()
+      .then((p) => {
+        if (p === 'granted' && motionHandlerRef.current) {
+          window.addEventListener('devicemotion', motionHandlerRef.current);
+          motionGrantedRef.current = true;
+        }
+      })
+      .catch(() => undefined);
+  };
 
   // Countdown tick
   useEffect(() => {
@@ -124,39 +157,61 @@ export function StudentQrScannerPage() {
     return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
   }, [state]);
 
-  useEffect(() => () => { scannerRef.current?.clear().catch(() => undefined); }, []);
+  // Liberar la cámara al desmontar el componente
+  useEffect(() => () => { teardownScanner(scannerRef.current); scannerRef.current = null; }, []);
+
+  // Arranca la cámara SOLO cuando el <div id="qr-reader"> ya está montado en el DOM.
+  // El bug anterior instanciaba el scanner y llamaba render() en el mismo click,
+  // antes de que React pintara el div → html5-qrcode no encontraba el elemento y la
+  // cámara nunca abría. Aquí el efecto corre tras el commit, con el div ya presente.
+  useEffect(() => {
+    if (mode !== 'camera' || state !== 'scanning' || scannerRef.current) return;
+    if (!document.getElementById(scannerDivId)) return;
+    const scanner = new Html5Qrcode(scannerDivId, { verbose: false });
+    scannerRef.current = scanner;
+    scanner
+      .start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        (decodedText) => void handleScan(decodedText, scanner),
+        undefined,
+      )
+      .then(() => {
+        // iOS Safari exige playsinline o el video intenta ir a pantalla completa y falla.
+        const video = document.querySelector<HTMLVideoElement>(`#${scannerDivId} video`);
+        if (video) {
+          video.setAttribute('playsinline', 'true');
+          video.setAttribute('muted', 'true');
+          video.muted = true;
+        }
+      })
+      .catch(() => {
+        setCameraError('No se pudo acceder a la cámara. Revisa los permisos del navegador o usa el código manual.');
+        teardownScanner(scanner);
+        scannerRef.current = null;
+        setState('idle');
+      });
+    // handleScan se define más abajo; el callback solo se ejecuta tras el montaje.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, state]);
+
+  // Libera la cámara al salir del escaneo (éxito, error, countdown o idle).
+  useEffect(() => {
+    if (state === 'scanning' || state === 'validating') return;
+    if (scannerRef.current) { teardownScanner(scannerRef.current); scannerRef.current = null; }
+  }, [state]);
 
   const startScanner = () => {
-    if (scannerRef.current) return;
+    ensureMotionPermission(); // gesto del usuario: aquí sí lo concede iOS
     motionSamplesRef.current = [];
     locationSamplesRef.current = [];
     setCameraError('');
-    setState('scanning');
-
-    const scanner = new Html5QrcodeScanner(
-      scannerDivId,
-      { fps: 10, qrbox: { width: 260, height: 260 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA], rememberLastUsedCamera: true },
-      false,
-    );
-
-    scanner.render(
-      (decodedText) => void handleScan(decodedText, scanner),
-      (err) => {
-        // Detectar errores de permiso/cámara no disponible
-        if (err && (err.includes('NotAllowed') || err.includes('NotFound') || err.includes('Permission'))) {
-          setCameraError('No se pudo acceder a la cámara. Usa el código manual.');
-          scanner.clear().catch(() => undefined);
-          scannerRef.current = null;
-          setState('idle');
-        }
-      },
-    );
-
-    scannerRef.current = scanner;
+    setMessage('');
+    setState('scanning'); // el useEffect de arriba arranca la cámara una vez montado el div
   };
 
   const stopScanner = () => {
-    scannerRef.current?.clear().catch(() => undefined);
+    teardownScanner(scannerRef.current);
     scannerRef.current = null;
     setState('idle');
     setMessage('');
@@ -211,7 +266,7 @@ export function StudentQrScannerPage() {
   };
 
   // ── Modo cámara ──────────────────────────────────────────────────────────────
-  const handleScan = async (text: string, scanner: Html5QrcodeScanner) => {
+  const handleScan = async (text: string, scanner: Html5Qrcode) => {
     if (processingRef.current) return;
     processingRef.current = true;
     scanner.pause(true);
@@ -241,22 +296,17 @@ export function StudentQrScannerPage() {
     try { coords = await getGps(); }
     catch {
       setMessage('No se pudo obtener tu ubicación GPS. Actívala e intenta de nuevo.');
-      setState('error'); scanner.resume(); processingRef.current = false; return;
+      setState('error'); processingRef.current = false; return;
     }
 
-    const success = await callValidate({
+    // El cierre de la cámara lo maneja el efecto al cambiar de estado (success/error/countdown).
+    await callValidate({
       qr_token: text,
       lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy,
       device_fingerprint: getDeviceFingerprint(),
       device_info: buildDeviceInfo(coords),
     }, peek.campus_id);
 
-    if (success && state !== 'countdown') {
-      scanner.clear().catch(() => undefined);
-      scannerRef.current = null;
-    } else if (!success) {
-      scanner.resume();
-    }
     processingRef.current = false;
   };
 
@@ -265,6 +315,7 @@ export function StudentQrScannerPage() {
     if (!selectedCampus) { setMessage('Selecciona tu sede.'); return; }
     const code = shortCode.trim().toUpperCase();
     if (code.length !== 6) { setMessage('El código debe tener 6 caracteres.'); return; }
+    ensureMotionPermission(); // gesto del usuario
 
     setIsSubmittingManual(true);
     setState('validating');

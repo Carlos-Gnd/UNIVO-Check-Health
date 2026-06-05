@@ -7,6 +7,11 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 
 let messaging = null;
 
+// PWA instalable: fetch handler de paso-a-red (sin caché → siempre online). Si
+// este SW de FCM controla el scope '/', cumple igualmente el criterio de
+// instalabilidad. No se sirve contenido offline a propósito (decisión D4-09).
+self.addEventListener('fetch', () => { /* network-only */ });
+
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'FIREBASE_CONFIG') return;
 

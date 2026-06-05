@@ -99,6 +99,7 @@ export function UserManagement() {
   const [studentCode, setStudentCode]     = useState('');
   const [career, setCareer]               = useState(CAREERS[0]);
   const [role, setRole]                   = useState('STUDENT');
+  const [requesterRole, setRequesterRole] = useState('');
   const [password, setPassword]           = useState('');
   const [isSubmitting, setIsSubmitting]   = useState(false);
   const [users, setUsers]                 = useState<UserRow[]>([]);
@@ -143,6 +144,23 @@ export function UserManagement() {
   };
 
   useEffect(() => { void loadUsers(); }, []);
+
+  // Rol del solicitante → define qué roles puede gestionar. El docente solo
+  // alumnos y encargados; el ADMIN, cualquiera. Espeja la autorización de admin-users.
+  useEffect(() => {
+    void supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user?.id) return;
+      const { data: row } = await supabase.from('users').select('role').eq('id', data.user.id).single<{ role: string }>();
+      setRequesterRole(row?.role ?? '');
+    });
+  }, []);
+
+  const manageableRoles = requesterRole.toUpperCase() === 'ADMIN'
+    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN']
+    : ['STUDENT', 'COORDINATOR'];
+  const visibleRoles = ROLES.filter((r) => manageableRoles.includes(r.value));
+  // El docente no ve (ni puede operar) cuentas ADMIN ni de otros docentes.
+  const visibleUsers = users.filter((u) => manageableRoles.includes((u.role ?? '').toUpperCase()));
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -280,10 +298,10 @@ export function UserManagement() {
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
-              ) : users.length === 0 ? (
+              ) : visibleUsers.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
               ) : (
-                users.map((u) => (
+                visibleUsers.map((u) => (
                   <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
@@ -370,7 +388,7 @@ export function UserManagement() {
                 <HelpTooltip text="Estudiante: marca asistencia y sube justificaciones. Docente: supervisa a su grupo y evalúa. Coordinador: gestiona asignaciones y revisa incidencias. Administrador/Decano: control total, incluido crear usuarios." />
               </Label>
               <select id="create-role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {role === 'STUDENT' && (
@@ -454,7 +472,7 @@ export function UserManagement() {
             <div className="space-y-1.5">
               <Label htmlFor="edit-role" className="text-xs uppercase tracking-wide text-brand-700"><Puzzle className="h-3.5 w-3.5" />Rol</Label>
               <select id="edit-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {editRole === 'STUDENT' && (
