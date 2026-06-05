@@ -104,20 +104,21 @@ export function StudentLiveMap({
   }, [realtime]);
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
+    <Card className="overflow-hidden border-brand-100 shadow-sm">
+      <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <CardTitle className="flex items-center gap-2 min-w-0">
-            <MapPin className="w-4 h-4 shrink-0 text-brand-700" />
+          <CardTitle className="flex items-center gap-2 min-w-0 text-white">
+            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+            <MapPin className="w-4 h-4 shrink-0 text-gold-300" />
             <span className="truncate">{title}</span>
           </CardTitle>
           <div className="flex items-center gap-2 shrink-0">
             {realtime && (
-              <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+              <Badge className={isRealtimeConnected ? 'bg-green-500/20 text-green-200 border border-green-400/30' : 'bg-white/10 text-brand-200 border border-white/20'}>
                 {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
               </Badge>
             )}
-            <Badge className="bg-brand-100 text-brand-700">{studentCount} en sedes</Badge>
+            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">{studentCount} en sedes</Badge>
           </div>
         </div>
       </CardHeader>
