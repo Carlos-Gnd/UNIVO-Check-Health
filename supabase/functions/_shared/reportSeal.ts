@@ -9,6 +9,27 @@ export function buildSealPayload(reportHash: string, userId: string, signedAt: s
 }
 
 // Sella el payload con HMAC-SHA256 y lo devuelve como hex en minúsculas (64 chars).
+export type ReportSignatureRole = 'system' | 'teacher';
+
+export type ReportSignaturePayload = {
+  reportHash: string;
+  signerId: string;
+  signedAt: string;
+  role: ReportSignatureRole;
+};
+
+export const SYSTEM_REPORT_SIGNER_ID = 'UNIVO_CHECK_HEALTH_SYSTEM';
+export const SYSTEM_REPORT_SIGNER_NAME = 'UNIVO Check-Health';
+
+export function buildReportSignaturePayload(params: ReportSignaturePayload): string {
+  return `${params.reportHash}|${params.role}|${params.signerId}|${params.signedAt}`;
+}
+
+export async function verifyReportSignature(params: ReportSignaturePayload & { seal: string; secret: string }): Promise<boolean> {
+  const expected = await hmacSeal(buildReportSignaturePayload(params), params.secret);
+  return expected === params.seal;
+}
+
 export async function hmacSeal(payload: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(secret),

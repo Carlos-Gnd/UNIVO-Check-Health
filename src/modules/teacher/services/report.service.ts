@@ -17,8 +17,11 @@ export type ReportMeta = { period?: string; groupLabel?: string };
 export type SignReportResult = {
   ok: boolean;
   seal?: string;
+  teacherSeal?: string;
+  systemSeal?: string;
   signedAt?: string;
   signedBy?: string;
+  systemSignedBy?: string;
   reportHash?: string;
   message?: string;
 };
@@ -204,12 +207,21 @@ export async function signGroupReport(meta: ReportMeta): Promise<SignReportResul
   const reportHash = await sha256Hex(bytes);
 
   const { data, error } = await supabase.functions.invoke<{
-    ok?: boolean; seal?: string; signed_at?: string; signed_by?: string; error?: string;
+    ok?: boolean;
+    seal?: string;
+    teacher_seal?: string;
+    system_seal?: string;
+    signed_at?: string;
+    signed_by?: string;
+    system_signed_by?: string;
+    error?: string;
   }>('sign-report', {
     body: { report_hash: reportHash, period: meta.period ?? null, group_label: meta.groupLabel ?? null },
   });
 
-  if (error || !data?.ok || !data.seal) {
+  const teacherSeal = data?.teacher_seal ?? data?.seal;
+  const systemSeal = data?.system_seal;
+  if (error || !data?.ok || !teacherSeal || !systemSeal) {
     return { ok: false, reportHash, message: data?.error ?? error?.message ?? 'No se pudo firmar el reporte.' };
   }
 
@@ -218,9 +230,12 @@ export async function signGroupReport(meta: ReportMeta): Promise<SignReportResul
 
   return {
     ok: true,
-    seal: data.seal,
+    seal: teacherSeal,
+    teacherSeal,
+    systemSeal,
     signedAt: data.signed_at,
     signedBy: data.signed_by,
+    systemSignedBy: data.system_signed_by,
     reportHash,
   };
 }
