@@ -18,6 +18,7 @@ import {
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 
@@ -265,15 +266,15 @@ export function UserManagement() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
-          <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso.</p>
-        </div>
-        <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={openCreate}>
-          <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
-        </Button>
-      </div>
+      <PageHeader
+        title="Gestión de usuarios"
+        description="Administra cuentas institucionales, roles y estado de acceso."
+        action={(
+          <Button className="bg-white/10 border border-white/20 text-white hover:bg-white/20" onClick={openCreate}>
+            <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
+          </Button>
+        )}
+      />
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

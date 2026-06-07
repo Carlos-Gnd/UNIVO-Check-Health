@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { fetchTeacherRoster, type TeacherStudent } from '../services/teacher.service';
 import {
   fetchStudentEvaluations,
@@ -105,10 +106,7 @@ export function TeacherEvaluationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Evaluación semanal</h1>
-        <p className="mt-1 text-sm text-gray-500">Registra el desempeño cualitativo de los estudiantes de tu grupo.</p>
-      </div>
+      <PageHeader title="Evaluación semanal" description="Registra el desempeño cualitativo de los estudiantes de tu grupo." />
 
       {roster.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">

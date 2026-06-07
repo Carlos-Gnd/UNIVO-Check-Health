@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   fetchPendingJustifications,
   reviewJustification,
@@ -114,13 +115,11 @@ export function DeanJustificationsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Solicitudes pendientes</h2>
-          <p className="text-sm text-gray-600">Revision de justificaciones enviadas por estudiantes.</p>
-        </div>
-        <Badge className="w-fit bg-amber-100 text-amber-700">{rows.length} pendientes</Badge>
-      </div>
+      <PageHeader
+        title="Solicitudes pendientes"
+        description="Revisión de justificaciones enviadas por estudiantes."
+        action={<Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{rows.length} pendientes</Badge>}
+      />
 
       <Card>
         <CardContent className="py-4">

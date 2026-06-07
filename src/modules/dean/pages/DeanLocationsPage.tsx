@@ -12,6 +12,7 @@ import { Switch } from '@/shared/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { CoordinatePicker } from '@/shared/components/CoordinatePicker';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 
@@ -228,12 +229,15 @@ export function DeanLocationsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Sedes</h2>
-        <Button onClick={openCreate} className="bg-brand-700 hover:bg-brand-800 text-white">
-          <Plus className="w-4 h-4 mr-1.5" />Nueva sede
-        </Button>
-      </div>
+      <PageHeader
+        title="Sedes"
+        description="Administra ubicaciones, radios GPS, encargados y QR de registro."
+        action={(
+          <Button onClick={openCreate} className="bg-white/10 border border-white/20 text-white hover:bg-white/20">
+            <Plus className="w-4 h-4 mr-1.5" />Nueva sede
+          </Button>
+        )}
+      />
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="relative md:col-span-2">

@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 type AttendanceRow = {
   id: string;
@@ -110,10 +111,7 @@ export function StudentHistoryPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Historial de asistencias</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Registro completo de entradas y salidas</p>
-      </div>
+      <PageHeader title="Historial de asistencias" description="Registro completo de entradas y salidas." />
 
       {/* Filtros */}
       <Card>

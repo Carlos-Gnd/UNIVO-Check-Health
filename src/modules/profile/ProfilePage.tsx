@@ -8,6 +8,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { isAcceptablePassword, passwordStrength } from '@/shared/utils/passwordStrength';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 const STRENGTH_STYLE: Record<string, { bar: string; text: string; fill: number }> = {
   'débil': { bar: 'bg-red-500', text: 'text-red-600', fill: 1 },
@@ -301,10 +302,7 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Mi perfil</h1>
-        <p className="mt-1 text-sm text-gray-500">Gestiona tus datos personales, contacto y seguridad de la cuenta.</p>
-      </div>
+      <PageHeader title="Mi perfil" description="Gestiona tus datos personales, contacto y seguridad de la cuenta." />
 
       <form onSubmit={handleSave} className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start gap-4 border-b border-gray-100 pb-5">

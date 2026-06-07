@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/compo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   fetchStudentJustifications,
   fetchStudentAttendances,
@@ -115,15 +116,15 @@ export function StudentJustificationsPage() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Justificaciones</h2>
-          <p className="text-sm text-gray-600">Solicita justificación para ausencias o tardanzas.</p>
-        </div>
-        <Button onClick={openForm} className="bg-brand-700 hover:bg-brand-800 text-white">
-          <Plus className="w-4 h-4 mr-1.5" />Nueva solicitud
-        </Button>
-      </div>
+      <PageHeader
+        title="Justificaciones"
+        description="Solicita justificación para ausencias o tardanzas."
+        action={(
+          <Button onClick={openForm} className="bg-white/10 border border-white/20 text-white hover:bg-white/20">
+            <Plus className="w-4 h-4 mr-1.5" />Nueva solicitud
+          </Button>
+        )}
+      />
 
       {rows.length === 0 ? (
         <Card>

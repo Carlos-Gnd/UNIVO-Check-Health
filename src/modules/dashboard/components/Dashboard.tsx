@@ -10,6 +10,7 @@ import { getStudents } from '@/modules/students/services/students.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format } from 'date-fns';
 
@@ -215,15 +216,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Dashboard</h2>
-            <p className="text-sm text-brand-200 mt-0.5">Resumen general del sistema de asistencias</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Dashboard" description="Resumen general del sistema de asistencias." />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
