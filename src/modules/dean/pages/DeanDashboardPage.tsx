@@ -138,7 +138,7 @@ function LiveMap({
 
   return (
     <Card className="overflow-hidden border-brand-100 shadow-sm">
-      <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         {/* Fila 1: título + badges de estado */}
         <div className="flex items-center justify-between gap-2 min-w-0">
           <CardTitle className="flex items-center gap-2 min-w-0 text-white">
@@ -304,7 +304,7 @@ export function DeanDashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* T-07.2: Cumplimiento por sede */}
         <Card className="overflow-hidden border-brand-100 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             <CardTitle className="flex items-center gap-2 text-white">
               <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
               Cumplimiento por Sede
@@ -330,7 +330,7 @@ export function DeanDashboardPage() {
 
         {/* T-19.3: Lista paginada de alumnos en riesgo */}
         <Card className="overflow-hidden border-brand-100 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between pb-3">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="flex items-center gap-2 text-white">
                 <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
@@ -388,7 +388,7 @@ export function DeanDashboardPage() {
 
       {/* T-07.1: Resumen por sede */}
       <Card className="overflow-hidden border-brand-100 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <CardTitle className="flex items-center gap-2 text-white">
             <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
             Resumen rápido de sedes
