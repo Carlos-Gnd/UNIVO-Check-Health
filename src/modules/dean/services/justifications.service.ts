@@ -171,6 +171,16 @@ export type AttendanceOption = {
   checkIn: string;
 };
 
+export type PresenceConfirmationOption = {
+  id: string;
+  label: string;
+};
+
+export type PresenceConfirmationOptions = {
+  students: PresenceConfirmationOption[];
+  campuses: PresenceConfirmationOption[];
+};
+
 export async function fetchStudentJustifications(): Promise<StudentJustification[]> {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) return [];
@@ -270,6 +280,59 @@ export async function submitJustification(params: {
 
 // T-32.1: escalar una justificación rechazada (coordinador la reabre a PENDIENTE).
 // La validación de rol y el cambio de estado ocurren en el RPC escalate_justification.
+export async function fetchPresenceConfirmationOptions(): Promise<PresenceConfirmationOptions> {
+  const [studentsResult, campusesResult] = await Promise.all([
+    supabase
+      .from('users')
+      .select('id, student_code, full_name, career')
+      .eq('role', 'STUDENT')
+      .order('full_name', { ascending: true }),
+    supabase
+      .from('campuses')
+      .select('id, name, location_label')
+      .order('name', { ascending: true }),
+  ]);
+
+  return {
+    students: (studentsResult.data ?? []).map((student: any) => ({
+      id: student.id,
+      label: `${student.full_name ?? 'Estudiante sin nombre'} - ${student.student_code ?? 'Sin carnet'}${student.career ? ` (${student.career})` : ''}`,
+    })),
+    campuses: (campusesResult.data ?? []).map((campus: any) => ({
+      id: campus.id,
+      label: campus.location_label ?? campus.name ?? 'Sede sin nombre',
+    })),
+  };
+}
+
+export async function confirmHospitalPresenceAfterTechFailure(params: {
+  studentId: string;
+  campusId: string;
+  representativeName: string;
+  representativeRole?: string;
+  reason?: string;
+}): Promise<{ ok: boolean; attendanceId?: string; message?: string }> {
+  const { data, error } = await supabase.rpc('confirm_hospital_presence_tech_failure', {
+    p_student_id: params.studentId,
+    p_campus_id: params.campusId,
+    p_representative_name: params.representativeName.trim(),
+    p_representative_role: params.representativeRole?.trim() || null,
+    p_reason: params.reason?.trim() || null,
+  });
+
+  if (error) return { ok: false, message: humanizePresenceConfirmationError(error.message) };
+  return { ok: true, attendanceId: data as string };
+}
+
+function humanizePresenceConfirmationError(message: string): string {
+  if (/asistencia activa/i.test(message)) return 'El estudiante ya tiene una asistencia activa.';
+  if (/representante requerido/i.test(message)) return 'Ingresa el nombre del representante.';
+  if (/no autorizado/i.test(message)) return 'No tienes permiso para confirmar esta presencia.';
+  if (/estudiante no encontrado/i.test(message)) return 'Selecciona un estudiante valido.';
+  if (/sede no encontrada/i.test(message)) return 'Selecciona una sede valida.';
+  return message;
+}
+
 export async function escalateJustification(id: string, nota: string): Promise<{ ok: boolean; message?: string }> {
   const { error } = await supabase.rpc('escalate_justification', { p_id: id, p_nota: nota.trim() || null });
   if (error) return { ok: false, message: error.message };
