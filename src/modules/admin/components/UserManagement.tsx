@@ -18,6 +18,7 @@ import {
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 
@@ -91,14 +92,15 @@ interface UserRow {
   is_active: boolean;
 }
 
-// Muestra email + contraseña tras crear el usuario
-type CreatedCredentials = { email: string; password: string } | null;
+// Muestra email + contraseña tras crear el usuario (o restablecer su contraseña)
+type CreatedCredentials = { email: string; password: string; reset?: boolean } | null;
 
 export function UserManagement() {
   const [fullName, setFullName]           = useState('');
   const [studentCode, setStudentCode]     = useState('');
   const [career, setCareer]               = useState(CAREERS[0]);
   const [role, setRole]                   = useState('STUDENT');
+  const [requesterRole, setRequesterRole] = useState('');
   const [password, setPassword]           = useState('');
   const [isSubmitting, setIsSubmitting]   = useState(false);
   const [users, setUsers]                 = useState<UserRow[]>([]);
@@ -143,6 +145,23 @@ export function UserManagement() {
   };
 
   useEffect(() => { void loadUsers(); }, []);
+
+  // Rol del solicitante → define qué roles puede gestionar. El docente solo
+  // alumnos y encargados; el ADMIN, cualquiera. Espeja la autorización de admin-users.
+  useEffect(() => {
+    void supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user?.id) return;
+      const { data: row } = await supabase.from('users').select('role').eq('id', data.user.id).single<{ role: string }>();
+      setRequesterRole(row?.role ?? '');
+    });
+  }, []);
+
+  const manageableRoles = requesterRole.toUpperCase() === 'ADMIN'
+    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN']
+    : ['STUDENT', 'COORDINATOR'];
+  const visibleRoles = ROLES.filter((r) => manageableRoles.includes(r.value));
+  // El docente no ve (ni puede operar) cuentas ADMIN ni de otros docentes.
+  const visibleUsers = users.filter((u) => manageableRoles.includes((u.role ?? '').toUpperCase()));
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -232,14 +251,14 @@ export function UserManagement() {
 
   const handleResetPassword = async (user: UserRow) => {
     setResetingId(user.id);
-    const result = await invokeAdmin<{ action_link: string }>('reset-password', { email: user.email });
+    const result = await invokeAdmin<{ password: string; email: string }>('reset-password', { email: user.email });
     setResetingId(null);
-    if (!result.ok || !result.data?.action_link) {
-      toast.error(result.message ?? 'No se pudo generar el link de restablecimiento');
+    if (!result.ok || !result.data?.password) {
+      toast.error(result.message ?? 'No se pudo restablecer la contraseña');
       return;
     }
-    await navigator.clipboard.writeText(result.data.action_link).catch(() => undefined);
-    toast.success('Link de restablecimiento copiado al portapapeles');
+    // Muestra la nueva contraseña temporal (el usuario la cambia al iniciar sesión).
+    setCreatedCreds({ email: user.email, password: result.data.password, reset: true });
   };
 
   const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-brand-100 text-brand-700' : 'bg-green-100 text-green-700';
@@ -247,15 +266,15 @@ export function UserManagement() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
-          <p className="mt-1 text-sm text-gray-500">Administra cuentas institucionales, roles y estado de acceso.</p>
-        </div>
-        <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={openCreate}>
-          <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
-        </Button>
-      </div>
+      <PageHeader
+        title="Gestión de usuarios"
+        description="Administra cuentas institucionales, roles y estado de acceso."
+        action={(
+          <Button className="bg-white/10 border border-white/20 text-white hover:bg-white/20" onClick={openCreate}>
+            <UserPlus className="w-4 h-4 mr-2" />Nuevo usuario
+          </Button>
+        )}
+      />
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -280,10 +299,10 @@ export function UserManagement() {
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
-              ) : users.length === 0 ? (
+              ) : visibleUsers.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
               ) : (
-                users.map((u) => (
+                visibleUsers.map((u) => (
                   <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
@@ -370,7 +389,7 @@ export function UserManagement() {
                 <HelpTooltip text="Estudiante: marca asistencia y sube justificaciones. Docente: supervisa a su grupo y evalúa. Coordinador: gestiona asignaciones y revisa incidencias. Administrador/Decano: control total, incluido crear usuarios." />
               </Label>
               <select id="create-role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {role === 'STUDENT' && (
@@ -405,11 +424,13 @@ export function UserManagement() {
       {/* Modal credenciales creadas */}
       <Dialog open={Boolean(createdCreds)} onOpenChange={() => setCreatedCreds(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" />Usuario creado exitosamente</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700" />{createdCreds?.reset ? 'Contraseña restablecida' : 'Usuario creado exitosamente'}</DialogTitle></DialogHeader>
           {createdCreds && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.
+                {createdCreds.reset
+                  ? 'Comparte esta contraseña temporal con el usuario. Deberá cambiarla al iniciar sesión.'
+                  : 'Comparte estas credenciales con el usuario. Puede cambiar la contraseña desde su perfil.'}
               </p>
               <div className="space-y-3 rounded-lg bg-brand-50 p-4">
                 <div>
@@ -454,7 +475,7 @@ export function UserManagement() {
             <div className="space-y-1.5">
               <Label htmlFor="edit-role" className="text-xs uppercase tracking-wide text-brand-700"><Puzzle className="h-3.5 w-3.5" />Rol</Label>
               <select id="edit-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             {editRole === 'STUDENT' && (

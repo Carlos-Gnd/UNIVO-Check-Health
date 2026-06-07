@@ -1,6 +1,10 @@
 // B-01: Operaciones administrativas de usuarios, server-side.
 // Reemplaza el uso de service_role en el frontend (que se empaquetaba en el bundle).
-// Solo accesible para usuarios con rol ADMIN. La service key vive aquí, nunca en el cliente.
+// La service key vive aquí, nunca en el cliente.
+//
+// S4-04.2 (delegación): el ADMIN gestiona cualquier rol; el DOCENTE gestiona SOLO
+// alumnos (STUDENT) y encargados (COORDINATOR), nunca ADMIN ni otro DOCENTE. La
+// autorización se valida server-side por rol del solicitante y rol del objetivo.
 // Supabase inyecta SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY automáticamente.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,6 +24,18 @@ type Body = {
   // update / delete / reset
   id?: string;
 };
+
+// Contraseña temporal fuerte (sin caracteres ambiguos). Se usa al restablecer.
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const specials = '!@#$%&*';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  let out = '';
+  for (let i = 0; i < 10; i++) out += chars[bytes[i] % chars.length];
+  out += specials[bytes[10] % specials.length];
+  out += String(bytes[11] % 10);
+  return out;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -44,11 +60,22 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return json({ error: 'Sesión inválida' }, 401);
 
-  // Verificar que el solicitante es ADMIN (lee su propia fila vía RLS)
+  // Rol del solicitante (lee su propia fila vía RLS)
   const { data: profile } = await userClient.from('users').select('role').eq('id', user.id).single();
-  if ((profile?.role ?? '').toUpperCase() !== 'ADMIN') {
-    return json({ error: 'Solo un administrador puede gestionar usuarios.' }, 403);
+  const requesterRole = (profile?.role ?? '').toUpperCase();
+  const isAdmin = requesterRole === 'ADMIN';
+  const isTeacher = requesterRole === 'DOCENTE' || requesterRole === 'TEACHER';
+  if (!isAdmin && !isTeacher) {
+    return json({ error: 'No tienes permisos para gestionar usuarios.' }, 403);
   }
+
+  // Roles que el solicitante puede gestionar. El docente solo alumnos y encargados;
+  // nunca ADMIN ni otro DOCENTE (ni para crear, editar, borrar o resetear).
+  const manageableRoles = isAdmin
+    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN']
+    : ['STUDENT', 'COORDINATOR'];
+  const canManageRole = (r: string | null | undefined): boolean =>
+    manageableRoles.includes((r ?? '').toUpperCase());
 
   // Cliente con service_role para las operaciones privilegiadas (server-side)
   const admin = createClient(
@@ -73,6 +100,9 @@ Deno.serve(async (req: Request) => {
       const ALLOWED_ROLES = ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN'];
       if (!ALLOWED_ROLES.includes(role)) {
         return json({ error: 'Rol no válido.' }, 400);
+      }
+      if (!canManageRole(role)) {
+        return json({ error: 'No tienes permiso para crear usuarios con ese rol.' }, 403);
       }
       // student_code es varchar(9): un código más largo reventaría en BD.
       if (role === 'STUDENT' ? !/^U\d{8}$/.test(code) : !/^[A-Z0-9]{4,9}$/.test(code)) {
@@ -115,6 +145,9 @@ Deno.serve(async (req: Request) => {
         email,
         role,
         career:       role === 'STUDENT' ? (body.career ?? null) : null,
+        // La contraseña generada es de un solo uso: se obliga a cambiarla al
+        // primer ingreso (gate en MainLayout vía complete_password_change).
+        must_change_password: true,
       });
       if (profileErr) {
         // Rollback del usuario Auth para no dejar huérfanos
@@ -126,10 +159,23 @@ Deno.serve(async (req: Request) => {
 
     case 'update': {
       if (!body.id) return json({ error: 'id requerido' }, 400);
+
+      // El solicitante debe poder gestionar TANTO el rol actual del objetivo
+      // (no editar a un ADMIN/DOCENTE siendo docente) COMO el rol nuevo (no promover).
+      const { data: target } = await admin.from('users').select('role').eq('id', body.id).single();
+      if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
+      if (!canManageRole(target.role)) {
+        return json({ error: 'No tienes permiso para editar a este usuario.' }, 403);
+      }
+      const newRole = (body.role ?? 'STUDENT').toUpperCase();
+      if (!canManageRole(newRole)) {
+        return json({ error: 'No tienes permiso para asignar ese rol.' }, 403);
+      }
+
       const { error } = await admin.from('users').update({
         full_name: body.full_name ?? '',
-        role:      body.role ?? 'STUDENT',
-        career:    body.role === 'STUDENT' ? (body.career ?? null) : null,
+        role:      newRole,
+        career:    newRole === 'STUDENT' ? (body.career ?? null) : null,
       }).eq('id', body.id);
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
@@ -137,6 +183,12 @@ Deno.serve(async (req: Request) => {
 
     case 'delete': {
       if (!body.id) return json({ error: 'id requerido' }, 400);
+
+      const { data: target } = await admin.from('users').select('role').eq('id', body.id).single();
+      if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
+      if (!canManageRole(target.role)) {
+        return json({ error: 'No tienes permiso para eliminar a este usuario.' }, 403);
+      }
 
       // attendances.student_id NO tiene ON DELETE CASCADE → bloquea el borrado del
       // perfil. Las borramos antes (y las justificaciones, por su FK a attendances).
@@ -163,14 +215,23 @@ Deno.serve(async (req: Request) => {
 
     case 'reset-password': {
       if (!body.email) return json({ error: 'email requerido' }, 400);
-      const { data, error } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email: body.email,
-      });
-      if (error || !data?.properties?.action_link) {
-        return json({ error: 'No se pudo generar el link de restablecimiento.' }, 400);
+      const email = body.email.trim().toLowerCase();
+
+      const { data: target } = await admin.from('users').select('id, role').eq('email', email).single();
+      if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
+      if (!canManageRole(target.role)) {
+        return json({ error: 'No tienes permiso para restablecer la contraseña de este usuario.' }, 403);
       }
-      return json({ ok: true, action_link: data.properties.action_link });
+
+      // En vez de un link de recuperación (que dependía del Site URL de Supabase y
+      // apuntaba a localhost), se asigna una contraseña temporal de un solo uso y se
+      // exige cambiarla al primer ingreso — el mismo flujo robusto de la creación.
+      const tempPassword = generateTempPassword();
+      const { error: pwErr } = await admin.auth.admin.updateUserById(target.id, { password: tempPassword });
+      if (pwErr) return json({ error: `No se pudo restablecer la contraseña: ${pwErr.message}` }, 400);
+      await admin.from('users').update({ must_change_password: true }).eq('id', target.id);
+
+      return json({ ok: true, password: tempPassword, email });
     }
 
     default:

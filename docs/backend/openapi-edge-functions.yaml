@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: UNIVO Check-Health — Edge Functions (Carlos)
+  version: "1.0.0"
+  description: >
+    Contrato OpenAPI de las Edge Functions implementadas por Carlos en el Sprint 3:
+    `send-credentials` (T-50.1) y `sign-report` (T-27.2). Ambas son funciones Deno
+    desplegadas en Supabase Edge Functions y requieren un JWT de usuario emitido por
+    Supabase Auth en la cabecera `Authorization: Bearer <access_token>`.
+  contact:
+    name: Carlos Granados
+
+servers:
+  - url: https://{projectRef}.supabase.co/functions/v1
+    description: Supabase Edge Functions
+    variables:
+      projectRef:
+        default: hhddnhofyilsdaltzpeh
+        description: Referencia del proyecto Supabase.
+
+tags:
+  - name: identidad
+    description: Envío de credenciales de cuentas nuevas.
+  - name: reportes
+    description: Firma digital de reportes consolidados del docente.
+
+components:
+  securitySchemes:
+    SupabaseUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Access token de Supabase Auth del usuario autenticado. La función resuelve
+        el rol desde `public.users.role` y aplica autorización server-side.
+  responses:
+    Unauthorized:
+      description: Falta la cabecera Authorization o la sesión es inválida.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            sinHeader: { value: { error: "No autorizado" } }
+            sesionInvalida: { value: { error: "Sesión inválida" } }
+    Forbidden:
+      description: El rol del usuario no está autorizado para esta operación.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, description: Mensaje de error legible. }
+        detail: { type: string, description: Detalle técnico opcional (p. ej. respuesta de Resend). }
+      required: [error]
+
+security:
+  - SupabaseUserJWT: []
+
+paths:
+  /send-credentials:
+    post:
+      tags: [identidad]
+      summary: Enviar credenciales por correo a un usuario recién creado
+      description: >
+        T-50.1. Solo **ADMIN**. Envía un correo HTML (vía Gmail SMTP) con el correo y la
+        contraseña temporal de una cuenta recién creada. La invoca `UserManagement`
+        tras crear el usuario (T-50.2). Requiere los secretos `GMAIL_USER` y `GMAIL_APP_PASSWORD`.
+      operationId: sendCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email, description: Correo destino (institucional). }
+                password: { type: string, description: Contraseña temporal a comunicar. }
+                full_name: { type: string, description: Nombre para el saludo del correo (opcional). }
+            example: { email: "U20240000@univo.edu.sv", password: "Temp-9f3k2x", full_name: "Ana López" }
+      responses:
+        '200':
+          description: Correo encolado/enviado correctamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean, enum: [true] } }
+              example: { ok: true }
+        '400':
+          description: Faltan `email` o `password`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "email y password requeridos" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: Credenciales de Gmail (`GMAIL_USER` / `GMAIL_APP_PASSWORD`) no configuradas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "No se pudo enviar el correo", detail: "missing_gmail_credentials" }
+        '502':
+          description: El SMTP de Gmail rechazó el envío (auth inválida, límite diario, etc.).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "No se pudo enviar el correo", detail: "smtp_send_failed" }
+
+  /sign-report:
+    post:
+      tags: [reportes]
+      summary: Firmar digitalmente el reporte consolidado del grupo
+      description: >
+        T-27.2. Roles **ADMIN / COORDINATOR / TEACHER (DOCENTE)**. Recibe el hash
+        SHA-256 del PDF (calculado en el cliente, T-27.1) y devuelve un sello
+        HMAC-SHA256 sobre `report_hash|user_id|signed_at`, registrándolo de forma
+        inmutable en `audit_log` (acción `REPORT_SIGNED`). La firma X.509 real queda
+        para Sprint 4. Requiere el secreto `QR_JWT_SECRET`.
+      operationId: signReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [report_hash]
+              properties:
+                report_hash: { type: string, description: Hash SHA-256 (hex) del PDF a sellar. }
+                period:      { type: string, description: Período del reporte (opcional, p. ej. "2026-1"). }
+                group_label: { type: string, description: Etiqueta del grupo del docente (opcional). }
+            example: { report_hash: "9c196e32dc0175f86f4b1cb89289d6619de6bee699e4c378e68309ed97a1a6ab", period: "2026-1", group_label: "Enfermería A" }
+      responses:
+        '200':
+          description: Reporte sellado y registrado en audit_log.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:        { type: boolean, enum: [true] }
+                  seal:      { type: string, description: Sello HMAC-SHA256 en hex (64 chars). }
+                  signed_at: { type: string, format: date-time }
+                  signed_by: { type: string, description: Nombre del firmante (o email). }
+              example:
+                ok: true
+                seal: "a3f1...64hex"
+                signed_at: "2026-06-04T15:30:00.000Z"
+                signed_by: "Dr. René Pacheco"
+        '400':
+          description: Falta `report_hash`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "report_hash requerido" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: El rol no puede firmar reportes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "No autorizado para firmar reportes." }
+        '500':
+          description: `QR_JWT_SECRET` no configurado en los secrets.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: "Servidor mal configurado" }

@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendMail, wrapHtml, type MailResult } from '../_shared/mailer.ts';
 
-const FROM_EMAIL = 'UNIVO Check-Health <noreply@univo.edu.sv>';
 const OTP_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 3;
 const MAX_REQUESTS_PER_WINDOW = 3;
@@ -35,36 +35,14 @@ async function sha256(input: string): Promise<string> {
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function sendOtpEmail(to: string, code: string): Promise<void> {
-  const key = Deno.env.get('RESEND_API_KEY');
-  if (!key) return;
+async function sendOtpEmail(to: string, code: string): Promise<MailResult> {
+  const html = wrapHtml(`
+    <h2>Codigo de recuperacion</h2>
+    <p>Usa este codigo para continuar con la recuperacion de acceso. Expira en ${OTP_TTL_MINUTES} minutos.</p>
+    <p class="code">${code}</p>
+    <p>Si no solicitaste este codigo, puedes ignorar este correo.</p>`);
 
-  const html = `
-    <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>
-      body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; }
-      .card { background: white; border-radius: 12px; padding: 32px; max-width: 520px; margin: 0 auto; }
-      h2 { color: #1e3a5f; margin-top: 0; }
-      .code { font-size: 28px; letter-spacing: 8px; font-weight: 700; color: #111827; }
-      p { color: #374151; line-height: 1.6; }
-      .footer { font-size: 12px; color: #9ca3af; margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 16px; }
-    </style></head><body><div class="card">
-      <h2>Codigo de recuperacion</h2>
-      <p>Usa este codigo para continuar con la recuperacion de acceso. Expira en ${OTP_TTL_MINUTES} minutos.</p>
-      <p class="code">${code}</p>
-      <p>Si no solicitaste este codigo, puedes ignorar este correo.</p>
-      <div class="footer">UNIVO Check-Health - Sistema de Registro y Control de Asistencias</div>
-    </div></body></html>`;
-
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [to],
-      subject: 'Codigo de recuperacion - UNIVO Check-Health',
-      html,
-    }),
-  });
+  return await sendMail({ to, subject: 'Codigo de recuperacion - UNIVO Check-Health', html });
 }
 
 Deno.serve(async (req: Request) => {
@@ -82,6 +60,16 @@ Deno.serve(async (req: Request) => {
   if (!email.endsWith('@univo.edu.sv')) return json({ error: 'Correo institucional invalido.' }, 400);
 
   if (body.action === 'request') {
+    // Q-01 — Rate-limit por IP: frena el spray de correos / fuerza bruta de la
+    // respuesta de seguridad desde una misma red (complementa el límite per-email).
+    const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+    const { data: ipOk } = await admin.rpc('rate_limit_hit', {
+      p_bucket: 'otp_request', p_key: ip, p_max: 10, p_window_seconds: 600,
+    });
+    if (ipOk === false) {
+      return json({ error: 'Demasiadas solicitudes desde esta red. Intenta de nuevo más tarde.' }, 429);
+    }
+
     const answer = (body.answer ?? '').trim();
     if (answer.length < 2) return json({ error: 'Respuesta de seguridad requerida.' }, 400);
 
@@ -119,17 +107,24 @@ Deno.serve(async (req: Request) => {
       .eq('email', email)
       .is('consumed_at', null);
 
-    const { error: insertError } = await admin.from('recovery_otps').insert({
+    const { data: inserted, error: insertError } = await admin.from('recovery_otps').insert({
       user_id: user.id,
       email,
       backup_email: user.backup_email,
       otp_hash: otpHash,
       otp_salt: salt,
       expires_at: expiresAt,
-    });
-    if (insertError) return json({ error: 'No se pudo generar el codigo.' }, 400);
+    }).select('id').single();
+    if (insertError || !inserted) return json({ error: 'No se pudo generar el codigo.' }, 400);
 
-    await sendOtpEmail(user.backup_email, code);
+    // Si el correo no se envía, invalidamos el OTP recién creado y reportamos el
+    // fallo de forma explícita (antes se respondía "enviado" aunque fallara).
+    const mail = await sendOtpEmail(user.backup_email, code);
+    if (!mail.ok) {
+      await admin.from('recovery_otps').update({ consumed_at: new Date().toISOString() }).eq('id', inserted.id);
+      const status = mail.error === 'missing_gmail_credentials' ? 500 : 502;
+      return json({ error: 'No se pudo enviar el codigo al correo de respaldo. Intenta mas tarde.', detail: mail.error }, status);
+    }
     return json({ ok: true, message: 'Codigo enviado al correo de respaldo.' });
   }
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   fetchAllJustifications,
   type AllJustification,
@@ -88,13 +89,11 @@ export function IncidentsDashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Panel de Incidencias</h2>
-          <p className="text-sm text-gray-600">Vista global de justificaciones abiertas y cerradas.</p>
-        </div>
-        <Badge className="w-fit bg-amber-100 text-amber-700">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>
-      </div>
+      <PageHeader
+        title="Panel de incidencias"
+        description="Vista global de justificaciones abiertas y cerradas."
+        action={<Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>}
+      />
 
       <Card>
         <CardContent className="py-4">
@@ -188,9 +187,10 @@ type TableProps = {
 
 function IncidentsTable({ rows, page, totalPages, total, onPage, showReviewer, emptyMessage }: TableProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between py-3">
-        <CardTitle className="text-base">
+    <Card className="overflow-hidden border-brand-100 shadow-sm">
+      <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between py-3">
+        <CardTitle className="text-base flex items-center gap-2 text-white">
+          <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
           {total} registro{total !== 1 ? 's' : ''}
         </CardTitle>
       </CardHeader>

@@ -14,6 +14,7 @@ import type { AttendanceRecord } from '@/modules/attendance/types';
 import type { Student } from '@/modules/students/types';
 import type { Practice } from '@/modules/practices/types';
 import { format } from 'date-fns';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
@@ -123,20 +124,20 @@ export function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Reportes</h2>
-          <p className="text-sm text-gray-600 mt-1">Análisis detallado de asistencias y registros</p>
-        </div>
+      <PageHeader
+        title="Reportes"
+        description="Análisis detallado de asistencias y registros."
+        action={(
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button onClick={exportCSV} variant="outline" className="flex-1 sm:flex-none">
+          <Button onClick={exportCSV} variant="outline" className="flex-1 sm:flex-none bg-white/10 border-white/20 text-white hover:bg-white/20">
             <Download className="w-4 h-4 mr-2" />CSV
           </Button>
-          <Button onClick={exportPDF} variant="outline" className="flex-1 sm:flex-none">
+          <Button onClick={exportPDF} variant="outline" className="flex-1 sm:flex-none bg-white/10 border-white/20 text-white hover:bg-white/20">
             <FileText className="w-4 h-4 mr-2" />PDF
           </Button>
         </div>
-      </div>
+        )}
+      />
 
       {/* Filtros */}
       <Card>

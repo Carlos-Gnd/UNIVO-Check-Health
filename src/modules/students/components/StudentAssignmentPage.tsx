@@ -5,6 +5,7 @@ import { Building2, CalendarDays, Clock, Loader2, MapPin, Phone, UserCircle, Boo
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
 
@@ -144,7 +145,7 @@ export function StudentAssignmentPage() {
   if (assignments.length === 0) {
     return (
       <div className="max-w-3xl mx-auto space-y-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Mis sedes y materias</h2>
+        <PageHeader title="Mis sedes y materias" description="Consulta tus sedes, materias, horarios y responsables asignados." />
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Building2 className="w-10 h-10 text-gray-300" />
@@ -163,10 +164,7 @@ export function StudentAssignmentPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Mis sedes y materias</h2>
-        <p className="mt-1 text-sm text-gray-600">Asignaciones activas, horarios y responsables por materia.</p>
-      </div>
+      <PageHeader title="Mis sedes y materias" description="Asignaciones activas, horarios y responsables por materia." />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {assignments.map((assignment) => {

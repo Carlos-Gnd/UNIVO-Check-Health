@@ -60,6 +60,16 @@ Deno.serve(async (req: Request) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return fail('Sesion no encontrada. Vuelve a iniciar sesion.', 401);
 
+  // Q-01 — Rate-limit por alumno (no por IP: un campus con un solo wifi/NAT
+  // bloquearía a todos). 10 intentos/min absorbe reintentos legítimos (GPS/horario)
+  // y frena fuerza bruta o scripts de abuso.
+  const { data: rlOk } = await admin.rpc('rate_limit_hit', {
+    p_bucket: 'checkin', p_key: user.id, p_max: 10, p_window_seconds: 60,
+  });
+  if (rlOk === false) {
+    return fail('Demasiados intentos de registro. Espera un minuto e inténtalo de nuevo.', 429);
+  }
+
   const body = await req.json().catch(() => ({})) as RequestBody;
   const { qr_token, short_code, campus_id: bodyCampusId, subject_id, lat, lng, accuracy, device_fingerprint, device_info } = body;
 

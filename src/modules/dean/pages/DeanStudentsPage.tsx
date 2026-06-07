@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 const PAGE_SIZE = 10;
 
@@ -71,7 +72,7 @@ export function DeanStudentsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900">Alumnos</h2>
+      <PageHeader title="Alumnos" description="Consulta avance, cumplimiento y estado de los estudiantes en prácticas." />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <Input

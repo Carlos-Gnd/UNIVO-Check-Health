@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Download, FileText, History, Loader2, RotateCcw, Search } from 'lucide-react';
+import { Download, FileText, Loader2, RotateCcw, Search } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Badge } from '@/shared/components/ui/badge';
@@ -9,6 +9,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
@@ -109,19 +110,16 @@ export function TeacherDecisionHistoryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">
-            <History className="h-6 w-6 text-brand-700" />
-            Historial de decisiones
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">Decisiones registradas en audit_log para tus revisiones de incidencias.</p>
-        </div>
-        <Button variant="outline" onClick={exportPdf} disabled={filtered.length === 0}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar PDF
-        </Button>
-      </div>
+      <PageHeader
+        title="Historial de decisiones"
+        description="Decisiones registradas en audit_log para tus revisiones de incidencias."
+        action={(
+          <Button variant="outline" onClick={exportPdf} disabled={filtered.length === 0} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+        )}
+      />
 
       <Card>
         <CardHeader className="pb-3">

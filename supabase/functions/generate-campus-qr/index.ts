@@ -34,8 +34,8 @@ Deno.serve(async (req: Request) => {
     }
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
     const role = (userData?.role ?? '').toUpperCase();
-    if (!['ADMIN', 'COORDINATOR'].includes(role)) {
-      return new Response(JSON.stringify({ error: 'Solo coordinadores pueden generar QR.' }), {
+    if (!['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE'].includes(role)) {
+      return new Response(JSON.stringify({ error: 'No tienes permiso para generar el QR de la sede.' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

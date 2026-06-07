@@ -6,20 +6,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { buildSealPayload, hmacSeal } from '../_shared/reportSeal.ts';
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-}
-
-async function hmacSeal(payload: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 Deno.serve(async (req: Request) => {
@@ -50,7 +42,7 @@ Deno.serve(async (req: Request) => {
   if (!secret) return json({ error: 'Servidor mal configurado' }, 500);
 
   const signedAt = new Date().toISOString();
-  const payload = `${report_hash}|${user.id}|${signedAt}`;
+  const payload = buildSealPayload(report_hash, user.id, signedAt);
   const seal = await hmacSeal(payload, secret);
 
   // Registro inmutable en audit_log (con service_role para garantizar el insert)

@@ -6,12 +6,14 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Combobox } from '@/shared/components/ui/combobox';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   deleteAssignment, fetchAllSchedules, fetchAssignmentOptions, fetchAssignments, saveAssignment,
   type Assignment, type AssignmentOptions, type ScheduleSlot,
@@ -51,6 +53,7 @@ export function DeanAssignmentsPage() {
   const [period, setPeriod] = useState('2026-1');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [requiredHours, setRequiredHours] = useState('');
   const [days, setDays] = useState<DayRow[]>(defaultDays());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -82,7 +85,7 @@ export function DeanAssignmentsPage() {
   const resetForm = () => {
     setEditingId(null);
     setStudentId(''); setTeacherId(''); setCoordinatorId(''); setCampusId('');
-    setPeriod('2026-1'); setStartDate(''); setEndDate('');
+    setPeriod('2026-1'); setStartDate(''); setEndDate(''); setRequiredHours('');
     setDays(defaultDays());
   };
 
@@ -97,6 +100,7 @@ export function DeanAssignmentsPage() {
     setPeriod(a.period);
     setStartDate(a.start_date ?? '');
     setEndDate(a.end_date ?? '');
+    setRequiredHours(a.required_hours != null ? String(a.required_hours) : '');
     const slots = schedules.get(a.id) ?? [];
     setDays(DAYS.map((d) => {
       const slot = slots.find((s) => s.weekday === d.weekday);
@@ -117,6 +121,8 @@ export function DeanAssignmentsPage() {
     if (!period.trim()) { toast.error('El periodo es obligatorio.'); return; }
     if (!periodPattern.test(period.trim())) { toast.error('Usa el formato de periodo AAAA-CICLO, por ejemplo 2026-1.'); return; }
     if (startDate && endDate && endDate < startDate) { toast.error('La fecha de fin no puede ser anterior al inicio.'); return; }
+    const hoursTrim = requiredHours.trim();
+    if (hoursTrim && (!(Number(hoursTrim) > 0))) { toast.error('Las horas requeridas deben ser un número mayor que 0.'); return; }
 
     const enabled = days.filter((d) => d.enabled);
     if (enabled.length === 0) { toast.error('Define al menos un día de práctica en el horario.'); return; }
@@ -133,6 +139,7 @@ export function DeanAssignmentsPage() {
       period: period.trim(),
       start_date: startDate || null,
       end_date: endDate || null,
+      required_hours: hoursTrim ? Number(hoursTrim) : null,
       schedules: enabled.map((d) => ({ weekday: d.weekday, check_in_from: d.from, check_in_to: d.to })),
     });
     setIsSaving(false);
@@ -166,21 +173,20 @@ export function DeanAssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Asignaciones</h1>
-          <p className="mt-1 text-sm text-gray-500">Asigna a cada alumno su sede, docente, coordinador y horario de práctica por día.</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={load} disabled={isLoading}>
+      <PageHeader
+        title="Asignaciones"
+        description="Asigna a cada alumno su sede, docente, coordinador y horario de práctica por día."
+        action={(
+        <>
+          <Button variant="outline" size="sm" onClick={load} disabled={isLoading} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />Actualizar
           </Button>
-          <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={openCreate}>
+          <Button className="bg-white/10 border border-white/20 text-white hover:bg-white/20" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />Nueva asignación
           </Button>
-        </div>
-      </div>
+        </>
+        )}
+      />
 
       {/* Tarjetas — móvil y tablet (<lg) */}
       <div className="lg:hidden space-y-3">
@@ -276,16 +282,16 @@ export function DeanAssignmentsPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Alumno" required>
-                <NativeSelect value={studentId} onChange={setStudentId} placeholder="Selecciona alumno" options={options.students.map((s) => ({ value: s.id, label: s.label }))} />
+                <Combobox value={studentId} onChange={setStudentId} placeholder="Selecciona alumno" options={options.students.map((s) => ({ value: s.id, label: s.label }))} />
               </Field>
               <Field label="Sede de práctica" required>
-                <NativeSelect value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
+                <Combobox value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
               </Field>
               <Field label="Docente supervisor" required>
-                <NativeSelect value={teacherId} onChange={setTeacherId} placeholder="Selecciona docente" options={options.teachers.map((t) => ({ value: t.id, label: t.label }))} />
+                <Combobox value={teacherId} onChange={setTeacherId} placeholder="Selecciona docente" options={options.teachers.map((t) => ({ value: t.id, label: t.label }))} />
               </Field>
               <Field label="Coordinador" help="Persona que supervisa la asignación a nivel administrativo y revisa incidencias. Puede ser un coordinador o el decano.">
-                <NativeSelect value={coordinatorId} onChange={setCoordinatorId} placeholder="Selecciona coordinador" options={options.coordinators.map((c) => ({ value: c.id, label: c.label }))} />
+                <Combobox value={coordinatorId} onChange={setCoordinatorId} placeholder="Selecciona coordinador" options={options.coordinators.map((c) => ({ value: c.id, label: c.label }))} />
               </Field>
               <Field label="Período" required help="Ciclo académico de la rotación, en formato AÑO-CICLO (ej. 2026-1 para el primer ciclo de 2026).">
                 <Input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-1" />
@@ -298,6 +304,13 @@ export function DeanAssignmentsPage() {
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </Field>
               </div>
+              <Field label="Horas requeridas del ciclo" help="Horas de práctica que este alumno debe cumplir en este ciclo. No todos los alumnos tienen las mismas. Déjalo vacío para usar las horas por defecto de la materia.">
+                <Input
+                  type="number" min={1} step="0.5" value={requiredHours}
+                  onChange={(e) => setRequiredHours(e.target.value)}
+                  placeholder="Por defecto de la materia (p. ej. 240)"
+                />
+              </Field>
             </div>
 
             <div className="rounded-lg border border-brand-100 bg-brand-50/40 p-4">
@@ -369,22 +382,3 @@ function Field({ label, required, help, children }: { label: string; required?: 
   );
 }
 
-function NativeSelect({
-  value, onChange, options, placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}

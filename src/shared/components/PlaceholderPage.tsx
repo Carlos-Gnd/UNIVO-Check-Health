@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 export function PlaceholderPage({ title, note }: { title: string; note?: string }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900">{title}</h2>
+      <PageHeader title={title} description={note ?? 'Este apartado se integrará en la siguiente fase del proyecto.'} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Próximamente</CardTitle>

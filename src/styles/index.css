@@ -1,3 +1,14 @@
 @import './tailwind.css';
 @import './theme.css';
 @import 'leaflet/dist/leaflet.css';
+
+/* El mapa Leaflet crea su propio contexto de apilamiento: así sus paneles y
+   controles (z-index hasta 1000) NO se sobreponen al header (z-50) ni al menú
+   móvil (z-40). Sin esto, el mapa se montaba encima del menú en móvil y PC.
+   No se tocan los z-index internos de los paneles para no romper su orden. */
+.leaflet-container {
+  isolation: isolate;
+  position: relative;
+  z-index: 0;
+  max-width: 100%; /* nunca desborda horizontalmente su columna */
+}

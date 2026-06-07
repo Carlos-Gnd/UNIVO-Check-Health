@@ -9,6 +9,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
 
 const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
@@ -136,25 +137,26 @@ function LiveMap({
   }, [campusFilter, careerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
+    <Card className="overflow-hidden border-brand-100 shadow-sm">
+      <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         {/* Fila 1: título + badges de estado */}
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <CardTitle className="flex items-center gap-2 min-w-0">
-            <MapPin className="w-4 h-4 shrink-0 text-brand-700" />
+          <CardTitle className="flex items-center gap-2 min-w-0 text-white">
+            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+            <MapPin className="w-4 h-4 shrink-0 text-gold-300" />
             <span className="truncate">Estudiantes activos en tiempo real</span>
           </CardTitle>
           <div className="flex items-center gap-2 shrink-0">
-            <Badge className={isRealtimeConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+            <Badge className={isRealtimeConnected ? 'bg-green-500/20 text-green-200 border border-green-400/30' : 'bg-white/10 text-brand-200 border border-white/20'}>
               {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
             </Badge>
-            <Badge className="bg-brand-100 text-brand-700">{studentCount} en sedes</Badge>
+            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">{studentCount} en sedes</Badge>
           </div>
         </div>
         {/* Fila 2: filtros — apilados en móvil, en fila en sm+ */}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select value={campusFilter} onValueChange={onCampusChange}>
-            <SelectTrigger className="w-full sm:w-44 h-8 text-xs">
+            <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
               <SelectValue placeholder="Todas las sedes" />
             </SelectTrigger>
             <SelectContent className="z-[1000]">
@@ -163,7 +165,7 @@ function LiveMap({
             </SelectContent>
           </Select>
           <Select value={careerFilter} onValueChange={onCareerChange}>
-            <SelectTrigger className="w-full sm:w-44 h-8 text-xs">
+            <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
               <SelectValue placeholder="Todas las carreras" />
             </SelectTrigger>
             <SelectContent className="z-[1000]">
@@ -271,10 +273,7 @@ export function DeanDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Vista general del cumplimiento de prácticas por sede y alumno.</p>
-      </div>
+      <PageHeader title="Dashboard" description="Vista general del cumplimiento de prácticas por sede y alumno." />
 
       {latestSharedDeviceAlert && (
         <Card className="border-red-200 bg-red-50">
@@ -304,9 +303,14 @@ export function DeanDashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* T-07.2: Cumplimiento por sede */}
-        <Card>
-          <CardHeader><CardTitle>Cumplimiento por Sede</CardTitle></CardHeader>
-          <CardContent className="h-64 sm:h-80">
+        <Card className="overflow-hidden border-brand-100 shadow-sm">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <CardTitle className="flex items-center gap-2 text-white">
+              <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+              Cumplimiento por Sede
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-64 sm:h-80 pt-4">
             {chartData.length === 0 ? (
               <p className="text-sm text-gray-400 text-center pt-16">Sin datos de sedes activas</p>
             ) : (
@@ -325,37 +329,43 @@ export function DeanDashboardPage() {
         </Card>
 
         {/* T-19.3: Lista paginada de alumnos en riesgo */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="overflow-hidden border-brand-100 shadow-sm">
+          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between pb-3">
             <div>
-              <CardTitle>Alumnos en riesgo</CardTitle>
-              <p className="text-xs text-gray-500">Umbral configurado: &lt; {globalStats.riskThreshold}%</p>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+                Alumnos en riesgo
+              </CardTitle>
+              <p className="text-xs text-brand-200 mt-0.5">Umbral configurado: &lt; {globalStats.riskThreshold}%</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => { setFilter('status', 'at-risk'); navigate('/dean/students?status=at-risk'); }}>
+            <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/15 bg-white/10" onClick={() => { setFilter('status', 'at-risk'); navigate('/dean/students?status=at-risk'); }}>
               Ver todos
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2.5 pt-4">
             {riskStudents.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">Sin alumnos en riesgo</p>
             ) : (
               pagedRiskStudents.map((s) => (
-                <div key={s.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-gray-900">{s.fullName}</p>
-                      <p className="text-xs text-gray-500">{s.carnet} · {s.sedeName}</p>
+                <div key={s.id} className="rounded-lg border border-brand-100 bg-gradient-to-r from-white to-brand-50/40 p-3 hover:border-brand-200 transition-colors">
+                  <div className="flex items-start gap-2.5">
+                    <div className={`mt-1 w-1 self-stretch rounded-full shrink-0 ${s.compliancePercentage < 40 ? 'bg-red-400' : 'bg-amber-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-brand-900 text-sm">{s.fullName}</p>
+                        <Badge className={s.compliancePercentage < 40 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}>
+                          {s.compliancePercentage < 40 ? 'Riesgo alto' : 'Riesgo medio'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{s.carnet} · {s.sedeName}</p>
+                      <p className="mt-1.5 text-xs text-gray-600">
+                        {s.compliancePercentage}% cumplimiento · {s.goalHours - s.completedHours} h faltantes
+                      </p>
+                      <Button variant="link" className="mt-1 h-auto p-0 text-xs text-brand-700 hover:text-gold-700" onClick={() => openStudentProfile(s.id)}>
+                        Ver perfil →
+                      </Button>
                     </div>
-                    <Badge className={s.compliancePercentage < 40 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}>
-                      {s.compliancePercentage < 40 ? 'Riesgo alto' : 'Riesgo medio'}
-                    </Badge>
                   </div>
-                  <p className="mt-2 text-sm text-gray-600">
-                    {s.compliancePercentage}% cumplimiento · {s.goalHours - s.completedHours} h faltantes
-                  </p>
-                  <Button variant="link" className="mt-2 h-auto p-0 text-brand-700" onClick={() => openStudentProfile(s.id)}>
-                    Ver perfil
-                  </Button>
                 </div>
               ))
             )}
@@ -376,6 +386,48 @@ export function DeanDashboardPage() {
         </Card>
       </div>
 
+      {/* T-07.1: Resumen por sede */}
+      <Card className="overflow-hidden border-brand-100 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <CardTitle className="flex items-center gap-2 text-white">
+            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
+            Resumen rápido de sedes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 pt-4">
+          {locations.length === 0 ? (
+            <p className="text-sm text-gray-400 col-span-3 text-center py-6">Sin sedes registradas</p>
+          ) : (
+            locations.map((l) => (
+              <button
+                key={l.id}
+                onClick={() => navigate(`/dean/locations`)}
+                className="rounded-lg border border-brand-100 bg-white p-4 text-left hover:border-brand-300 hover:bg-brand-50/50 hover:shadow-sm transition-all group"
+              >
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shrink-0 shadow-sm group-hover:from-brand-500 group-hover:to-brand-700 transition-all">
+                    <Building2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-brand-900 truncate text-sm">{l.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{l.doctorName}</p>
+                  </div>
+                  <Badge className={l.status === 'active' ? 'bg-gold-50 text-gold-700 border border-gold-200' : 'bg-gray-100 text-gray-500'}>
+                    {l.status === 'active' ? 'Activa' : 'Inactiva'}
+                  </Badge>
+                </div>
+                <div className="mt-2 pt-2.5 border-t border-brand-50 flex justify-between text-xs text-gray-600">
+                  <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {l.totalStudents} alumnos</span>
+                  <span className={`font-semibold ${l.averageCompliance > 75 ? 'text-green-600' : l.averageCompliance >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                    {l.averageCompliance}% cumpl.
+                  </span>
+                </div>
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
       {/* Mapa Realtime con filtros integrados en la tarjeta */}
       <LiveMap
         campusFilter={campusFilter}
@@ -385,36 +437,6 @@ export function DeanDashboardPage() {
         onCampusChange={(v) => setMapFilter('campus', v)}
         onCareerChange={(v) => setMapFilter('career', v)}
       />
-
-      {/* T-07.1: Resumen por sede */}
-      <Card>
-        <CardHeader><CardTitle>Resumen rápido de sedes</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {locations.length === 0 ? (
-            <p className="text-sm text-gray-400 col-span-3 text-center py-6">Sin sedes registradas</p>
-          ) : (
-            locations.map((l) => (
-              <button
-                key={l.id}
-                onClick={() => navigate(`/dean/locations`)}
-                className="rounded-lg border p-4 text-left hover:bg-brand-50 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900 truncate">{l.name}</p>
-                  <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
-                    {l.status === 'active' ? 'Activa' : 'Inactiva'}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-gray-500 truncate">{l.doctorName}</p>
-                <div className="mt-3 flex justify-between text-sm text-gray-600">
-                  <span>{l.totalStudents} alumnos</span>
-                  <span>{l.averageCompliance}% cumplimiento</span>
-                </div>
-              </button>
-            ))
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -433,15 +455,16 @@ function StatCard({
   danger?: boolean;
 }) {
   return (
-    <Card className={danger ? 'border-red-200' : ''}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <Card className={`overflow-hidden border-0 shadow-[0_2px_12px_rgba(26,45,107,0.1)] ${danger ? 'ring-1 ring-red-200' : 'ring-1 ring-brand-100'}`}>
+      <div className={`h-1 w-full ${danger ? 'bg-gradient-to-r from-red-400 to-red-600' : 'bg-gradient-to-r from-brand-600 via-brand-700 to-gold-400'}`} />
+      <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
         <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-        <div className={`w-8 h-8 rounded-md flex items-center justify-center ${danger ? 'bg-red-50' : 'bg-brand-50'}`}>
-          <Icon className={`h-4 w-4 ${danger ? 'text-red-500' : 'text-brand-500'}`} />
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shadow-sm ${danger ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-brand-600 to-brand-800'}`}>
+          <Icon className="h-4 w-4 text-white" />
         </div>
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold ${danger ? 'text-red-600' : 'text-slate-900'}`}>{value}</div>
+        <div className={`text-2xl font-bold ${danger ? 'text-red-600' : 'text-brand-800'}`}>{value}</div>
         <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
       </CardContent>
     </Card>

@@ -22,7 +22,10 @@ import { StudentHistoryPage } from '@/modules/students/components/StudentHistory
 import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
 import { StudentAssignmentPage } from '@/modules/students/components/StudentAssignmentPage';
 import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecisionHistoryPage';
+import { TeacherDashboardPage } from '@/modules/teacher/pages/TeacherDashboardPage';
+import { TeacherEvaluationsPage } from '@/modules/teacher/pages/TeacherEvaluationsPage';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
+import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
 import { ProfilePage } from '@/modules/profile/ProfilePage';
 
 const DeanDashboardRoute = () => (
@@ -38,7 +41,7 @@ const DeanStudentsRoute = () => (
 );
 
 const DeanLocationsRoute = () => (
-  <RoleGuard allow={['ADMIN']}>
+  <RoleGuard allow={['ADMIN', 'TEACHER', 'DOCENTE']}>
     <DeanLocationsPage />
   </RoleGuard>
 );
@@ -56,7 +59,7 @@ const IncidentsDashboardRoute = () => (
 );
 
 const UsersRoute = () => (
-  <RoleGuard allow={['ADMIN']}>
+  <RoleGuard allow={['ADMIN', 'TEACHER', 'DOCENTE']}>
     <UserManagement />
   </RoleGuard>
 );
@@ -97,16 +100,16 @@ const StudentAssignmentRoute = () => (
   </RoleGuard>
 );
 
-// Rutas del Docente (T-00.1). Las páginas reales las completan T-23.1, T-26.2 y T-28.1.
+// Rutas del Docente (T-00.1).
 const TeacherDashboardRoute = () => (
   <RoleGuard allow={['DOCENTE', 'TEACHER']}>
-    <PlaceholderPage title="Mapa de mi grupo" note="El mapa de estudiantes activos de tu grupo se integrará en HU-23." />
+    <TeacherDashboardPage />
   </RoleGuard>
 );
 
 const TeacherEvaluationsRoute = () => (
   <RoleGuard allow={['DOCENTE', 'TEACHER']}>
-    <PlaceholderPage title="Evaluación semanal" note="El formulario de evaluación cualitativa se integrará en HU-26." />
+    <TeacherEvaluationsPage />
   </RoleGuard>
 );
 
@@ -118,6 +121,9 @@ const TeacherHistoryRoute = () => (
 
 export const router = createBrowserRouter([
   { path: '/auth/recovery', Component: RecoveryPage },
+  { path: '/legal/privacy', Component: PrivacyPolicyPage },
+  { path: '/legal/cookies', Component: CookiesPolicyPage },
+  { path: '/legal/terms', Component: TermsPage },
   {
     path: '/',
     Component: MainLayout,

@@ -12,6 +12,7 @@ import { Switch } from '@/shared/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { CoordinatePicker } from '@/shared/components/CoordinatePicker';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 
@@ -142,12 +143,79 @@ export function DeanLocationsPage() {
     void loadData();
   };
 
+  // Descarga el QR como una HOJA imprimible (proporción A4) decorada: cabecera de
+  // marca, nombre de la sede, QR enmarcado, código corto grande e instrucciones.
   const handleDownloadQr = () => {
     if (!qrModal) return;
-    const a = document.createElement('a');
-    a.href = qrModal.qrDataUrl;
-    a.download = `qr_${qrModal.campusName.replace(/\s+/g, '_')}.png`;
-    a.click();
+
+    const W = 1000, H = 1414; // ~A4 vertical
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const brand = '#1a2d6b';
+    ctx.textAlign = 'center';
+
+    const wrap = (text: string, maxWidth: number): string[] => {
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let current = '';
+      for (const word of words) {
+        const test = current ? `${current} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && current) { lines.push(current); current = word; }
+        else { current = test; }
+      }
+      if (current) lines.push(current);
+      return lines;
+    };
+
+    // Fondo + marco exterior
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 4; ctx.strokeRect(20, 20, W - 40, H - 40);
+
+    // Cabecera de marca
+    ctx.fillStyle = brand; ctx.fillRect(20, 20, W - 40, 150);
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 46px "Nunito Sans", sans-serif';
+    ctx.fillText('UNIVO Check-Health', W / 2, 98);
+    ctx.fillStyle = '#c7d2fe'; ctx.font = '24px "Nunito Sans", sans-serif';
+    ctx.fillText('Registro de asistencia · Área de Salud', W / 2, 138);
+
+    // Nombre de la sede
+    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 40px "Nunito Sans", sans-serif';
+    let y = 248;
+    for (const line of wrap(qrModal.campusName, W - 140)) { ctx.fillText(line, W / 2, y); y += 50; }
+
+    const img = new Image();
+    img.onload = () => {
+      const qrSize = 600;
+      const qx = (W - qrSize) / 2;
+      const qy = Math.max(y + 20, 320);
+      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+      ctx.strokeRect(qx - 16, qy - 16, qrSize + 32, qrSize + 32);
+      ctx.drawImage(img, qx, qy, qrSize, qrSize);
+
+      let cy = qy + qrSize + 80;
+      if (qrModal.shortCode) {
+        ctx.fillStyle = '#64748b'; ctx.font = '24px "Nunito Sans", sans-serif';
+        ctx.fillText('Código manual (sin cámara)', W / 2, cy); cy += 66;
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 70px monospace';
+        ctx.fillText(qrModal.shortCode.split('').join(' '), W / 2, cy); cy += 50;
+      }
+
+      ctx.fillStyle = '#475569'; ctx.font = '24px "Nunito Sans", sans-serif';
+      cy += 24;
+      const instr = 'QR fijo de la sede: imprímelo y reutilízalo. El alumno lo escanea o ingresa el código; la validación depende de su ubicación y horario.';
+      for (const line of wrap(instr, W - 160)) { ctx.fillText(line, W / 2, cy); cy += 34; }
+
+      ctx.fillStyle = '#94a3b8'; ctx.font = '20px "Nunito Sans", sans-serif';
+      ctx.fillText('Generado por UNIVO Check-Health', W / 2, H - 48);
+
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `qr_${qrModal.campusName.replace(/\s+/g, '_')}.png`;
+      a.click();
+    };
+    img.src = qrModal.qrDataUrl;
   };
 
   if (isLoading) {
@@ -161,12 +229,15 @@ export function DeanLocationsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Sedes</h2>
-        <Button onClick={openCreate} className="bg-brand-700 hover:bg-brand-800 text-white">
-          <Plus className="w-4 h-4 mr-1.5" />Nueva sede
-        </Button>
-      </div>
+      <PageHeader
+        title="Sedes"
+        description="Administra ubicaciones, radios GPS, encargados y QR de registro."
+        action={(
+          <Button onClick={openCreate} className="bg-white/10 border border-white/20 text-white hover:bg-white/20">
+            <Plus className="w-4 h-4 mr-1.5" />Nueva sede
+          </Button>
+        )}
+      />
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="relative md:col-span-2">
