@@ -1,5 +1,8 @@
 import { supabase } from '@/shared/backend/supabaseClient';
 
+const JUSTIFICATION_BUCKET = 'justifications';
+const SIGNED_URL_TTL_SECONDS = 60 * 10;
+
 export type JustificationStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 
 export type PendingJustification = {
@@ -44,6 +47,54 @@ type JustificationRow = {
   } | null;
 };
 
+function getJustificationStoragePath(value: string | null): string | null {
+  if (!value) return null;
+  if (!/^https?:\/\//i.test(value)) return value;
+  const marker = `/storage/v1/object/public/${JUSTIFICATION_BUCKET}/`;
+  const markerIndex = value.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const rawPath = value.slice(markerIndex + marker.length).split('?')[0];
+  try {
+    return decodeURIComponent(rawPath);
+  } catch {
+    return rawPath;
+  }
+}
+
+async function signJustificationDocument(value: string | null): Promise<string | null> {
+  const path = getJustificationStoragePath(value);
+  if (!path) return null;
+  const { data, error } = await supabase.storage
+    .from(JUSTIFICATION_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (error) {
+    console.error('Error creating signed justification URL', error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+async function mapPendingJustification(row: JustificationRow): Promise<PendingJustification> {
+  return {
+    id: row.id,
+    attendanceId: row.attendance_id,
+    studentId: row.student_id,
+    studentCode: row.student?.student_code ?? 'Sin carnet',
+    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
+    career: row.student?.career ?? 'Sin carrera',
+    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
+    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
+    checkIn: row.attendance?.check_in ?? null,
+    checkOut: row.attendance?.check_out ?? null,
+    reason: row.motivo,
+    documentUrl: await signJustificationDocument(row.documento_url),
+    status: row.status,
+    reviewerNotes: row.notas_revisor,
+    createdAt: row.creado_en,
+    updatedAt: row.actualizado_en,
+  };
+}
+
 export async function fetchPendingJustifications(): Promise<PendingJustification[]> {
   const { data, error } = await supabase
     .from('justifications')
@@ -73,24 +124,7 @@ export async function fetchPendingJustifications(): Promise<PendingJustification
     return [];
   }
 
-  return (data as unknown as JustificationRow[]).map((row) => ({
-    id: row.id,
-    attendanceId: row.attendance_id,
-    studentId: row.student_id,
-    studentCode: row.student?.student_code ?? 'Sin carnet',
-    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
-    career: row.student?.career ?? 'Sin carrera',
-    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
-    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
-    checkIn: row.attendance?.check_in ?? null,
-    checkOut: row.attendance?.check_out ?? null,
-    reason: row.motivo,
-    documentUrl: row.documento_url,
-    status: row.status,
-    reviewerNotes: row.notas_revisor,
-    createdAt: row.creado_en,
-    updatedAt: row.actualizado_en,
-  }));
+  return Promise.all((data as unknown as JustificationRow[]).map(mapPendingJustification));
 }
 
 export async function reviewJustification(params: {
@@ -154,16 +188,16 @@ export async function fetchStudentJustifications(): Promise<StudentJustification
 
   if (error || !data) return [];
 
-  return (data as any[]).map((row) => ({
+  return Promise.all((data as any[]).map(async (row) => ({
     id: row.id,
     attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
     campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
     reason: row.motivo,
-    documentUrl: row.documento_url,
+    documentUrl: await signJustificationDocument(row.documento_url),
     status: row.status as JustificationStatus,
     reviewerNotes: row.notas_revisor,
     createdAt: row.creado_en,
-  }));
+  })));
 }
 
 export async function fetchStudentAttendances(): Promise<AttendanceOption[]> {
@@ -219,8 +253,7 @@ export async function submitJustification(params: {
 
     if (uploadError) return { ok: false, message: 'Error al subir el documento.' };
 
-    const { data: urlData } = supabase.storage.from('justifications').getPublicUrl(path);
-    documentUrl = urlData.publicUrl;
+    documentUrl = path;
   }
 
   const { error } = await supabase.from('justifications').insert({
@@ -258,24 +291,7 @@ export async function fetchRejectedJustifications(): Promise<PendingJustificatio
 
   if (error || !data) return [];
 
-  return (data as unknown as JustificationRow[]).map((row) => ({
-    id: row.id,
-    attendanceId: row.attendance_id,
-    studentId: row.student_id,
-    studentCode: row.student?.student_code ?? 'Sin carnet',
-    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
-    career: row.student?.career ?? 'Sin carrera',
-    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
-    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
-    checkIn: row.attendance?.check_in ?? null,
-    checkOut: row.attendance?.check_out ?? null,
-    reason: row.motivo,
-    documentUrl: row.documento_url,
-    status: row.status,
-    reviewerNotes: row.notas_revisor,
-    createdAt: row.creado_en,
-    updatedAt: row.actualizado_en,
-  }));
+  return Promise.all((data as unknown as JustificationRow[]).map(mapPendingJustification));
 }
 
 export type AllJustification = PendingJustification & { reviewerName: string | null };
@@ -296,25 +312,12 @@ export async function fetchAllJustifications(): Promise<AllJustification[]> {
     return [];
   }
 
-  return (data as unknown as (JustificationRow & { reviewer?: { full_name: string | null } | null })[]).map((row) => ({
-    id: row.id,
-    attendanceId: row.attendance_id,
-    studentId: row.student_id,
-    studentCode: row.student?.student_code ?? 'Sin carnet',
-    studentName: row.student?.full_name ?? 'Estudiante sin nombre',
-    career: row.student?.career ?? 'Sin carrera',
-    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
-    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
-    checkIn: row.attendance?.check_in ?? null,
-    checkOut: row.attendance?.check_out ?? null,
-    reason: row.motivo,
-    documentUrl: row.documento_url,
-    status: row.status,
-    reviewerNotes: row.notas_revisor,
-    createdAt: row.creado_en,
-    updatedAt: row.actualizado_en,
-    reviewerName: row.reviewer?.full_name ?? null,
-  }));
+  return Promise.all(
+    (data as unknown as (JustificationRow & { reviewer?: { full_name: string | null } | null })[]).map(async (row) => ({
+      ...(await mapPendingJustification(row)),
+      reviewerName: row.reviewer?.full_name ?? null,
+    })),
+  );
 }
 
 export function subscribeToJustificationChanges(onChange: () => void) {
