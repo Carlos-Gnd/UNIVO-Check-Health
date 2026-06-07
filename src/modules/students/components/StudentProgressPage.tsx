@@ -3,16 +3,29 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { Loader2, Clock, Target, TrendingUp, Download } from 'lucide-react';
+import { Loader2, Clock, Target, TrendingUp, Download, AlertCircle, FileCheck, Building2, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getStudentHoursProgress } from '@/shared/backend/checkHealthBackend';
 
-type StudentInfo = {
+type StudentProfile = {
   name: string;
   code: string;
   career: string;
+};
+
+type GroupInfo = {
+  campusId: string | null;
+  campusName: string;
+  period: string;
+  startDate: string | null;
+  endDate: string | null;
+  supervisorName: string;
+};
+
+// Kept for backward compat with PDF fields that need combined info
+type StudentInfo = StudentProfile & {
   campusName: string;
   period: string;
   supervisorName: string;
@@ -23,14 +36,23 @@ type AttendanceRecord = {
   checkIn: string;
   checkOut: string;
   hours: number;
+  campusId: string | null;
 };
 
 export function StudentProgressPage() {
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(0);
   const [required, setRequired] = useState(240);
-  const [info, setInfo] = useState<StudentInfo | null>(null);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [info, setInfo] = useState<StudentInfo | null>(null); // primer grupo (compat PDF)
+  const [allGroups, setAllGroups] = useState<GroupInfo[]>([]);
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [absentCount, setAbsentCount] = useState(0);
+  const [justificationCount, setJustificationCount] = useState(0);
+  // Fechas de ausencia computadas (días de rotación pasados sin asistencia registrada)
+  const [computedAbsentDates, setComputedAbsentDates] = useState<string[]>([]);
+  // Mapa fecha → status de justificación para cruzar en el PDF
+  const [justificationDateMap, setJustificationDateMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     const load = async () => {
@@ -38,38 +60,66 @@ export function StudentProgressPage() {
       const userId = sessionData.session?.user.id;
       if (!userId) { setLoading(false); return; }
 
-      const [progress, profileRes, groupRes, attendanceRes] = await Promise.all([
+      const [progress, profileRes, groupRes, attendanceRes, allAttDateRes, justDataRes] = await Promise.all([
         getStudentHoursProgress(userId),
         supabase.from('users').select('full_name, student_code, career').eq('id', userId).single(),
         supabase
           .from('teacher_groups')
-          .select('period, start_date, end_date, campus:campuses(name, supervisor_name)')
+          .select('campus_id, period, start_date, end_date, campus:campuses(name, supervisor_name), schedules:student_schedules(weekday)')
           .eq('student_id', userId),
         supabase
           .from('attendances')
-          .select('date, check_in, check_out, worked_hours')
+          .select('date, check_in, check_out, worked_hours, campus_id')
           .eq('student_id', userId)
           .not('check_out', 'is', null)
           .order('date', { ascending: true }),
+        // Todas las fechas con check-in (incluyendo las sin check-out) para detectar ausencias
+        supabase
+          .from('attendances')
+          .select('date')
+          .eq('student_id', userId),
+        // Justificaciones con fecha de asistencia para cruzar en el PDF
+        supabase
+          .from('justifications')
+          .select('status, attendance:attendances!justifications_attendance_id_fkey(date)')
+          .eq('student_id', userId),
       ]);
 
       setCompleted(progress.completedHours);
       setRequired(progress.requiredHours);
 
+      const studentProfile: StudentProfile = {
+        name: profileRes.data?.full_name ?? '—',
+        code: profileRes.data?.student_code ?? '—',
+        career: profileRes.data?.career ?? '—',
+      };
+      setProfile(studentProfile);
+
       const today = new Date().toISOString().slice(0, 10);
       const rows = (groupRes.data ?? []) as unknown as {
+        campus_id: string | null;
         period: string; start_date: string | null; end_date: string | null;
         campus: { name: string | null; supervisor_name: string | null } | null;
+        schedules: { weekday: number }[] | null;
       }[];
+
+      const groups: GroupInfo[] = rows.map((r) => ({
+        campusId: r.campus_id ?? null,
+        campusName: r.campus?.name ?? '—',
+        period: r.period,
+        startDate: r.start_date,
+        endDate: r.end_date,
+        supervisorName: r.campus?.supervisor_name ?? '—',
+      }));
+      setAllGroups(groups);
+
+      // Primer grupo activo (o más reciente) para compat con lógica existente
       const active = rows.find(
         (r) => (!r.start_date || r.start_date <= today) && (!r.end_date || r.end_date >= today),
       );
       const chosen = active ?? [...rows].sort((a, b) => (b.end_date ?? '').localeCompare(a.end_date ?? ''))[0];
-
       setInfo({
-        name: profileRes.data?.full_name ?? '—',
-        code: profileRes.data?.student_code ?? '—',
-        career: profileRes.data?.career ?? '—',
+        ...studentProfile,
         campusName: chosen?.campus?.name ?? '—',
         period: chosen?.period ?? '—',
         supervisorName: chosen?.campus?.supervisor_name ?? '—',
@@ -81,8 +131,47 @@ export function StudentProgressPage() {
           checkIn: row.check_in as string,
           checkOut: row.check_out as string,
           hours: row.worked_hours != null ? Number(Number(row.worked_hours).toFixed(1)) : 0,
+          campusId: (row.campus_id as string | null) ?? null,
         })),
       );
+
+      // Construir mapa de fechas con asistencia registrada (check-in de cualquier tipo)
+      const attendedSet = new Set((allAttDateRes.data ?? []).map((r: any) => r.date as string));
+
+      // Construir mapa fecha → status de justificación
+      const justMap = new Map<string, string>();
+      for (const row of (justDataRes.data ?? []) as any[]) {
+        const d = row.attendance?.date;
+        if (d) justMap.set(d as string, row.status as string);
+      }
+      setJustificationDateMap(justMap);
+      setJustificationCount(justDataRes.data?.length ?? 0);
+
+      // Computar ausencias: días de rotación pasados sin ningún check-in registrado
+      const absents: string[] = [];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(23, 59, 59, 999);
+
+      for (const group of rows) {
+        if (!group.start_date || !group.end_date) continue;
+        const weekdays = (group.schedules ?? []).map((s) => Number(s.weekday));
+        if (weekdays.length === 0) continue;
+        let cursor = new Date(`${group.start_date}T00:00:00`);
+        const end = new Date(Math.min(new Date(`${group.end_date}T23:59:59`).getTime(), yesterday.getTime()));
+        while (cursor <= end) {
+          const dow = cursor.getDay();
+          const isoWeekday = dow === 0 ? 7 : dow;
+          if (weekdays.includes(isoWeekday)) {
+            const dateStr = cursor.toISOString().slice(0, 10);
+            if (!attendedSet.has(dateStr)) absents.push(dateStr);
+          }
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      }
+      absents.sort();
+      setComputedAbsentDates(absents);
+      setAbsentCount(absents.length);
 
       setLoading(false);
     };
@@ -93,7 +182,18 @@ export function StudentProgressPage() {
   const remaining = Math.max(0, required - completed);
   const barColor = pct >= 85 ? 'bg-green-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500';
 
-  const exportPdf = async () => {
+  const exportPdf = async (group: GroupInfo) => {
+    // Filtrar asistencias y ausencias para esta sede y período específico
+    const groupAttendances = attendances.filter((a) =>
+      (!group.campusId || a.campusId === group.campusId) &&
+      (!group.startDate || a.date >= group.startDate) &&
+      (!group.endDate || a.date <= group.endDate),
+    );
+    const groupAbsentDates = computedAbsentDates.filter((d) =>
+      (!group.startDate || d >= group.startDate) &&
+      (!group.endDate || d <= group.endDate),
+    );
+
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const W = 210;
     const margin = 18;
@@ -191,11 +291,11 @@ export function StudentProgressPage() {
 
     doc.setFontSize(9);
     [
-      { label: 'Nombre:',  value: info?.name     ?? '—', x: dataX1, lw: 18, y: 78 },
-      { label: 'Carnet:',  value: info?.code      ?? '—', x: dataX1, lw: 18, y: 88 },
-      { label: 'Área:',    value: info?.career    ?? '—', x: dataX1, lw: 18, y: 98 },
-      { label: 'Sede:',    value: info?.campusName ?? '—', x: dataX2, lw: 14, y: 78 },
-      { label: 'Período:', value: info?.period    ?? '—', x: dataX2, lw: 20, y: 88 },
+      { label: 'Nombre:',  value: profile?.name   ?? '—', x: dataX1, lw: 18, y: 78 },
+      { label: 'Carnet:',  value: profile?.code   ?? '—', x: dataX1, lw: 18, y: 88 },
+      { label: 'Área:',    value: profile?.career  ?? '—', x: dataX1, lw: 18, y: 98 },
+      { label: 'Sede:',    value: group.campusName,        x: dataX2, lw: 14, y: 78 },
+      { label: 'Período:', value: group.period,            x: dataX2, lw: 20, y: 88 },
     ].forEach(({ label, value, x, lw, y }) => {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(71, 85, 105);
@@ -273,8 +373,8 @@ export function StudentProgressPage() {
       startY: tableStartY,
       margin: { left: margin, right: margin, bottom: 25 },
       head: [['Fecha', 'Entrada', 'Salida', 'Horas']],
-      body: attendances.length > 0
-        ? attendances.map((r) => [
+      body: groupAttendances.length > 0
+        ? groupAttendances.map((r) => [
             format(parseISO(r.date), 'dd/MM/yyyy', { locale: es }),
             format(parseISO(r.checkIn), 'HH:mm'),
             format(parseISO(r.checkOut), 'HH:mm'),
@@ -298,6 +398,43 @@ export function StudentProgressPage() {
       },
       didDrawPage: drawFooter,
     });
+
+    // ── Tabla de ausencias (días de rotación pasados sin check-in) ───────
+    if (groupAbsentDates.length > 0) {
+      const absStartY = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('AUSENCIAS', margin, absStartY - 2);
+
+      const justLabel = (dateStr: string) => {
+        const st = justificationDateMap.get(dateStr);
+        if (!st) return 'Sin justificación';
+        if (st === 'APROBADO') return 'Justificada';
+        if (st === 'PENDIENTE') return 'Justificación pendiente';
+        return 'Justificación rechazada';
+      };
+
+      autoTable(doc, {
+        startY: absStartY,
+        margin: { left: margin, right: margin, bottom: 25 },
+        head: [['Fecha', 'Estado justificación']],
+        body: groupAbsentDates.map((dateStr) => [
+          format(parseISO(dateStr), 'dd/MM/yyyy', { locale: es }),
+          justLabel(dateStr),
+        ]),
+        tableWidth: contentW,
+        headStyles: { fillColor: [185, 28, 28], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 8.5, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [254, 242, 242] },
+        columnStyles: {
+          0: { cellWidth: 44 },
+          1: { cellWidth: contentW - 44 },
+        },
+        didDrawPage: drawFooter,
+      });
+    }
 
     // ── Firma del coordinador ────────────────────────────────────────────
     let sigY = (doc as any).lastAutoTable.finalY + 14;
@@ -325,7 +462,7 @@ export function StudentProgressPage() {
     doc.text('Firma del Encargado', margin, sigLineY + 5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(info?.supervisorName ?? '—', margin, sigLineY + 11);
+    doc.text(group.supervisorName, margin, sigLineY + 11);
 
     // Fecha
     doc.setDrawColor(100, 116, 139);
@@ -335,7 +472,8 @@ export function StudentProgressPage() {
     doc.setTextColor(71, 85, 105);
     doc.text('Fecha', margin + 100, sigLineY + 5);
 
-    doc.save(`constancia-horas-${info?.code ?? 'estudiante'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const campusSlug = group.campusName.toLowerCase().replace(/\s+/g, '-').slice(0, 20);
+    doc.save(`constancia-${profile?.code ?? 'estudiante'}-${campusSlug}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
   if (loading) {
@@ -349,15 +487,9 @@ export function StudentProgressPage() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Progreso de horas</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Cumplimiento del período actual</p>
-        </div>
-        <Button variant="outline" onClick={() => void exportPdf()}>
-          <Download className="w-4 h-4 mr-2" />
-          Descargar constancia
-        </Button>
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900">Progreso de horas</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Cumplimiento del período actual</p>
       </div>
 
       <Card>
@@ -385,6 +517,42 @@ export function StudentProgressPage() {
         <StatCard icon={Target} label="Meta" value={`${required} h`} color="text-slate-700" />
         <StatCard icon={TrendingUp} label="Restantes" value={`${remaining} h`} color={remaining === 0 ? 'text-emerald-600' : 'text-amber-600'} />
       </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard icon={AlertCircle} label="Ausencias" value={String(absentCount)} color={absentCount > 0 ? 'text-red-500' : 'text-emerald-600'} />
+        <StatCard icon={FileCheck} label="Justificaciones" value={String(justificationCount)} color={justificationCount > 0 ? 'text-amber-600' : 'text-slate-700'} />
+      </div>
+
+      {/* Sedes asignadas — una constancia por sede */}
+      {allGroups.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {allGroups.length === 1 ? 'Sede asignada' : 'Sedes asignadas'}
+          </p>
+          {allGroups.map((g, i) => (
+            <Card key={`${g.campusId ?? 'null'}-${i}`} className="border-slate-200">
+              <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-slate-800 truncate">
+                    <Building2 className="w-4 h-4 shrink-0 text-brand-600" />
+                    <span className="truncate">{g.campusName}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500 truncate">
+                    <User className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{g.supervisorName}</span>
+                    <span className="text-slate-300">·</span>
+                    <span>{g.period}</span>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => void exportPdf(g)} className="shrink-0">
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  Constancia
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {pct >= 100 && (
         <Card className="border-emerald-200 bg-emerald-50">

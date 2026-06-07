@@ -23,6 +23,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Badge } from '@/shared/components/ui/badge';
+import { supabase } from '@/shared/backend/supabaseClient';
 import { fetchRotationsCalendar, type CalendarRole, type RotationWindow } from '../services/rotationsCalendar.service';
 
 type DayItem = {
@@ -77,6 +78,8 @@ export function RotationsCalendarPage() {
   const [campusOptions, setCampusOptions] = useState<{ id: string; name: string }[]>([]);
   const [careerOptions, setCareerOptions] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [attendedDates, setAttendedDates] = useState<Set<string>>(new Set());
+  const [justifiedDates, setJustifiedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -90,6 +93,32 @@ export function RotationsCalendarPage() {
     };
     void load();
   }, []);
+
+  // Para alumnos: carga fechas de asistencia y justificación del mes visible para colorear.
+  useEffect(() => {
+    if (role !== 'STUDENT') return;
+    const fetchStudentStatus = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) return;
+      const monthStart = format(startOfMonth(month), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd');
+      const [attRes, justRes] = await Promise.all([
+        supabase.from('attendances').select('date').eq('student_id', userId)
+          .gte('date', monthStart).lte('date', monthEnd),
+        supabase.from('justifications')
+          .select('attendance:attendances!justifications_attendance_id_fkey(date)')
+          .eq('student_id', userId),
+      ]);
+      setAttendedDates(new Set((attRes.data ?? []).map((r) => r.date as string)));
+      setJustifiedDates(new Set(
+        (justRes.data ?? [])
+          .map((r: any) => r.attendance?.date as string | undefined)
+          .filter((d): d is string => !!d && d >= monthStart && d <= monthEnd),
+      ));
+    };
+    void fetchStudentStatus();
+  }, [role, month]);
 
   const visibleWindows = useMemo(() => {
     return windows.filter((w) => {
@@ -227,9 +256,23 @@ export function RotationsCalendarPage() {
             {monthDays.map((day) => {
               const inMonth = day.getMonth() === month.getMonth();
               const entries = dayEntries(day, visibleWindows);
-              const isFutureOrToday = !isBefore(day, new Date(today.getFullYear(), today.getMonth(), today.getDate()));
-              const studentEntries = role === 'STUDENT' ? entries.filter(() => isFutureOrToday) : entries;
-              const dayList = role === 'STUDENT' ? studentEntries : entries;
+              const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const isPast = isBefore(day, todayMidnight);
+              const dayList = entries;
+
+              // Color de asistencia para alumno en días pasados con rotación programada
+              const dateStr = format(day, 'yyyy-MM-dd');
+              let attendanceStatus: 'attended' | 'justified' | 'absent' | null = null;
+              if (role === 'STUDENT' && isPast && entries.length > 0 && inMonth) {
+                if (attendedDates.has(dateStr)) attendanceStatus = 'attended';
+                else if (justifiedDates.has(dateStr)) attendanceStatus = 'justified';
+                else attendanceStatus = 'absent';
+              }
+
+              const borderClass = attendanceStatus === 'absent' ? 'border-red-300' :
+                attendanceStatus === 'justified' ? 'border-amber-300' :
+                attendanceStatus === 'attended' ? 'border-green-300' : '';
+
               return (
                 <button
                   key={day.toISOString()}
@@ -237,17 +280,32 @@ export function RotationsCalendarPage() {
                   disabled={dayList.length === 0}
                   className={`min-h-16 sm:min-h-28 rounded-lg border p-1 sm:p-2 text-left transition-colors ${
                     inMonth ? 'bg-white' : 'bg-brand-50/20 text-gray-400'
-                  } ${dayList.length > 0 ? 'cursor-pointer hover:bg-brand-50/40' : 'cursor-default'}`}
+                  } ${borderClass} ${dayList.length > 0 ? 'cursor-pointer hover:bg-brand-50/40' : 'cursor-default'}`}
                 >
-                  <p className="text-[10px] sm:text-xs font-semibold">{format(day, 'd')}</p>
+                  <div className="flex items-start justify-between">
+                    <p className="text-[10px] sm:text-xs font-semibold">{format(day, 'd')}</p>
+                    {attendanceStatus === 'attended' && <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" title="Asistió" />}
+                    {attendanceStatus === 'justified' && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Justificación enviada" />}
+                    {attendanceStatus === 'absent' && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Sin asistencia" />}
+                  </div>
                   <div className="mt-0.5 sm:mt-1 space-y-0.5 sm:space-y-1">
                     {dayList.slice(0, 2).map((e, idx) => (
-                      <div key={`${e.studentName}-${idx}`} className="hidden sm:block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-700">
+                      <div key={`${e.studentName}-${idx}`} className={`hidden sm:block rounded px-1.5 py-0.5 text-[10px] ${
+                        attendanceStatus === 'absent' ? 'bg-red-50 text-red-700' :
+                        attendanceStatus === 'justified' ? 'bg-amber-50 text-amber-700' :
+                        attendanceStatus === 'attended' ? 'bg-green-50 text-green-700' :
+                        'bg-brand-50 text-brand-700'
+                      }`}>
                         {role === 'STUDENT' ? e.campusName : e.studentName}
                       </div>
                     ))}
                     {dayList.length > 0 && (
-                      <div className="sm:hidden w-2 h-2 rounded-full bg-brand-500 mt-1" />
+                      <div className={`sm:hidden w-2 h-2 rounded-full mt-1 ${
+                        attendanceStatus === 'absent' ? 'bg-red-500' :
+                        attendanceStatus === 'justified' ? 'bg-amber-400' :
+                        attendanceStatus === 'attended' ? 'bg-green-500' :
+                        'bg-brand-500'
+                      }`} />
                     )}
                     {dayList.length > 2 && (
                       <p className="hidden sm:block text-[10px] text-gray-500">+{dayList.length - 2} más</p>
@@ -259,6 +317,15 @@ export function RotationsCalendarPage() {
           </div>
         </CardContent>
       </Card>
+
+      {role === 'STUDENT' && (
+        <div className="flex flex-wrap gap-4 text-xs text-gray-600 px-1">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />Asistió</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />Justificación enviada</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Sin asistencia ni justificación</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block" />Próxima rotación</span>
+        </div>
+      )}
 
       <Dialog open={Boolean(selectedDay)} onOpenChange={() => setSelectedDay(null)}>
         <DialogContent className="sm:max-w-xl">

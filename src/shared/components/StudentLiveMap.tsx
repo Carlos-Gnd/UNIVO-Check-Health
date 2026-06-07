@@ -10,6 +10,7 @@ export type LiveMapStudent = {
   carnet?: string | null;
   siteName: string;
   hoursToday: number;
+  totalCycleHours?: number;
   lastLocation?: { latitude: number; longitude: number } | null;
 };
 
@@ -49,7 +50,8 @@ export function StudentLiveMap({
           `<b style="font-size:13px">${s.studentName}</b>` +
           (s.carnet ? `<br/><span style="font-size:11px;color:#6b7280">${s.carnet}</span>` : '') +
           `<br/><span style="font-size:11px">${s.siteName}</span>` +
-          `<br/><span style="font-size:11px;color:#2563eb">${s.hoursToday.toFixed(1)} h hoy</span>`,
+          `<br/><span style="font-size:11px;color:#2563eb">${s.hoursToday.toFixed(1)} h jornada</span>` +
+          (s.totalCycleHours != null ? `<br/><span style="font-size:11px;color:#7c3aed">${s.totalCycleHours.toFixed(1)} h ciclo</span>` : ''),
         )
         .addTo(markersLayer.current);
     });
