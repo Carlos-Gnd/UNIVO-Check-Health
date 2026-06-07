@@ -18,6 +18,12 @@ type ScanState = 'idle' | 'scanning' | 'validating' | 'success' | 'error' | 'cou
 type Mode = 'camera' | 'manual';
 
 type Campus = { id: string; name: string };
+type SubjectChoice = {
+  assignment_id: string;
+  subject_id: string | null;
+  subject_name: string;
+  subject_code: string | null;
+};
 
 const SENSOR_LIMIT = 30;
 
@@ -81,6 +87,9 @@ export function StudentQrScannerPage() {
   const [selectedCampus, setSelectedCampus] = useState('');
   const [shortCode, setShortCode] = useState('');
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [subjectChoices, setSubjectChoices] = useState<SubjectChoice[]>([]);
+  const [pendingValidation, setPendingValidation] = useState<{ body: Record<string, unknown>; campusIdForCountdown?: string } | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState('');
 
   // Countdown
   const [countdownSecs, setCountdownSecs] = useState(0);
@@ -252,6 +261,14 @@ export function StudentQrScannerPage() {
   ) => {
     const { data, error } = await supabase.functions.invoke('validate-qr-checkin', { body });
     if (error || !data?.ok) {
+      if (data?.requires_subject_choice && Array.isArray(data.assignments)) {
+        setSubjectChoices(data.assignments as SubjectChoice[]);
+        setPendingValidation({ body, campusIdForCountdown });
+        setSelectedSubject('');
+        setMessage(data.message ?? 'Selecciona la materia para registrar la entrada.');
+        setState('error');
+        return false;
+      }
       const msg: string = data?.message ?? error?.message ?? 'Error al validar el check-in.';
       if ((msg.toLowerCase().includes('horario') || msg.toLowerCase().includes('ventana')) && campusIdForCountdown) {
         const started = await tryStartCountdown(campusIdForCountdown);
@@ -264,6 +281,18 @@ export function StudentQrScannerPage() {
     setMessage(data.message ?? 'Entrada registrada con hora oficial del servidor.');
     setState('success');
     return true;
+  };
+
+  const submitSubjectChoice = async () => {
+    if (!pendingValidation || !selectedSubject) return;
+    setState('validating');
+    setSubjectChoices([]);
+    const subjectId = selectedSubject === '__none__' ? null : selectedSubject;
+    await callValidate(
+      { ...pendingValidation.body, subject_id: subjectId },
+      pendingValidation.campusIdForCountdown,
+    );
+    setPendingValidation(null);
   };
 
   // ── Modo cámara ──────────────────────────────────────────────────────────────
@@ -339,7 +368,17 @@ export function StudentQrScannerPage() {
     setIsSubmittingManual(false);
   };
 
-  const resetAll = () => { setState('idle'); setMessage(''); setCameraError(''); setShortCode(''); setSelectedCampus(''); processingRef.current = false; };
+  const resetAll = () => {
+    setState('idle');
+    setMessage('');
+    setCameraError('');
+    setShortCode('');
+    setSelectedCampus('');
+    setSubjectChoices([]);
+    setPendingValidation(null);
+    setSelectedSubject('');
+    processingRef.current = false;
+  };
 
   return (
     <div className="space-y-4 max-w-lg mx-auto">
@@ -485,12 +524,33 @@ export function StudentQrScannerPage() {
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <XCircle className="w-10 h-10 text-red-500" />
               <p className="text-sm text-red-700 font-medium">{message}</p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { stopScanner(); startScanner(); }}>Reintentar</Button>
-                <Button variant="outline" onClick={() => { resetAll(); setMode('manual'); }}>
-                  <Keyboard className="w-4 h-4 mr-1.5" />Usar código
-                </Button>
-              </div>
+              {subjectChoices.length > 0 ? (
+                <SubjectChoicePanel
+                  choices={subjectChoices}
+                  selectedSubject={selectedSubject}
+                  onSelect={setSelectedSubject}
+                  onSubmit={() => void submitSubjectChoice()}
+                />
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => { stopScanner(); startScanner(); }}>Reintentar</Button>
+                  <Button variant="outline" onClick={() => { resetAll(); setMode('manual'); }}>
+                    <Keyboard className="w-4 h-4 mr-1.5" />Usar código
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {state === 'error' && mode === 'manual' && subjectChoices.length > 0 && (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-amber-700 text-center font-medium">{message}</p>
+              <SubjectChoicePanel
+                choices={subjectChoices}
+                selectedSubject={selectedSubject}
+                onSelect={setSelectedSubject}
+                onSubmit={() => void submitSubjectChoice()}
+              />
             </div>
           )}
 
@@ -500,6 +560,39 @@ export function StudentQrScannerPage() {
       <p className="text-xs text-gray-400 text-center">
         El check-in requiere GPS activo y estar dentro del área de la sede.
       </p>
+    </div>
+  );
+}
+
+function SubjectChoicePanel({
+  choices,
+  selectedSubject,
+  onSelect,
+  onSubmit,
+}: {
+  choices: SubjectChoice[];
+  selectedSubject: string;
+  onSelect: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="w-full space-y-3 text-left">
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wide">Materia *</Label>
+        <Select value={selectedSubject} onValueChange={onSelect}>
+          <SelectTrigger><SelectValue placeholder="Selecciona materia" /></SelectTrigger>
+          <SelectContent>
+            {choices.map((choice) => (
+              <SelectItem key={choice.assignment_id} value={choice.subject_id ?? '__none__'}>
+                {choice.subject_code ? `${choice.subject_code} - ` : ''}{choice.subject_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Button className="w-full bg-brand-700 hover:bg-brand-800 text-white" disabled={!selectedSubject} onClick={onSubmit}>
+        Registrar entrada
+      </Button>
     </div>
   );
 }
