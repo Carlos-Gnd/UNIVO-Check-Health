@@ -19,7 +19,9 @@ export function TeacherDashboardPage() {
         toast.error(res.message ?? 'No se pudo firmar el reporte.');
         return;
       }
-      toast.success(`Reporte firmado por ${res.signedBy ?? 'el sistema'}. Sello: ${res.seal?.slice(0, 12)}…`);
+      toast.success(
+        `Reporte con doble firma: docente ${res.teacherSeal?.slice(0, 10)}..., sistema ${res.systemSeal?.slice(0, 10)}...`,
+      );
     } finally {
       setIsSigning(false);
     }

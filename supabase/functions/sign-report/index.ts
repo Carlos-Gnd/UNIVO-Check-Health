@@ -6,7 +6,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { buildSealPayload, hmacSeal } from '../_shared/reportSeal.ts';
+import {
+  SYSTEM_REPORT_SIGNER_ID,
+  SYSTEM_REPORT_SIGNER_NAME,
+  buildReportSignaturePayload,
+  hmacSeal,
+} from '../_shared/reportSeal.ts';
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -42,8 +47,21 @@ Deno.serve(async (req: Request) => {
   if (!secret) return json({ error: 'Servidor mal configurado' }, 500);
 
   const signedAt = new Date().toISOString();
-  const payload = buildSealPayload(report_hash, user.id, signedAt);
-  const seal = await hmacSeal(payload, secret);
+  const teacherPayload = buildReportSignaturePayload({
+    reportHash: report_hash,
+    role: 'teacher',
+    signerId: user.id,
+    signedAt,
+  });
+  const systemPayload = buildReportSignaturePayload({
+    reportHash: report_hash,
+    role: 'system',
+    signerId: SYSTEM_REPORT_SIGNER_ID,
+    signedAt,
+  });
+  const teacherSeal = await hmacSeal(teacherPayload, secret);
+  const systemSeal = await hmacSeal(systemPayload, secret);
+  const signedBy = profile?.full_name ?? user.email;
 
   // Registro inmutable en audit_log (con service_role para garantizar el insert)
   const admin = createClient(
@@ -56,9 +74,37 @@ Deno.serve(async (req: Request) => {
     actor_user_id: user.id,
     details: {
       report_hash, period: period ?? null, group_label: group_label ?? null,
-      signed_by: profile?.full_name ?? user.email, signed_at: signedAt, seal,
+      signed_by: signedBy,
+      signed_at: signedAt,
+      seal: teacherSeal,
+      teacher_seal: teacherSeal,
+      system_seal: systemSeal,
+      signatures: {
+        teacher: {
+          role: 'teacher',
+          signer_id: user.id,
+          signed_by: signedBy,
+          signed_at: signedAt,
+          seal: teacherSeal,
+        },
+        system: {
+          role: 'system',
+          signer_id: SYSTEM_REPORT_SIGNER_ID,
+          signed_by: SYSTEM_REPORT_SIGNER_NAME,
+          signed_at: signedAt,
+          seal: systemSeal,
+        },
+      },
     },
   });
 
-  return json({ ok: true, seal, signed_at: signedAt, signed_by: profile?.full_name ?? user.email });
+  return json({
+    ok: true,
+    seal: teacherSeal,
+    teacher_seal: teacherSeal,
+    system_seal: systemSeal,
+    signed_at: signedAt,
+    signed_by: signedBy,
+    system_signed_by: SYSTEM_REPORT_SIGNER_NAME,
+  });
 });
