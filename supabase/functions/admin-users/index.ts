@@ -44,6 +44,29 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+async function logDelegatedUserAction(
+  admin: ReturnType<typeof createClient>,
+  params: {
+    action: string;
+    actorUserId: string;
+    actorRole: string;
+    targetUserId?: string | null;
+    details: Record<string, unknown>;
+  },
+): Promise<void> {
+  const { error } = await admin.from('audit_log').insert({
+    action: params.action,
+    actor_user_id: params.actorUserId,
+    target_user_id: params.targetUserId ?? null,
+    details: {
+      actor_role: params.actorRole,
+      source: 'admin-users',
+      ...params.details,
+    },
+  });
+  if (error) throw new Error(`No se pudo registrar auditoria: ${error.message}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -154,6 +177,17 @@ Deno.serve(async (req: Request) => {
         await admin.auth.admin.deleteUser(created.user.id);
         return json({ error: `Error al crear perfil: ${profileErr.message}` }, 400);
       }
+      await logDelegatedUserAction(admin, {
+        action: 'DELEGATED_USER_CREATED',
+        actorUserId: user.id,
+        actorRole: requesterRole,
+        targetUserId: created.user.id,
+        details: {
+          target_email: email,
+          target_code: code,
+          target_role: role,
+        },
+      });
       return json({ ok: true, id: created.user.id });
     }
 
@@ -162,7 +196,11 @@ Deno.serve(async (req: Request) => {
 
       // El solicitante debe poder gestionar TANTO el rol actual del objetivo
       // (no editar a un ADMIN/DOCENTE siendo docente) COMO el rol nuevo (no promover).
-      const { data: target } = await admin.from('users').select('role').eq('id', body.id).single();
+      const { data: target } = await admin
+        .from('users')
+        .select('role, email, student_code, full_name')
+        .eq('id', body.id)
+        .single();
       if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
       if (!canManageRole(target.role)) {
         return json({ error: 'No tienes permiso para editar a este usuario.' }, 403);
@@ -178,13 +216,29 @@ Deno.serve(async (req: Request) => {
         career:    newRole === 'STUDENT' ? (body.career ?? null) : null,
       }).eq('id', body.id);
       if (error) return json({ error: error.message }, 400);
+      await logDelegatedUserAction(admin, {
+        action: 'DELEGATED_USER_UPDATED',
+        actorUserId: user.id,
+        actorRole: requesterRole,
+        targetUserId: body.id,
+        details: {
+          previous_role: target.role,
+          new_role: newRole,
+          full_name: body.full_name ?? '',
+          career: newRole === 'STUDENT' ? (body.career ?? null) : null,
+        },
+      });
       return json({ ok: true });
     }
 
     case 'delete': {
       if (!body.id) return json({ error: 'id requerido' }, 400);
 
-      const { data: target } = await admin.from('users').select('role').eq('id', body.id).single();
+      const { data: target } = await admin
+        .from('users')
+        .select('role, email, student_code, full_name')
+        .eq('id', body.id)
+        .single();
       if (!target) return json({ error: 'Usuario no encontrado.' }, 404);
       if (!canManageRole(target.role)) {
         return json({ error: 'No tienes permiso para eliminar a este usuario.' }, 403);
@@ -210,6 +264,18 @@ Deno.serve(async (req: Request) => {
       if (authErr && !/not[ _-]?found|user.*not|no.*user/i.test(authErr.message ?? '')) {
         return json({ error: `Perfil eliminado, pero falló al borrar en Auth: ${authErr.message}` }, 400);
       }
+      await logDelegatedUserAction(admin, {
+        action: 'DELEGATED_USER_DELETED',
+        actorUserId: user.id,
+        actorRole: requesterRole,
+        targetUserId: body.id,
+        details: {
+          target_email: target.email,
+          target_code: target.student_code,
+          target_name: target.full_name,
+          target_role: target.role,
+        },
+      });
       return json({ ok: true });
     }
 
@@ -231,6 +297,16 @@ Deno.serve(async (req: Request) => {
       if (pwErr) return json({ error: `No se pudo restablecer la contraseña: ${pwErr.message}` }, 400);
       await admin.from('users').update({ must_change_password: true }).eq('id', target.id);
 
+      await logDelegatedUserAction(admin, {
+        action: 'DELEGATED_USER_PASSWORD_RESET',
+        actorUserId: user.id,
+        actorRole: requesterRole,
+        targetUserId: target.id,
+        details: {
+          target_email: email,
+          target_role: target.role,
+        },
+      });
       return json({ ok: true, password: tempPassword, email });
     }
 
