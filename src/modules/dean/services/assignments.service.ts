@@ -6,12 +6,21 @@ import { supabase } from '@/shared/backend/supabaseClient';
 
 export type PersonOption = { id: string; label: string };
 export type CampusOption = { id: string; name: string };
+export type SubjectOption = {
+  id: string;
+  code: string;
+  name: string;
+  career: string | null;
+  required_hours: number;
+  min_academic_level: number | null;
+};
 
 export type AssignmentOptions = {
   students: PersonOption[];
   teachers: PersonOption[];
   coordinators: PersonOption[];
   campuses: CampusOption[];
+  subjects: SubjectOption[];
 };
 
 export type ScheduleSlot = {
@@ -26,6 +35,7 @@ export type Assignment = {
   teacher_id: string;
   coordinator_id: string | null;
   campus_id: string | null;
+  subject_id: string | null;
   period: string;
   start_date: string | null;
   end_date: string | null;
@@ -38,6 +48,7 @@ export type AssignmentForm = {
   teacher_id: string;
   coordinator_id: string | null;
   campus_id: string | null;
+  subject_id: string | null;
   period: string;
   start_date: string | null;
   end_date: string | null;
@@ -48,7 +59,7 @@ export type AssignmentForm = {
 type UserOptionRow = { id: string; full_name: string | null; student_code: string | null; role: string };
 
 export async function fetchAssignmentOptions(): Promise<AssignmentOptions> {
-  const [{ data: users }, { data: campuses }] = await Promise.all([
+  const [{ data: users }, { data: campuses }, { data: subjects }] = await Promise.all([
     supabase
       .from('users')
       .select('id, full_name, student_code, role')
@@ -58,6 +69,12 @@ export async function fetchAssignmentOptions(): Promise<AssignmentOptions> {
       .from('campuses')
       .select('id, name')
       .eq('is_active', true)
+      .order('name'),
+    supabase
+      .from('subjects')
+      .select('id, code, name, career, required_hours, min_academic_level')
+      .eq('is_active', true)
+      .order('career')
       .order('name'),
   ]);
 
@@ -71,13 +88,14 @@ export async function fetchAssignmentOptions(): Promise<AssignmentOptions> {
     teachers: rows.filter((u) => ['DOCENTE', 'TEACHER'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
     coordinators: rows.filter((u) => ['COORDINATOR', 'COORDINADOR', 'ADMIN', 'ADMINISTRADOR'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
     campuses: ((campuses as CampusOption[] | null) ?? []),
+    subjects: ((subjects as SubjectOption[] | null) ?? []),
   };
 }
 
 export async function fetchAssignments(): Promise<Assignment[]> {
   const { data, error } = await supabase
     .from('teacher_groups')
-    .select('id, student_id, teacher_id, coordinator_id, campus_id, period, start_date, end_date, required_hours')
+    .select('id, student_id, teacher_id, coordinator_id, campus_id, subject_id, period, start_date, end_date, required_hours')
     .order('period', { ascending: false });
   if (error || !data) return [];
   return data as Assignment[];
@@ -110,12 +128,23 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
   if (!form.campus_id) {
     return { ok: false, message: 'La sede de practica es obligatoria.' };
   }
+  if (!form.subject_id) {
+    return { ok: false, message: 'La materia de practica es obligatoria.' };
+  }
+
+  const { data: gateData, error: gateError } = await supabase.rpc('validate_assignment_gate', {
+    p_student_id: form.student_id,
+    p_subject_id: form.subject_id,
+  });
+  if (gateError) return { ok: false, message: humanizeError(gateError.message) };
+  if (gateData?.[0] && !gateData[0].ok) return { ok: false, message: gateData[0].message };
 
   const payload = {
     student_id: form.student_id,
     teacher_id: form.teacher_id,
     coordinator_id: form.coordinator_id,
     campus_id: form.campus_id,
+    subject_id: form.subject_id,
     period,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
@@ -128,6 +157,7 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
     .select('id')
     .eq('student_id', form.student_id)
     .eq('campus_id', form.campus_id)
+    .eq('subject_id', form.subject_id)
     .eq('period', period)
     .limit(1);
 
@@ -138,7 +168,7 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
   const { data: conflicts, error: conflictError } = await conflictQuery;
   if (conflictError) return { ok: false, message: conflictError.message };
   if ((conflicts ?? []).length > 0) {
-    return { ok: false, message: 'Este alumno ya tiene una asignacion para esa sede y periodo. Edita la asignacion existente para reasignarlo.' };
+    return { ok: false, message: 'Este alumno ya tiene una asignacion para esa materia, sede y periodo.' };
   }
 
   if (assignmentId) {
