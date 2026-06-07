@@ -35,7 +35,7 @@ type DayRow = { weekday: number; enabled: boolean; from: string; to: string };
 const defaultDays = (): DayRow[] =>
   DAYS.map((d) => ({ weekday: d.weekday, enabled: d.weekday <= 5, from: '07:00', to: '15:00' }));
 
-const emptyOptions: AssignmentOptions = { students: [], teachers: [], coordinators: [], campuses: [] };
+const emptyOptions: AssignmentOptions = { students: [], teachers: [], coordinators: [], campuses: [], subjects: [] };
 const periodPattern = /^\d{4}-[12]$/;
 
 export function DeanAssignmentsPage() {
@@ -50,6 +50,7 @@ export function DeanAssignmentsPage() {
   const [teacherId, setTeacherId] = useState('');
   const [coordinatorId, setCoordinatorId] = useState('');
   const [campusId, setCampusId] = useState('');
+  const [subjectId, setSubjectId] = useState('');
   const [period, setPeriod] = useState('2026-1');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -79,12 +80,13 @@ export function DeanAssignmentsPage() {
     const person = new Map<string, string>();
     [...options.students, ...options.teachers, ...options.coordinators].forEach((p) => person.set(p.id, p.label));
     const campus = new Map(options.campuses.map((c) => [c.id, c.name]));
-    return { person, campus };
+    const subject = new Map(options.subjects.map((s) => [s.id, `${s.code} - ${s.name}`]));
+    return { person, campus, subject };
   }, [options]);
 
   const resetForm = () => {
     setEditingId(null);
-    setStudentId(''); setTeacherId(''); setCoordinatorId(''); setCampusId('');
+    setStudentId(''); setTeacherId(''); setCoordinatorId(''); setCampusId(''); setSubjectId('');
     setPeriod('2026-1'); setStartDate(''); setEndDate(''); setRequiredHours('');
     setDays(defaultDays());
   };
@@ -97,6 +99,7 @@ export function DeanAssignmentsPage() {
     setTeacherId(a.teacher_id);
     setCoordinatorId(a.coordinator_id ?? '');
     setCampusId(a.campus_id ?? '');
+    setSubjectId(a.subject_id ?? '');
     setPeriod(a.period);
     setStartDate(a.start_date ?? '');
     setEndDate(a.end_date ?? '');
@@ -118,6 +121,7 @@ export function DeanAssignmentsPage() {
     e.preventDefault();
     if (!studentId || !teacherId) { toast.error('El alumno y el docente son obligatorios.'); return; }
     if (!campusId) { toast.error('La sede de practica es obligatoria.'); return; }
+    if (!subjectId) { toast.error('La materia de practica es obligatoria.'); return; }
     if (!period.trim()) { toast.error('El periodo es obligatorio.'); return; }
     if (!periodPattern.test(period.trim())) { toast.error('Usa el formato de periodo AAAA-CICLO, por ejemplo 2026-1.'); return; }
     if (startDate && endDate && endDate < startDate) { toast.error('La fecha de fin no puede ser anterior al inicio.'); return; }
@@ -136,6 +140,7 @@ export function DeanAssignmentsPage() {
       teacher_id: teacherId,
       coordinator_id: coordinatorId || null,
       campus_id: campusId,
+      subject_id: subjectId,
       period: period.trim(),
       start_date: startDate || null,
       end_date: endDate || null,
@@ -214,6 +219,7 @@ export function DeanAssignmentsPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 text-sm">
                 <div><span className="text-xs text-gray-400 uppercase tracking-wide">Sede</span><p className="text-gray-700 truncate">{a.campus_id ? (nameMaps.campus.get(a.campus_id) ?? '—') : '—'}</p></div>
+                <div><span className="text-xs text-gray-400 uppercase tracking-wide">Materia</span><p className="text-gray-700 truncate">{a.subject_id ? (nameMaps.subject.get(a.subject_id) ?? '—') : '—'}</p></div>
                 <div><span className="text-xs text-gray-400 uppercase tracking-wide">Docente</span><p className="text-gray-700 truncate">{nameMaps.person.get(a.teacher_id) ?? '—'}</p></div>
                 {a.coordinator_id && (
                   <div className="sm:col-span-2"><span className="text-xs text-gray-400 uppercase tracking-wide">Coordinador</span><p className="text-gray-700 truncate">{nameMaps.person.get(a.coordinator_id)}</p></div>
@@ -234,6 +240,7 @@ export function DeanAssignmentsPage() {
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Alumno</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Sede</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Materia</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Docente</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Coordinador</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Período</th>
@@ -243,14 +250,15 @@ export function DeanAssignmentsPage() {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {isLoading ? (
-              <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+              <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
             ) : assignments.length === 0 ? (
-              <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin asignaciones. Crea la primera con "Nueva asignación".</td></tr>
+              <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Sin asignaciones. Crea la primera con "Nueva asignación".</td></tr>
             ) : (
               assignments.map((a) => (
                 <tr key={a.id} className="hover:bg-brand-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{nameMaps.person.get(a.student_id) ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{a.campus_id ? (nameMaps.campus.get(a.campus_id) ?? '—') : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{a.subject_id ? (nameMaps.subject.get(a.subject_id) ?? '—') : '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{nameMaps.person.get(a.teacher_id) ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{a.coordinator_id ? (nameMaps.person.get(a.coordinator_id) ?? '—') : '—'}</td>
                   <td className="px-4 py-3"><Badge className="bg-brand-100 text-brand-700">{a.period}</Badge></td>
@@ -286,6 +294,17 @@ export function DeanAssignmentsPage() {
               </Field>
               <Field label="Sede de práctica" required>
                 <Combobox value={campusId} onChange={setCampusId} placeholder="Selecciona sede" options={options.campuses.map((c) => ({ value: c.id, label: c.name }))} />
+              </Field>
+              <Field label="Materia de práctica" required help="La asignación se bloquea si el alumno no cumple el nivel académico mínimo o los prerrequisitos de esta materia.">
+                <Combobox
+                  value={subjectId}
+                  onChange={setSubjectId}
+                  placeholder="Selecciona materia"
+                  options={options.subjects.map((s) => ({
+                    value: s.id,
+                    label: `${s.code} - ${s.name}${s.min_academic_level != null ? ` · Nivel ${s.min_academic_level}+` : ''}`,
+                  }))}
+                />
               </Field>
               <Field label="Docente supervisor" required>
                 <Combobox value={teacherId} onChange={setTeacherId} placeholder="Selecciona docente" options={options.teachers.map((t) => ({ value: t.id, label: t.label }))} />
