@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   fetchAllJustifications,
   type AllJustification,
@@ -88,18 +89,11 @@ export function IncidentsDashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
-            <div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Panel de Incidencias</h2>
-              <p className="text-sm text-brand-200 mt-0.5">Vista global de justificaciones abiertas y cerradas.</p>
-            </div>
-          </div>
-          <Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>
-        </div>
-      </div>
+      <PageHeader
+        title="Panel de incidencias"
+        description="Vista global de justificaciones abiertas y cerradas."
+        action={<Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>}
+      />
 
       <Card>
         <CardContent className="py-4">

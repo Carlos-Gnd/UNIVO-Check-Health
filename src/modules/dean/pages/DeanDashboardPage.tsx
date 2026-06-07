@@ -9,6 +9,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
 
 const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
@@ -272,15 +273,7 @@ export function DeanDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-gradient-to-r from-brand-700 to-brand-800 p-5 shadow-[0_4px_20px_rgba(26,45,107,0.2)] border border-brand-600/40">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">Dashboard</h2>
-            <p className="text-sm text-brand-200 mt-0.5">Vista general del cumplimiento de prácticas por sede y alumno.</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Dashboard" description="Vista general del cumplimiento de prácticas por sede y alumno." />
 
       {latestSharedDeviceAlert && (
         <Card className="border-red-200 bg-red-50">

@@ -9,6 +9,7 @@ import { getStudents } from '../services/students.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { Student } from '../types';
 import { AttendanceHistory } from './AttendanceHistory';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
@@ -52,10 +53,7 @@ export function Students() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Estudiantes</h2>
-        <p className="text-sm text-gray-600 mt-1">Gestión de estudiantes en prácticas del área de salud</p>
-      </div>
+      <PageHeader title="Estudiantes" description="Gestión de estudiantes en prácticas del área de salud." />
 
       <Card>
         <CardContent className="pt-5">

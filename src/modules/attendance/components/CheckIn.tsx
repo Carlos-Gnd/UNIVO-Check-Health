@@ -16,6 +16,7 @@ import {
   getStudentHoursProgress,
   checkLocationVsPractice,
 } from '@/shared/backend/checkHealthBackend';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { Student } from '@/modules/students/types';
 import { Practice } from '@/modules/practices/types';
 import { Attendance, GeoPoint, GeoPointSample, MotionSensorSample } from '../types';
@@ -636,12 +637,7 @@ const handleCheckOut = async (attendanceId: string) => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Registro de Asistencia</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Registra la entrada y salida de estudiantes en prácticas
-        </p>
-      </div>
+      <PageHeader title="Registro de asistencia" description="Registra la entrada y salida de estudiantes en prácticas." />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Formulario de check-in */}

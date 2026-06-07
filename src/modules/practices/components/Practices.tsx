@@ -4,6 +4,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { MapPin, User, Calendar, Clock } from 'lucide-react';
 import { getPractices } from '../services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { Practice } from '../types';
 import { format } from 'date-fns';
 
@@ -44,10 +45,7 @@ export function Practices() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Prácticas</h2>
-        <p className="text-sm text-gray-600 mt-1">Gestión de prácticas profesionales del área de salud</p>
-      </div>
+      <PageHeader title="Prácticas" description="Gestión de prácticas profesionales del área de salud." />
 
       {practices.length === 0 && (
         <Card>

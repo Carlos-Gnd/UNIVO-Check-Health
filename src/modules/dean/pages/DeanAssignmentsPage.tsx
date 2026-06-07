@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
+import { PageHeader } from '@/shared/components/PageHeader';
 import {
   deleteAssignment, fetchAllSchedules, fetchAssignmentOptions, fetchAssignments, saveAssignment,
   type Assignment, type AssignmentOptions, type ScheduleSlot,
@@ -172,21 +173,20 @@ export function DeanAssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Asignaciones</h1>
-          <p className="mt-1 text-sm text-gray-500">Asigna a cada alumno su sede, docente, coordinador y horario de práctica por día.</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={load} disabled={isLoading}>
+      <PageHeader
+        title="Asignaciones"
+        description="Asigna a cada alumno su sede, docente, coordinador y horario de práctica por día."
+        action={(
+        <>
+          <Button variant="outline" size="sm" onClick={load} disabled={isLoading} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />Actualizar
           </Button>
-          <Button className="bg-brand-700 hover:bg-brand-800 text-white" onClick={openCreate}>
+          <Button className="bg-white/10 border border-white/20 text-white hover:bg-white/20" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />Nueva asignación
           </Button>
-        </div>
-      </div>
+        </>
+        )}
+      />
 
       {/* Tarjetas — móvil y tablet (<lg) */}
       <div className="lg:hidden space-y-3">

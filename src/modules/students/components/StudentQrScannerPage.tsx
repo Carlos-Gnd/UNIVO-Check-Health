@@ -12,6 +12,7 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import { getDeviceFingerprint, getDeviceInfo } from '@/modules/attendance/services/attendance.service';
 import { analyzeFakeGpsPattern } from '@/shared/backend/checkHealthBackend';
 import type { MotionSensorSample, GeoPointSample } from '@/modules/attendance/types';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 type ScanState = 'idle' | 'scanning' | 'validating' | 'success' | 'error' | 'countdown';
 type Mode = 'camera' | 'manual';
@@ -342,10 +343,11 @@ export function StudentQrScannerPage() {
 
   return (
     <div className="space-y-4 max-w-lg mx-auto">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-semibold text-gray-900">Registrar entrada</h2>
-        <HelpTooltip side="right" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Debes estar dentro de la sede y dentro de tu horario para que el registro se acepte." />
-      </div>
+      <PageHeader
+        title="Registrar entrada"
+        description="Escanea el QR de tu sede o usa el código manual del encargado."
+        action={<HelpTooltip side="left" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Debes estar dentro de la sede y dentro de tu horario para que el registro se acepte." />}
+      />
 
       {/* Selector de modo */}
       {(state === 'idle' || cameraError) && (

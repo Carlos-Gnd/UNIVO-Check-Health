@@ -5,6 +5,7 @@ import { Building2, CalendarDays, Clock, Loader2, MapPin, Phone, UserCircle } fr
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']; // index = ISO weekday
 
@@ -110,7 +111,7 @@ export function StudentAssignmentPage() {
   if (!assignment) {
     return (
       <div className="max-w-lg mx-auto space-y-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Mi sede y encargado</h2>
+        <PageHeader title="Mi sede y encargado" description="Consulta tu sede asignada, horario y doctor encargado." />
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Building2 className="w-10 h-10 text-gray-300" />
@@ -129,7 +130,7 @@ export function StudentAssignmentPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900">Mi sede y encargado</h2>
+      <PageHeader title="Mi sede y encargado" description="Consulta tu sede asignada, horario y doctor encargado." />
 
       {/* Sede principal */}
       <Card>

@@ -378,7 +378,7 @@ export function MainLayout() {
       </header>
 
       <div className="max-w-[1800px] mx-auto flex w-full">
-        <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 border-r border-brand-800/60 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(26,45,107,0.14)] transition-[width] duration-200`}>
+        <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 border-r border-brand-900/70 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(10,17,40,0.22)] transition-[width] duration-200`}>
           <div className={`flex p-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
             <button
               onClick={toggleSidebar}
@@ -398,10 +398,10 @@ export function MainLayout() {
                   key={item.name}
                   to={item.href}
                   title={isSidebarCollapsed ? item.name : undefined}
-                  className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-md text-sm transition-colors ${
+                  className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-md text-sm transition-all duration-300 ease-out ${
                     active
-                      ? 'bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(26,45,107,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]'
-                      : 'text-brand-100/85 hover:bg-white/10 hover:text-white border-l-4 border-transparent pl-2'
+                      ? 'bg-gradient-to-r from-brand-900 via-[#071024] to-[#050c1c] text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                      : 'border-l-4 border-transparent text-brand-100/85 hover:bg-white/10 hover:text-white pl-2'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -415,17 +415,17 @@ export function MainLayout() {
               );
             })}
           </nav>
-          <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/30">
+          <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/55">
             {isSidebarCollapsed ? (
               <div className="flex justify-center w-full">
-                <Link to="/profile" title={displayName || currentUser.email} className="flex w-11 h-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 shadow-[0_2px_12px_rgba(26,45,107,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] hover:from-brand-500 transition-colors">
+                <Link to="/profile" title={displayName || currentUser.email} className="flex w-11 h-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024] shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
                     <UserCircle className="h-5 w-5" />
                   </div>
                 </Link>
               </div>
             ) : (
-              <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 p-3 shadow-[0_2px_12px_rgba(26,45,107,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:from-brand-500">
+              <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-800 via-brand-900 to-[#071024] p-3 shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
                   <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
@@ -447,7 +447,7 @@ export function MainLayout() {
         </aside>
 
         {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-700 via-brand-800 to-brand-700 overflow-y-auto">
+          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto">
             <nav className="p-3 space-y-1">
               {navigation.map((item) => {
                 const Icon = item.icon;
@@ -457,10 +457,10 @@ export function MainLayout() {
                     key={item.name}
                     to={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-300 ease-out ${
                       active
-                        ? 'bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(26,45,107,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]'
-                        : 'text-brand-100/85 hover:bg-white/10 hover:text-white border-l-4 border-transparent pl-2'
+                        ? 'bg-gradient-to-r from-brand-900 via-[#071024] to-[#050c1c] text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                        : 'border-l-4 border-transparent text-brand-100/85 hover:bg-white/10 hover:text-white pl-2'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -474,10 +474,10 @@ export function MainLayout() {
                 );
               })}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 p-3 shadow-[0_2px_12px_rgba(26,45,107,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:from-brand-500">
+                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-800 via-brand-900 to-[#071024] p-3 shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-brand-900 truncate">{displayName || currentUser.email}</p>
-                    <p className="text-xs text-gold-700 font-semibold mt-0.5">{currentRole}</p>
+                    <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
+                    <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
                   </div>
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
                     <UserCircle className="h-5 w-5" />

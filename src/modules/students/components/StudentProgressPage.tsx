@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getStudentHoursProgress } from '@/shared/backend/checkHealthBackend';
+import { PageHeader } from '@/shared/components/PageHeader';
 
 type StudentProfile = {
   name: string;
@@ -487,10 +488,7 @@ export function StudentProgressPage() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Progreso de horas</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Cumplimiento del período actual</p>
-      </div>
+      <PageHeader title="Progreso de horas" description="Cumplimiento del período actual." />
 
       <Card>
         <CardContent className="pt-6 pb-6 space-y-5">
