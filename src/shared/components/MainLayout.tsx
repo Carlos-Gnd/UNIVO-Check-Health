@@ -149,7 +149,7 @@ export function MainLayout() {
       const sid = sessionIdRef.current;
       if (!sid) return;
       const result = await checkSession(currentUser.id, sid);
-      if (!cancelled && result === 'superseded') {
+      if (!cancelled && result === 'revoked') {
         toast.error('Tu sesión se cerró porque iniciaste sesión en otro dispositivo.');
         await supabase.auth.signOut();
       }
