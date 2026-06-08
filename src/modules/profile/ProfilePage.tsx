@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { Bell, Building2, Camera, Image as ImageIcon, Info, KeyRound, Loader2, Mail, Phone, Save, ShieldQuestion, Stethoscope, UserCircle } from 'lucide-react';
+import { Bell, Building2, Camera, Image as ImageIcon, Info, KeyRound, Loader2, Mail, MonitorSmartphone, Phone, RefreshCw, Save, ShieldQuestion, Stethoscope, UserCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { Button } from '@/shared/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { isAcceptablePassword, passwordStrength } from '@/shared/utils/passwordStrength';
+import { getLocalSessionId } from '@/shared/utils/singleSession';
 import { PageHeader } from '@/shared/components/PageHeader';
 
 const STRENGTH_STYLE: Record<string, { bar: string; text: string; fill: number }> = {
@@ -38,6 +39,15 @@ interface UserProfile {
   notif_push: boolean;
   notif_email: boolean;
 }
+
+type ActiveSession = {
+  session_id: string;
+  device_label: string | null;
+  user_agent: string | null;
+  created_at: string;
+  last_seen_at: string;
+  is_current: boolean;
+};
 
 function normalizeRole(role: string | null | undefined): ProfileRole {
   const normalized = (role ?? '').toUpperCase().trim();
@@ -81,6 +91,54 @@ export function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isRevokingSession, setIsRevokingSession] = useState<string | null>(null);
+
+  const loadSessions = async () => {
+    setIsLoadingSessions(true);
+    const { data, error } = await supabase.rpc('list_my_active_sessions');
+    setIsLoadingSessions(false);
+    if (error) {
+      toast.error('No se pudieron cargar tus sesiones.');
+      return;
+    }
+    const currentSessionId = getLocalSessionId();
+    setSessions(((data ?? []) as ActiveSession[]).map((session) => ({
+      ...session,
+      is_current: session.session_id === currentSessionId || session.is_current,
+    })));
+  };
+
+  const revokeSession = async (sessionId: string) => {
+    setIsRevokingSession(sessionId);
+    const { error } = await supabase.rpc('revoke_my_session', { p_session_id: sessionId });
+    setIsRevokingSession(null);
+    if (error) {
+      toast.error('No se pudo cerrar la sesion.');
+      return;
+    }
+    toast.success('Sesion cerrada.');
+    if (sessionId === getLocalSessionId()) {
+      await supabase.auth.signOut();
+      return;
+    }
+    void loadSessions();
+  };
+
+  const revokeOtherSessions = async () => {
+    const currentSessionId = getLocalSessionId();
+    if (!currentSessionId) return;
+    setIsRevokingSession('__others__');
+    const { error } = await supabase.rpc('revoke_my_other_sessions', { p_current_session_id: currentSessionId });
+    setIsRevokingSession(null);
+    if (error) {
+      toast.error('No se pudieron cerrar las otras sesiones.');
+      return;
+    }
+    toast.success('Otras sesiones cerradas.');
+    void loadSessions();
+  };
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -119,6 +177,7 @@ export function ProfilePage() {
     };
 
     void loadProfile();
+    void loadSessions();
   }, []);
 
   // T-53.3: sube la foto al bucket avatars ({user_id}/avatar.<ext>, upsert) y
@@ -467,6 +526,66 @@ export function ProfilePage() {
         </div>
       </form>
 
+      <section className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-900">
+              <MonitorSmartphone className="h-4 w-4" />
+              Sesiones y dispositivos activos
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Revisa donde esta abierta tu cuenta y cierra accesos que no reconozcas.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadSessions()} disabled={isLoadingSessions}>
+              {isLoadingSessions ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Actualizar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void revokeOtherSessions()}
+              disabled={isRevokingSession === '__others__' || sessions.filter((session) => !session.is_current).length === 0}
+            >
+              {isRevokingSession === '__others__' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+              Cerrar otras
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {sessions.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">Sin sesiones activas para mostrar.</p>
+          ) : (
+            sessions.map((session) => (
+              <div key={session.session_id} className="flex flex-col gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900">{session.device_label ?? 'Navegador'}</p>
+                    {session.is_current && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Actual</span>
+                    )}
+                  </div>
+                  <p className="mt-1 truncate text-xs text-gray-500">{session.user_agent ?? 'Agente no disponible'}</p>
+                  <p className="mt-1 text-xs text-gray-400">Ultima actividad: {formatSessionDate(session.last_seen_at)}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void revokeSession(session.session_id)}
+                  disabled={isRevokingSession === session.session_id}
+                  className={session.is_current ? 'border-red-200 text-red-700 hover:bg-red-50' : ''}
+                >
+                  {isRevokingSession === session.session_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                  {session.is_current ? 'Cerrar esta sesion' : 'Cerrar'}
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
       {/* Cambio de contraseña (form aparte: requiere la contraseña actual). */}
       <form onSubmit={handleChangePassword} className="max-w-3xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-brand-900">
@@ -549,4 +668,11 @@ export function ProfilePage() {
       </form>
     </div>
   );
+}
+
+function formatSessionDate(value: string): string {
+  return new Intl.DateTimeFormat('es-SV', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
 }
