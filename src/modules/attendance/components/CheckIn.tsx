@@ -598,6 +598,7 @@ const handleCheckOut = async (attendanceId: string) => {
     attendanceId,
     location: userLocation,
     deviceId: getDeviceId(),
+    deviceFingerprint: getDeviceFingerprint(),
     deviceInfo: getDeviceInfo({
       location: userLocation,
       motionSamples: sensorSnapshot.motionSamples,

@@ -293,6 +293,7 @@ export const registerStudentCheckOut = async (params: {
   attendanceId: string;
   location: GeoPoint;
   deviceId?: string;
+  deviceFingerprint?: string;
   deviceInfo?: DeviceInfo;
 }): Promise<AttendanceResult> => {
   const { data: attendance, error: fetchError } = await supabase
@@ -307,6 +308,21 @@ export const registerStudentCheckOut = async (params: {
 
   if (attendance.check_out) {
     return { ok: false, message: 'La salida ya fue registrada para esta jornada.' };
+  }
+
+  if (attendance.device_fingerprint && params.deviceFingerprint && attendance.device_fingerprint !== params.deviceFingerprint) {
+    await supabase.from('audit_log').insert({
+      action: 'CHECKOUT_DEVICE_FINGERPRINT_MISMATCH',
+      actor_user_id: attendance.student_id,
+      target_user_id: attendance.student_id,
+      details: {
+        attendance_id: params.attendanceId,
+        campus_id: attendance.campus_id,
+        check_in_device_fingerprint: attendance.device_fingerprint,
+        check_out_device_fingerprint: params.deviceFingerprint,
+      },
+    });
+    return { ok: false, message: 'La salida debe registrarse desde el mismo dispositivo usado para la entrada.' };
   }
 
   const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
@@ -339,6 +355,7 @@ export const registerStudentCheckOut = async (params: {
       check_out_location: params.location,
       worked_hours: workedHours,
       device_id: params.deviceId ?? attendance.device_id,
+      check_out_device_fingerprint: params.deviceFingerprint ?? attendance.device_fingerprint,
       device_info: deviceInfo ?? attendance.device_info,
       review_status: fakeGpsReason ? 'OBSERVADO' : attendance.review_status,
       suspicious_reason: fakeGpsReason ?? attendance.suspicious_reason,
@@ -348,7 +365,7 @@ export const registerStudentCheckOut = async (params: {
     .single();
 
   if (updateError || !updatedAttendance) {
-    return { ok: false, message: 'Error al registrar la salida.' };
+    return { ok: false, message: updateError?.message ?? 'Error al registrar la salida.' };
   }
 
   return {
