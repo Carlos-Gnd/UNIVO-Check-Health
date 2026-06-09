@@ -3,11 +3,12 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { Loader2, Clock, Target, TrendingUp, Download, AlertCircle, FileCheck, Building2, User } from 'lucide-react';
+import { Loader2, Clock, Target, TrendingUp, Download, AlertCircle, FileCheck, Building2, User, BookOpen } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/shared/backend/supabaseClient';
-import { getStudentHoursProgress } from '@/shared/backend/checkHealthBackend';
+import { getStudentHoursProgress, getStudentSubjectProgress, type SubjectProgress } from '@/shared/backend/checkHealthBackend';
+import { fetchHolidayDates } from '@/shared/backend/holidays.service';
 import { PageHeader } from '@/shared/components/PageHeader';
 
 type StudentProfile = {
@@ -44,6 +45,7 @@ export function StudentProgressPage() {
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(0);
   const [required, setRequired] = useState(240);
+  const [subjectProgress, setSubjectProgress] = useState<SubjectProgress[]>([]);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [info, setInfo] = useState<StudentInfo | null>(null); // primer grupo (compat PDF)
   const [allGroups, setAllGroups] = useState<GroupInfo[]>([]);
@@ -61,8 +63,9 @@ export function StudentProgressPage() {
       const userId = sessionData.session?.user.id;
       if (!userId) { setLoading(false); return; }
 
-      const [progress, profileRes, groupRes, attendanceRes, allAttDateRes, justDataRes] = await Promise.all([
+      const [progress, subjectProg, profileRes, groupRes, attendanceRes, allAttDateRes, justDataRes] = await Promise.all([
         getStudentHoursProgress(userId),
+        getStudentSubjectProgress(userId),
         supabase.from('users').select('full_name, student_code, career').eq('id', userId).single(),
         supabase
           .from('teacher_groups')
@@ -88,6 +91,7 @@ export function StudentProgressPage() {
 
       setCompleted(progress.completedHours);
       setRequired(progress.requiredHours);
+      setSubjectProgress(subjectProg);
 
       const studentProfile: StudentProfile = {
         name: profileRes.data?.full_name ?? '—',
@@ -148,7 +152,9 @@ export function StudentProgressPage() {
       setJustificationDateMap(justMap);
       setJustificationCount(justDataRes.data?.length ?? 0);
 
-      // Computar ausencias: días de rotación pasados sin ningún check-in registrado
+      // Computar ausencias: días de rotación pasados sin ningún check-in registrado.
+      // R-03: los feriados / días no hábiles no cuentan como falta.
+      const holidaySet = await fetchHolidayDates();
       const absents: string[] = [];
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -165,7 +171,7 @@ export function StudentProgressPage() {
           const isoWeekday = dow === 0 ? 7 : dow;
           if (weekdays.includes(isoWeekday)) {
             const dateStr = cursor.toISOString().slice(0, 10);
-            if (!attendedSet.has(dateStr)) absents.push(dateStr);
+            if (!attendedSet.has(dateStr) && !holidaySet.has(dateStr)) absents.push(dateStr);
           }
           cursor.setDate(cursor.getDate() + 1);
         }
@@ -520,6 +526,35 @@ export function StudentProgressPage() {
         <StatCard icon={AlertCircle} label="Ausencias" value={String(absentCount)} color={absentCount > 0 ? 'text-red-500' : 'text-emerald-600'} />
         <StatCard icon={FileCheck} label="Justificaciones" value={String(justificationCount)} color={justificationCount > 0 ? 'text-amber-600' : 'text-slate-700'} />
       </div>
+
+      {/* Progreso por materia (S4-02.4) */}
+      {subjectProgress.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {subjectProgress.length === 1 ? 'Progreso por materia' : 'Progreso por materia'}
+          </p>
+          {subjectProgress.map((s) => {
+            const sPct = Math.min(100, Math.round((s.completedHours / s.requiredHours) * 100));
+            const sBar = sPct >= 85 ? 'bg-emerald-500' : sPct >= 60 ? 'bg-amber-500' : 'bg-red-500';
+            return (
+              <Card key={s.subjectId} className="border-slate-200">
+                <CardContent className="py-3 px-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 min-w-0 text-sm font-medium text-slate-800">
+                      <BookOpen className="w-4 h-4 shrink-0 text-brand-600" />
+                      <span className="truncate">{s.subjectCode ? `${s.subjectCode} · ` : ''}{s.subjectName}</span>
+                    </div>
+                    <span className="text-xs text-slate-500 shrink-0 tabular-nums">{s.completedHours} / {s.requiredHours} h</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-700 ${sBar}`} style={{ width: `${sPct}%` }} />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Sedes asignadas — una constancia por sede */}
       {allGroups.length > 0 && (

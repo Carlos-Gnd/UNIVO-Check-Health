@@ -428,6 +428,82 @@ export const getStudentHoursProgress = async (
   return { completedHours: Number(completed.toFixed(1)), requiredHours: REQUIRED_PRACTICE_HOURS };
 };
 
+// S4-02.4 — Progreso por materia. Las horas se atribuyen vía attendances.subject_id
+// (poblado por validate-qr-checkin / S4-02.3). Las horas requeridas siguen la
+// precedencia asignación → materia → 240 (misma que close_due_cycles).
+export type SubjectProgress = {
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string | null;
+  completedHours: number;
+  requiredHours: number;
+};
+
+export const getStudentSubjectProgress = async (
+  studentId: string,
+): Promise<SubjectProgress[]> => {
+  const [{ data: groups }, { data: attendances }] = await Promise.all([
+    supabase
+      .from('teacher_groups')
+      .select('subject_id, required_hours, subject:subjects(name, code, required_hours)')
+      .eq('student_id', studentId)
+      .not('subject_id', 'is', null),
+    supabase
+      .from('attendances')
+      .select('worked_hours, check_in, check_out, subject_id')
+      .eq('student_id', studentId)
+      .not('subject_id', 'is', null),
+  ]);
+
+  if (!groups || groups.length === 0) return [];
+
+  // Horas completadas por materia (worked_hours, o tiempo vivo si no hay check-out).
+  const completedBySubject = new Map<string, number>();
+  for (const row of (attendances ?? []) as Record<string, unknown>[]) {
+    const sid = row.subject_id as string | null;
+    if (!sid) continue;
+    let hours = 0;
+    if (row.worked_hours != null) hours = Number(row.worked_hours);
+    else if (!row.check_out) hours = (Date.now() - new Date(row.check_in as string).getTime()) / (1000 * 60 * 60);
+    completedBySubject.set(sid, (completedBySubject.get(sid) ?? 0) + hours);
+  }
+
+  // Horas requeridas por materia: el override de asignación tiene prioridad; si
+  // hay varias asignaciones de la misma materia, se queda con el menor override
+  // definido (la rotación más exigente ya cubierta) o las horas de la materia.
+  type GroupRow = {
+    subject_id: string;
+    required_hours: number | null;
+    subject: { name: string | null; code: string | null; required_hours: number | null } | null;
+  };
+  const bySubject = new Map<string, { name: string; code: string | null; required: number }>();
+  for (const g of (groups as unknown as GroupRow[])) {
+    const sid = g.subject_id;
+    const subjectRequired = g.subject?.required_hours ?? REQUIRED_PRACTICE_HOURS;
+    const required = g.required_hours ?? subjectRequired;
+    const existing = bySubject.get(sid);
+    if (!existing) {
+      bySubject.set(sid, {
+        name: g.subject?.name ?? 'Materia',
+        code: g.subject?.code ?? null,
+        required,
+      });
+    } else if (required > existing.required) {
+      existing.required = required;
+    }
+  }
+
+  return [...bySubject.entries()]
+    .map(([subjectId, v]) => ({
+      subjectId,
+      subjectName: v.name,
+      subjectCode: v.code,
+      completedHours: Number((completedBySubject.get(subjectId) ?? 0).toFixed(1)),
+      requiredHours: v.required,
+    }))
+    .sort((a, b) => a.subjectName.localeCompare(b.subjectName));
+};
+
 export const checkLocationVsPractice = async (
   practiceId: string,
   location: GeoPoint,

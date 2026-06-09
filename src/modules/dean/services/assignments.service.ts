@@ -122,7 +122,7 @@ export async function fetchAllSchedules(): Promise<Map<string, ScheduleSlot[]>> 
   return map;
 }
 
-export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolean; message?: string }> {
+export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolean; message?: string; gateBlocked?: boolean }> {
   const period = form.period.trim() || '2026-1';
 
   if (!form.campus_id) {
@@ -137,7 +137,8 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
     p_subject_id: form.subject_id,
   });
   if (gateError) return { ok: false, message: humanizeError(gateError.message) };
-  if (gateData?.[0] && !gateData[0].ok) return { ok: false, message: gateData[0].message };
+  // S4-03.4: el gate bloquea, pero el decano puede forzar con justificación.
+  if (gateData?.[0] && !gateData[0].ok) return { ok: false, message: gateData[0].message, gateBlocked: true };
 
   const payload = {
     student_id: form.student_id,
@@ -193,6 +194,82 @@ export async function saveAssignment(form: AssignmentForm): Promise<{ ok: boolea
     }));
     const { error: insError } = await supabase.from('student_schedules').insert(rows);
     if (insError) return { ok: false, message: insError.message };
+  }
+
+  return { ok: true };
+}
+
+// S4-03.4: el decano concede un override del gate para (alumno, materia) con
+// justificación obligatoria. Tras esto, saveAssignment vuelve a intentarse.
+export async function grantAssignmentOverride(
+  studentId: string,
+  subjectId: string,
+  reason: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase.rpc('grant_assignment_override', {
+    p_student_id: studentId,
+    p_subject_id: subjectId,
+    p_reason: reason,
+  });
+  if (error) return { ok: false, message: humanizeError(error.message) };
+  return { ok: true };
+}
+
+// R-04 — Traslado de alumno entre sedes conservando el historial. En vez de
+// reescribir la asignación, se cierra la actual (end_date) y se crea una nueva en
+// la sede destino, copiando docente/coordinador/materia/horario. La fila vieja y
+// sus asistencias quedan como historial.
+export async function transferAssignment(
+  assignmentId: string,
+  newCampusId: string,
+  newStartDate: string,
+): Promise<{ ok: boolean; message?: string }> {
+  if (!newCampusId) return { ok: false, message: 'Selecciona la sede destino.' };
+  if (!newStartDate) return { ok: false, message: 'Indica la fecha de inicio en la nueva sede.' };
+
+  const { data: current, error: fetchErr } = await supabase
+    .from('teacher_groups')
+    .select('student_id, teacher_id, coordinator_id, subject_id, period, required_hours')
+    .eq('id', assignmentId)
+    .single();
+  if (fetchErr || !current) return { ok: false, message: fetchErr?.message ?? 'Asignación no encontrada.' };
+
+  // IMPORTANTE: se crea la nueva asignación PRIMERO. Si los triggers (cupo de sede
+  // R-02 o gate de prerrequisitos) la rechazan, la asignación actual queda intacta
+  // y el alumno no se queda sin sede. Solo tras el insert exitoso se cierra la vieja.
+  const { data: created, error: insErr } = await supabase
+    .from('teacher_groups')
+    .insert({
+      student_id: current.student_id,
+      teacher_id: current.teacher_id,
+      coordinator_id: current.coordinator_id,
+      campus_id: newCampusId,
+      subject_id: current.subject_id,
+      period: current.period,
+      start_date: newStartDate,
+      required_hours: current.required_hours,
+    })
+    .select('id')
+    .single();
+  if (insErr || !created) return { ok: false, message: humanizeError(insErr?.message ?? 'No se pudo crear la nueva asignación.') };
+
+  // Cierra la asignación actual el día anterior al traslado (ya creada la nueva).
+  const prevDay = new Date(`${newStartDate}T00:00:00`);
+  prevDay.setDate(prevDay.getDate() - 1);
+  const endDate = prevDay.toISOString().slice(0, 10);
+  const { error: endErr } = await supabase.from('teacher_groups').update({ end_date: endDate }).eq('id', assignmentId);
+  if (endErr) return { ok: false, message: endErr.message };
+
+  // Copia el horario de la asignación anterior a la nueva.
+  const { data: slots } = await supabase
+    .from('student_schedules')
+    .select('weekday, check_in_from, check_in_to')
+    .eq('assignment_id', assignmentId)
+    .eq('is_active', true);
+  if (slots && slots.length > 0) {
+    await supabase.from('student_schedules').insert(
+      slots.map((s) => ({ assignment_id: (created as { id: string }).id, weekday: s.weekday, check_in_from: s.check_in_from, check_in_to: s.check_in_to })),
+    );
   }
 
   return { ok: true };

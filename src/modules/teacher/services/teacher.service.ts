@@ -13,6 +13,9 @@ export type TeacherStudent = {
   studentCode: string;
   career: string;
   campusId: string | null;
+  campusName: string;
+  subjectId: string | null;
+  subjectName: string;
 };
 
 // Devuelve los student_id asignados al docente autenticado en el período actual.
@@ -30,16 +33,17 @@ async function getGroupStudentIds(period = CURRENT_PERIOD): Promise<string[]> {
   return data.map((r) => r.student_id as string);
 }
 
-// Roster del grupo (nombre, carnet, carrera) — para listados y evaluaciones.
+// Roster del grupo (nombre, carnet, carrera, materia y sede) — para listados,
+// evaluaciones y la vista de grupos por materia/sede (S4-04.1).
 export async function fetchTeacherRoster(period = CURRENT_PERIOD): Promise<TeacherStudent[]> {
-  const ids = await getGroupStudentIds(period);
-  if (ids.length === 0) return [];
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
 
   const { data, error } = await supabase
     .from('teacher_groups')
-    .select('campus_id, student:users!teacher_groups_student_id_fkey(id, full_name, student_code, career)')
+    .select('campus_id, subject_id, campus:campuses(name), subject:subjects(name, code), student:users!teacher_groups_student_id_fkey(id, full_name, student_code, career)')
     .eq('period', period)
-    .in('student_id', ids);
+    .eq('teacher_id', auth.user.id);
 
   if (error || !data) return [];
 
@@ -49,6 +53,9 @@ export async function fetchTeacherRoster(period = CURRENT_PERIOD): Promise<Teach
     studentCode: row.student?.student_code ?? '',
     career: row.student?.career ?? '—',
     campusId: row.campus_id ?? null,
+    campusName: row.campus?.name ?? 'Sin sede',
+    subjectId: row.subject_id ?? null,
+    subjectName: row.subject ? `${row.subject.code ? `${row.subject.code} · ` : ''}${row.subject.name}` : 'Sin materia',
   })).filter((s) => s.studentId);
 }
 

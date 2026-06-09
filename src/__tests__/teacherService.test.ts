@@ -56,16 +56,13 @@ describe('fetchTeacherRoster', () => {
     expect(await fetchTeacherRoster()).toEqual([]);
   });
 
-  it('mapea el roster aplicando valores por defecto y descarta filas sin estudiante', async () => {
-    h.fromResults.push({
-      data: [{ student_id: 's1' }, { student_id: 's2' }, { student_id: 's3' }],
-      error: null,
-    });
+  it('mapea el roster con materia/sede y descarta filas sin estudiante', async () => {
+    // S4-04.1: una sola consulta a teacher_groups (filtrada por teacher_id).
     h.fromResults.push({
       data: [
-        { campus_id: 'c1', student: { id: 's1', full_name: 'Ana López', student_code: 'U1', career: 'Enfermería' } },
-        { campus_id: null, student: { id: 's2', full_name: null, student_code: null, career: null } },
-        { campus_id: 'c3', student: null }, // se descarta: sin studentId
+        { campus_id: 'c1', subject_id: 'sub1', campus: { name: 'Rosales' }, subject: { name: 'Práctica I', code: 'ENF101' }, student: { id: 's1', full_name: 'Ana López', student_code: 'U1', career: 'Enfermería' } },
+        { campus_id: null, subject_id: null, campus: null, subject: null, student: { id: 's2', full_name: null, student_code: null, career: null } },
+        { campus_id: 'c3', subject_id: null, campus: null, subject: null, student: null }, // se descarta: sin studentId
       ],
       error: null,
     });
@@ -74,10 +71,12 @@ describe('fetchTeacherRoster', () => {
 
     expect(roster).toHaveLength(2);
     expect(roster[0]).toEqual({
-      studentId: 's1', fullName: 'Ana López', studentCode: 'U1', career: 'Enfermería', campusId: 'c1',
+      studentId: 's1', fullName: 'Ana López', studentCode: 'U1', career: 'Enfermería',
+      campusId: 'c1', campusName: 'Rosales', subjectId: 'sub1', subjectName: 'ENF101 · Práctica I',
     });
     expect(roster[1]).toEqual({
-      studentId: 's2', fullName: 'Sin nombre', studentCode: '', career: '—', campusId: null,
+      studentId: 's2', fullName: 'Sin nombre', studentCode: '', career: '—',
+      campusId: null, campusName: 'Sin sede', subjectId: null, subjectName: 'Sin materia',
     });
   });
 

@@ -1,12 +1,14 @@
 openapi: 3.0.3
 info:
-  title: UNIVO Check-Health — Edge Functions (Carlos)
-  version: "1.0.0"
+  title: UNIVO Check-Health — Edge Functions
+  version: "1.1.0"
   description: >
-    Contrato OpenAPI de las Edge Functions implementadas por Carlos en el Sprint 3:
-    `send-credentials` (T-50.1) y `sign-report` (T-27.2). Ambas son funciones Deno
-    desplegadas en Supabase Edge Functions y requieren un JWT de usuario emitido por
-    Supabase Auth en la cabecera `Authorization: Bearer <access_token>`.
+    Contrato OpenAPI de las Edge Functions de UNIVO Check-Health. Todas son funciones
+    Deno desplegadas en Supabase Edge Functions y requieren un JWT de usuario emitido
+    por Supabase Auth en la cabecera `Authorization: Bearer <access_token>`, salvo que
+    se indique lo contrario. Actualizado en el Sprint 4: `sign-report` incorpora firma
+    X.509 real, y se documentan `admin-users`, `validate-qr-checkin`, `recovery-otp` y
+    `generate-campus-qr`.
   contact:
     name: Carlos Granados
 
@@ -23,6 +25,14 @@ tags:
     description: Envío de credenciales de cuentas nuevas.
   - name: reportes
     description: Firma digital de reportes consolidados del docente.
+  - name: usuarios
+    description: Gestión administrativa de usuarios (delegación a docentes).
+  - name: asistencia
+    description: Validación de check-in por QR con geofence y ventana horaria.
+  - name: recuperacion
+    description: Recuperación de acceso por OTP al correo.
+  - name: qr
+    description: Generación del QR estático por sede.
 
 components:
   securitySchemes:
@@ -118,9 +128,11 @@ paths:
       description: >
         T-27.2. Roles **ADMIN / COORDINATOR / TEACHER (DOCENTE)**. Recibe el hash
         SHA-256 del PDF (calculado en el cliente, T-27.1) y devuelve un sello
-        HMAC-SHA256 sobre `report_hash|user_id|signed_at`, registrándolo de forma
-        inmutable en `audit_log` (acción `REPORT_SIGNED`). La firma X.509 real queda
-        para Sprint 4. Requiere el secreto `QR_JWT_SECRET`.
+        HMAC-SHA256 sobre `report_hash|role|signer_id|signed_at` (doble firma docente +
+        sistema), registrándolo de forma inmutable en `audit_log` (acción `REPORT_SIGNED`).
+        T-35.1: si se configuran los secrets `REPORT_SIGNING_KEY` (clave RSA PKCS#8 PEM) y
+        `REPORT_SIGNING_CERT` (certificado X.509 PEM), AÑADE una firma digital X.509 real
+        (RSASSA-PKCS1-v1_5 + SHA-256) sobre el payload del sistema. Requiere `QR_JWT_SECRET`.
       operationId: signReport
       requestBody:
         required: true
@@ -142,15 +154,28 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok:        { type: boolean, enum: [true] }
-                  seal:      { type: string, description: Sello HMAC-SHA256 en hex (64 chars). }
-                  signed_at: { type: string, format: date-time }
-                  signed_by: { type: string, description: Nombre del firmante (o email). }
+                  ok:          { type: boolean, enum: [true] }
+                  seal:        { type: string, description: Sello HMAC-SHA256 del docente en hex (64 chars). }
+                  teacher_seal: { type: string }
+                  system_seal:  { type: string }
+                  signed_at:   { type: string, format: date-time }
+                  signed_by:   { type: string, description: Nombre del firmante (o email). }
+                  signature_algorithm: { type: string, description: "HMAC_SHA256 o X509_RSA_SHA256+HMAC_SHA256." }
+                  x509:
+                    type: object
+                    nullable: true
+                    description: Firma X.509 real (presente solo si hay certificado configurado).
+                    properties:
+                      algorithm:        { type: string, example: "RSASSA-PKCS1-v1_5-SHA256" }
+                      signature:        { type: string, description: Firma RSA en base64. }
+                      cert_fingerprint: { type: string, description: SHA-256 del certificado (hex). }
+                      certificate_pem:  { type: string, description: Certificado X.509 en PEM. }
               example:
                 ok: true
                 seal: "a3f1...64hex"
                 signed_at: "2026-06-04T15:30:00.000Z"
                 signed_by: "Dr. René Pacheco"
+                signature_algorithm: "X509_RSA_SHA256+HMAC_SHA256"
         '400':
           description: Falta `report_hash`.
           content:
@@ -170,3 +195,116 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
               example: { error: "Servidor mal configurado" }
+
+  /admin-users:
+    post:
+      tags: [usuarios]
+      summary: Crear, editar, eliminar o restablecer la contraseña de un usuario
+      description: >
+        B-01 / S4-04.2. Operaciones administrativas server-side. **ADMIN** gestiona
+        cualquier rol; **DOCENTE** solo STUDENT y COORDINATOR (nunca ADMIN ni DOCENTE).
+        El cuerpo lleva `action` (`create` | `update` | `delete` | `reset-password`).
+        Soporta `academic_level` (alumnos, S4-03.1) y `campus_id` (REPRESENTATIVE, HU-38).
+        Toda alta/edición/baja delegada queda en `audit_log`.
+      operationId: adminUsers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:        { type: string, enum: [create, update, delete, reset-password] }
+                email:         { type: string, format: email }
+                password:      { type: string }
+                student_code:  { type: string }
+                full_name:     { type: string }
+                role:          { type: string, enum: [STUDENT, DOCENTE, COORDINATOR, ADMIN, REPRESENTATIVE] }
+                career:        { type: string, nullable: true }
+                academic_level: { type: integer, nullable: true, minimum: 1, maximum: 10 }
+                campus_id:     { type: string, nullable: true, description: Sede que representa (rol REPRESENTATIVE). }
+                id:            { type: string, description: Requerido en update/delete. }
+            example: { action: create, email: "U20240001@univo.edu.sv", password: "Temp-9f3k2x", student_code: "U20240001", full_name: "Ana López", role: STUDENT, career: "Enfermería", academic_level: 3 }
+      responses:
+        '200':
+          description: Operación realizada. En reset-password devuelve la nueva contraseña temporal.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:       { type: boolean, enum: [true] }
+                  id:       { type: string, description: ID del usuario creado (en create). }
+                  password: { type: string, description: Contraseña temporal (en reset-password). }
+              example: { ok: true, id: "8f1c..." }
+        '400': { description: Datos faltantes o inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: El solicitante no puede gestionar ese rol.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { error: "No tienes permiso para crear usuarios con ese rol." } } }
+        '409': { description: Carné o correo duplicado, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /validate-qr-checkin:
+    post:
+      tags: [asistencia]
+      summary: Validar el check-in de un alumno por QR
+      description: >
+        Verifica la firma del QR estático de la sede, la precisión y geofence GPS, la
+        ventana horaria por alumno (`student_schedules`), el conflicto de dispositivo y
+        el GPS falso; captura la IP. S4-02.3: resuelve la asignación por contexto cuando
+        el alumno tiene varias materias/sedes (puede requerir elegir materia). Q-01:
+        rate-limit de 10/min por alumno. Inserta la fila en `attendances`.
+      operationId: validateQrCheckin
+      responses:
+        '200':
+          description: Check-in aceptado o respuesta de validación (incl. ambigüedad de materia).
+          content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Límite de intentos excedido (rate-limit), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /recovery-otp:
+    post:
+      tags: [recuperacion]
+      summary: Solicitar y validar OTP de recuperación de acceso
+      description: >
+        T-51.2. Flujo de recuperación por OTP enviado al correo (con respaldo). Q-01:
+        rate-limit de 10/10min por IP además del límite por correo. No requiere sesión.
+      operationId: recoveryOtp
+      security: []
+      responses:
+        '200': { description: OTP enviado o validado., content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+        '429': { description: Demasiadas solicitudes (rate-limit)., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /generate-campus-qr:
+    post:
+      tags: [qr]
+      summary: Generar el QR estático de una sede
+      description: >
+        Genera el JWT HS256 estático por sede (sin expiración) y lo guarda en
+        `campus_qr` para imprimirlo. Roles **ADMIN / COORDINATOR** y, desde S4-04.3,
+        **DOCENTE**. Requiere el secreto `QR_JWT_SECRET`.
+      operationId: generateCampusQr
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campus_id]
+              properties:
+                campus_id: { type: string, description: ID de la sede. }
+            example: { campus_id: "3b9a..." }
+      responses:
+        '200':
+          description: QR generado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:         { type: boolean, enum: [true] }
+                  token:      { type: string, description: JWT estático de la sede. }
+                  short_code: { type: string, description: Código corto para ingreso manual. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }

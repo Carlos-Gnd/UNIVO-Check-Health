@@ -1,8 +1,17 @@
-// T-27.2: firma digital del reporte consolidado del docente.
-// Recibe el hash SHA-256 del PDF (calculado en el cliente, T-27.1 de René),
-// genera un sello firmado (HMAC-SHA256 con secreto server-side) y lo registra
-// de forma inmutable en audit_log. Solo DOCENTE/ADMIN/COORDINATOR.
-// Nota: firma X.509 real queda para Sprint 4 (Tier 2 del roadmap).
+// T-27.2 / T-35.1: firma digital del reporte consolidado del docente.
+// Recibe el hash SHA-256 del PDF (calculado en el cliente, T-27.1 de René) y:
+//  - sella con HMAC-SHA256 (sello rápido, doble firma docente + sistema), y
+//  - si hay certificado configurado, AÑADE una firma digital X.509 real
+//    (RSA-SHA256) sobre el payload del sistema. Todo queda inmutable en audit_log.
+// Solo DOCENTE/ADMIN/COORDINATOR.
+//
+// Secrets para la firma X.509 (opcionales; sin ellos cae al sello HMAC):
+//   REPORT_SIGNING_KEY  — clave privada RSA en PEM (PKCS#8).
+//   REPORT_SIGNING_CERT — certificado X.509 en PEM (acompaña la firma).
+// Generación offline (autofirmado, suficiente para acreditación académica):
+//   openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 1825 \
+//     -subj "/C=SV/O=UNIVO/CN=UNIVO Check-Health"
+//   openssl pkcs8 -topk8 -nocrypt -in key.pem -out key.pk8.pem   # PKCS#8 para Web Crypto
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -11,6 +20,8 @@ import {
   SYSTEM_REPORT_SIGNER_NAME,
   buildReportSignaturePayload,
   hmacSeal,
+  signRsaSha256,
+  certFingerprint,
 } from '../_shared/reportSeal.ts';
 
 function json(body: unknown, status = 200): Response {
@@ -63,6 +74,31 @@ Deno.serve(async (req: Request) => {
   const systemSeal = await hmacSeal(systemPayload, secret);
   const signedBy = profile?.full_name ?? user.email;
 
+  // T-35.1 — Firma digital X.509 real (si hay certificado configurado).
+  const signingKey = Deno.env.get('REPORT_SIGNING_KEY');
+  const signingCert = Deno.env.get('REPORT_SIGNING_CERT');
+  let x509: {
+    algorithm: string;
+    signature: string;
+    cert_fingerprint: string;
+    certificate_pem: string;
+  } | null = null;
+  if (signingKey) {
+    try {
+      const signature = await signRsaSha256(systemPayload, signingKey);
+      x509 = {
+        algorithm: 'RSASSA-PKCS1-v1_5-SHA256',
+        signature,
+        cert_fingerprint: signingCert ? await certFingerprint(signingCert) : '',
+        certificate_pem: signingCert ?? '',
+      };
+    } catch (e) {
+      // Configuración inválida no debe tumbar el sellado HMAC; se reporta en logs.
+      console.error('Firma X.509 fallida:', e instanceof Error ? e.message : e);
+    }
+  }
+  const signatureAlgorithm = x509 ? 'X509_RSA_SHA256+HMAC_SHA256' : 'HMAC_SHA256';
+
   // Registro inmutable en audit_log (con service_role para garantizar el insert)
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -79,6 +115,12 @@ Deno.serve(async (req: Request) => {
       seal: teacherSeal,
       teacher_seal: teacherSeal,
       system_seal: systemSeal,
+      signature_algorithm: signatureAlgorithm,
+      x509: x509 ? {
+        algorithm: x509.algorithm,
+        signature: x509.signature,
+        cert_fingerprint: x509.cert_fingerprint,
+      } : null,
       signatures: {
         teacher: {
           role: 'teacher',
@@ -106,5 +148,12 @@ Deno.serve(async (req: Request) => {
     signed_at: signedAt,
     signed_by: signedBy,
     system_signed_by: SYSTEM_REPORT_SIGNER_NAME,
+    signature_algorithm: signatureAlgorithm,
+    x509: x509 ? {
+      algorithm: x509.algorithm,
+      signature: x509.signature,
+      cert_fingerprint: x509.cert_fingerprint,
+      certificate_pem: x509.certificate_pem,
+    } : null,
   });
 });

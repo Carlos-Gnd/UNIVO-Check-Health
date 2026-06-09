@@ -21,6 +21,7 @@ import {
   MapPin,
   UserPlus,
   CalendarDays,
+  CalendarOff,
   QrCode,
   History,
   Gauge,
@@ -45,7 +46,7 @@ import { LEGAL_VERSION } from '@/modules/legal/legalContent';
 import { PermissionsSetup, PERMISSIONS_KEY } from '@/modules/auth/PermissionsSetup';
 import type { User } from '@supabase/supabase-js';
 
-type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente';
+type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente' | 'Representante';
 type NavItem = { name: string; href: string; icon: React.ElementType; badge?: number };
 const APP_LOGO_SRC = '/images/isologo.png';
 
@@ -54,6 +55,7 @@ function mapAppRole(rawRole: string | null | undefined): AppRole {
   if (normalized === 'ADMIN' || normalized === 'ADMINISTRADOR') return 'Decano';
   if (normalized === 'STUDENT' || normalized === 'ESTUDIANTE' || normalized === 'ALUMNO') return 'Alumno';
   if (normalized === 'DOCENTE' || normalized === 'TEACHER') return 'Docente';
+  if (normalized === 'REPRESENTATIVE') return 'Representante';
   return 'Encargado';
 }
 
@@ -185,6 +187,7 @@ export function MainLayout() {
     if (currentRole === 'Alumno' && location.pathname === '/') navigate('/rotations', { replace: true });
     if (currentRole === 'Decano' && location.pathname === '/') navigate('/dean/dashboard', { replace: true });
     if (currentRole === 'Docente' && location.pathname === '/') navigate('/teacher/dashboard', { replace: true });
+    if (currentRole === 'Representante' && location.pathname === '/') navigate('/hospital/live', { replace: true });
   }, [currentUser, currentRole, isResolvingRole, location.pathname, navigate]);
 
   const navigation: NavItem[] = currentRole === 'Decano'
@@ -194,6 +197,7 @@ export function MainLayout() {
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
         { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
+        { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
         { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
         { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle, badge: pendingCount },
         { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
@@ -218,12 +222,18 @@ export function MainLayout() {
           { name: 'Sedes', href: '/dean/locations', icon: MapPin },
           { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
         ]
+    : currentRole === 'Representante'
+      ? [
+          { name: 'Estudiantes en mi sede', href: '/hospital/live', icon: Hospital },
+          { name: 'Reportes de Conducta', href: '/hospital/incidents', icon: AlertTriangle },
+        ]
       : [
           { name: 'Dashboard', href: '/', icon: LayoutDashboard },
           { name: 'Calendario', href: '/rotations', icon: CalendarDays },
           { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
           { name: 'Estudiantes', href: '/students', icon: Users },
           { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
+          { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
           { name: 'Prácticas', href: '/practices', icon: Stethoscope },
           { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
           { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle },

@@ -20,7 +20,7 @@ const EMPTY_FORM: CampusFormData = {
   name: '', latitude: '', longitude: '', radius_meters: '100',
   location_label: '', supervisor_name: '', supervisor_phone: '',
   schedule: '', start_date: '', end_date: '', description: '',
-  check_in_from: '', check_in_to: '',
+  check_in_from: '', check_in_to: '', max_students: '',
 };
 
 type QrModal = {
@@ -80,6 +80,7 @@ export function DeanLocationsPage() {
       description: l.description ?? '',
       check_in_from: (l as any).checkInFrom ?? '',
       check_in_to: (l as any).checkInTo ?? '',
+      max_students: l.maxStudents != null ? String(l.maxStudents) : '',
     });
     setShowForm(true);
   };
@@ -375,6 +376,13 @@ export function DeanLocationsPage() {
                 <HelpTooltip text="Distancia máxima desde el punto de la sede en la que se acepta el check-in del alumno. Un radio menor (30–50 m) es más estricto contra ubicaciones falsas." />
               </Label>
               <Input value={form.radius_meters} onChange={set('radius_meters')} placeholder="100" type="number" min="50" max="1000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1">
+                <Stethoscope className="h-3.5 w-3.5" />Cupo máximo de estudiantes
+                <HelpTooltip text="Número máximo de alumnos que la sede puede recibir por período. Al asignar se bloquea si se supera. Déjalo vacío para no limitar." />
+              </Label>
+              <Input value={form.max_students} onChange={set('max_students')} placeholder="Sin límite" type="number" min="1" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wide text-brand-700"><MapPinned className="h-3.5 w-3.5" />Dirección / Etiqueta</Label>

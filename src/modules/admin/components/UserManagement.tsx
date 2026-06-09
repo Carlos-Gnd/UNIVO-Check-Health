@@ -53,11 +53,15 @@ async function invokeAdmin<T = Record<string, unknown>>(
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
 const CAREERS = ['Enfermería', 'Medicina', 'Fisioterapia', 'Radiología', 'Laboratorio Clínico', 'Nutrición'];
+// Escala académica híbrida (año o ciclo). Un smallint 1..10 que el gate de
+// asignación compara contra subjects.min_academic_level (S4-03.3).
+const ACADEMIC_LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
 const ROLES = [
-  { value: 'STUDENT',      label: 'Estudiante' },
-  { value: 'DOCENTE',      label: 'Docente' },
-  { value: 'COORDINATOR',  label: 'Coordinador' },
-  { value: 'ADMIN',        label: 'Administrador / Decano' },
+  { value: 'STUDENT',        label: 'Estudiante' },
+  { value: 'DOCENTE',        label: 'Docente' },
+  { value: 'COORDINATOR',    label: 'Coordinador' },
+  { value: 'REPRESENTATIVE', label: 'Representante hospitalario' },
+  { value: 'ADMIN',          label: 'Administrador / Decano' },
 ];
 
 // Contraseña temporal fuerte (12 chars, 4 clases) con crypto. Reemplaza el clásico "admin123".
@@ -89,8 +93,12 @@ interface UserRow {
   email: string;
   role: string;
   career: string | null;
+  academic_level: number | null;
+  campus_id: string | null;
   is_active: boolean;
 }
+
+type CampusOption = { id: string; name: string };
 
 // Muestra email + contraseña tras crear el usuario (o restablecer su contraseña)
 type CreatedCredentials = { email: string; password: string; reset?: boolean } | null;
@@ -99,6 +107,9 @@ export function UserManagement() {
   const [fullName, setFullName]           = useState('');
   const [studentCode, setStudentCode]     = useState('');
   const [career, setCareer]               = useState(CAREERS[0]);
+  const [academicLevel, setAcademicLevel] = useState<number>(1);
+  const [campusId, setCampusId]           = useState('');
+  const [campuses, setCampuses]           = useState<CampusOption[]>([]);
   const [role, setRole]                   = useState('STUDENT');
   const [requesterRole, setRequesterRole] = useState('');
   const [password, setPassword]           = useState('');
@@ -112,6 +123,8 @@ export function UserManagement() {
   const [editName, setEditName]           = useState('');
   const [editRole, setEditRole]           = useState('STUDENT');
   const [editCareer, setEditCareer]       = useState(CAREERS[0]);
+  const [editAcademicLevel, setEditAcademicLevel] = useState<number>(1);
+  const [editCampusId, setEditCampusId]   = useState('');
   const [isSavingEdit, setIsSavingEdit]   = useState(false);
 
   const [deleteTarget, setDeleteTarget]   = useState<UserRow | null>(null);
@@ -124,7 +137,7 @@ export function UserManagement() {
 
   const resetCreateForm = () => {
     setFullName(''); setStudentCode(''); setCareer(CAREERS[0]);
-    setRole('STUDENT'); setPassword('');
+    setAcademicLevel(1); setCampusId(''); setRole('STUDENT'); setPassword('');
   };
 
   const openCreate = () => {
@@ -137,14 +150,19 @@ export function UserManagement() {
     setIsLoadingUsers(true);
     const { data, error } = await supabase
       .from('users')
-      .select('id, student_code, full_name, email, role, career, is_active')
+      .select('id, student_code, full_name, email, role, career, academic_level, campus_id, is_active')
       .order('created_at', { ascending: false });
     setIsLoadingUsers(false);
     if (error) { toast.error('Error al cargar usuarios'); return; }
     setUsers((data as UserRow[]) ?? []);
   };
 
-  useEffect(() => { void loadUsers(); }, []);
+  const loadCampuses = async () => {
+    const { data } = await supabase.from('campuses').select('id, name').eq('is_active', true).order('name');
+    setCampuses((data as CampusOption[]) ?? []);
+  };
+
+  useEffect(() => { void loadUsers(); void loadCampuses(); }, []);
 
   // Rol del solicitante → define qué roles puede gestionar. El docente solo
   // alumnos y encargados; el ADMIN, cualquiera. Espeja la autorización de admin-users.
@@ -175,6 +193,7 @@ export function UserManagement() {
       return;
     }
     if (fullName.trim().length < 3) { toast.error('Ingresa el nombre completo (mínimo 3 caracteres).'); return; }
+    if (role === 'REPRESENTATIVE' && !campusId) { toast.error('Selecciona la sede que representa.'); return; }
     if (password.length < 8) { toast.error('La contraseña debe tener al menos 8 caracteres'); return; }
 
     setIsSubmitting(true);
@@ -185,6 +204,8 @@ export function UserManagement() {
       full_name: fullName.trim(),
       role,
       career: role === 'STUDENT' ? career : null,
+      academic_level: role === 'STUDENT' ? academicLevel : null,
+      campus_id: role === 'REPRESENTATIVE' ? campusId : null,
     });
     setIsSubmitting(false);
 
@@ -210,17 +231,22 @@ export function UserManagement() {
     setEditName(user.full_name ?? '');
     setEditRole(user.role);
     setEditCareer(user.career ?? CAREERS[0]);
+    setEditAcademicLevel(user.academic_level ?? 1);
+    setEditCampusId(user.campus_id ?? '');
   };
 
   const handleEdit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingUser) return;
+    if (editRole === 'REPRESENTATIVE' && !editCampusId) { toast.error('Selecciona la sede que representa.'); return; }
     setIsSavingEdit(true);
     const result = await invokeAdmin('update', {
       id: editingUser.id,
       full_name: editName.trim(),
       role: editRole,
       career: editRole === 'STUDENT' ? editCareer : null,
+      academic_level: editRole === 'STUDENT' ? editAcademicLevel : null,
+      campus_id: editRole === 'REPRESENTATIVE' ? editCampusId : null,
     });
     setIsSavingEdit(false);
     if (!result.ok) { toast.error(result.message ?? 'Error al actualizar'); return; }
@@ -291,6 +317,7 @@ export function UserManagement() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Carné</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Correo</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Carrera</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nivel</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Rol</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase">Activo</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -298,9 +325,9 @@ export function UserManagement() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
               ) : visibleUsers.length === 0 ? (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
               ) : (
                 visibleUsers.map((u) => (
                   <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
@@ -308,6 +335,7 @@ export function UserManagement() {
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
                     <td className="px-4 py-3 text-gray-600">{u.career ?? '—'}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">{u.academic_level ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadge(u.role)}`}>
                         {roleLabel(u.role)}
@@ -326,13 +354,14 @@ export function UserManagement() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
+                        <Button size="sm" variant="outline" aria-label={`Editar ${u.full_name ?? u.email}`} onClick={() => openEdit(u)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           title="Generar link de restablecimiento de contraseña"
+                          aria-label={`Restablecer contraseña de ${u.full_name ?? u.email}`}
                           disabled={resetingId === u.id}
                           onClick={() => void handleResetPassword(u)}
                         >
@@ -342,6 +371,7 @@ export function UserManagement() {
                           size="sm"
                           variant="outline"
                           className="text-red-700 border-red-200 hover:bg-red-50"
+                          aria-label={`Eliminar ${u.full_name ?? u.email}`}
                           onClick={() => setDeleteTarget(u)}
                           disabled={deletingUserId === u.id}
                         >
@@ -397,6 +427,27 @@ export function UserManagement() {
                 <Label htmlFor="create-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
                 <select id="create-career" value={career} onChange={(e) => setCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                   {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
+            {role === 'STUDENT' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="create-level" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />Nivel académico
+                  <HelpTooltip text="Año o ciclo académico del alumno (1 a 10). Las materias con nivel mínimo se bloquean si el alumno no lo alcanza." />
+                </Label>
+                <select id="create-level" value={academicLevel} onChange={(e) => setAcademicLevel(Number(e.target.value))} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
+                  {ACADEMIC_LEVELS.map((n) => <option key={n} value={n}>Nivel {n}</option>)}
+                </select>
+              </div>
+            )}
+            {role === 'REPRESENTATIVE' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="create-campus" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><IdCard className="h-3.5 w-3.5" />Sede que representa
+                  <HelpTooltip text="El representante hospitalario solo verá y reportará a los estudiantes activos de esta sede." />
+                </Label>
+                <select id="create-campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
+                  <option value="">Selecciona una sede…</option>
+                  {campuses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             )}
@@ -483,6 +534,23 @@ export function UserManagement() {
                 <Label htmlFor="edit-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
                 <select id="edit-career" value={editCareer} onChange={(e) => setEditCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
                   {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
+            {editRole === 'STUDENT' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-level" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Nivel académico</Label>
+                <select id="edit-level" value={editAcademicLevel} onChange={(e) => setEditAcademicLevel(Number(e.target.value))} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
+                  {ACADEMIC_LEVELS.map((n) => <option key={n} value={n}>Nivel {n}</option>)}
+                </select>
+              </div>
+            )}
+            {editRole === 'REPRESENTATIVE' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-campus" className="text-xs uppercase tracking-wide text-brand-700"><IdCard className="h-3.5 w-3.5" />Sede que representa</Label>
+                <select id="edit-campus" value={editCampusId} onChange={(e) => setEditCampusId(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
+                  <option value="">Selecciona una sede…</option>
+                  {campuses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             )}
