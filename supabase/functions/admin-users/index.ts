@@ -21,9 +21,19 @@ type Body = {
   full_name?: string;
   role?: string;
   career?: string | null;
+  academic_level?: number | null;
+  campus_id?: string | null;
   // update / delete / reset
   id?: string;
 };
+
+// Nivel académico (escala híbrida año/ciclo): smallint 1..10 o null. Solo aplica a STUDENT.
+function normalizeAcademicLevel(value: unknown, role: string): number | null {
+  if (role !== 'STUDENT') return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 10) return null;
+  return n;
+}
 
 // Contraseña temporal fuerte (sin caracteres ambiguos). Se usa al restablecer.
 function generateTempPassword(): string {
@@ -95,7 +105,7 @@ Deno.serve(async (req: Request) => {
   // Roles que el solicitante puede gestionar. El docente solo alumnos y encargados;
   // nunca ADMIN ni otro DOCENTE (ni para crear, editar, borrar o resetear).
   const manageableRoles = isAdmin
-    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN']
+    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN', 'REPRESENTATIVE']
     : ['STUDENT', 'COORDINATOR'];
   const canManageRole = (r: string | null | undefined): boolean =>
     manageableRoles.includes((r ?? '').toUpperCase());
@@ -120,7 +130,7 @@ Deno.serve(async (req: Request) => {
       const role = (body.role ?? 'STUDENT').toUpperCase();
 
       // Validaciones server-side (defensa en profundidad; el front también valida).
-      const ALLOWED_ROLES = ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN'];
+      const ALLOWED_ROLES = ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN', 'REPRESENTATIVE'];
       if (!ALLOWED_ROLES.includes(role)) {
         return json({ error: 'Rol no válido.' }, 400);
       }
@@ -168,6 +178,8 @@ Deno.serve(async (req: Request) => {
         email,
         role,
         career:       role === 'STUDENT' ? (body.career ?? null) : null,
+        academic_level: normalizeAcademicLevel(body.academic_level, role),
+        campus_id:    role === 'REPRESENTATIVE' ? (body.campus_id ?? null) : null,
         // La contraseña generada es de un solo uso: se obliga a cambiarla al
         // primer ingreso (gate en MainLayout vía complete_password_change).
         must_change_password: true,
@@ -214,6 +226,8 @@ Deno.serve(async (req: Request) => {
         full_name: body.full_name ?? '',
         role:      newRole,
         career:    newRole === 'STUDENT' ? (body.career ?? null) : null,
+        academic_level: normalizeAcademicLevel(body.academic_level, newRole),
+        campus_id: newRole === 'REPRESENTATIVE' ? (body.campus_id ?? null) : null,
       }).eq('id', body.id);
       if (error) return json({ error: error.message }, 400);
       await logDelegatedUserAction(admin, {

@@ -3,7 +3,7 @@ import { Navigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/shared/backend/supabaseClient';
 
-type UserRole = 'ADMIN' | 'STUDENT' | 'COORDINATOR' | 'COORDINADOR' | 'TEACHER' | 'DOCENTE';
+type UserRole = 'ADMIN' | 'STUDENT' | 'COORDINATOR' | 'COORDINADOR' | 'TEACHER' | 'DOCENTE' | 'REPRESENTATIVE';
 
 const ROLE_HOME: Record<UserRole, string> = {
   ADMIN: '/dean/dashboard',
@@ -12,6 +12,7 @@ const ROLE_HOME: Record<UserRole, string> = {
   COORDINADOR: '/',
   TEACHER: '/teacher/dashboard',
   DOCENTE: '/teacher/dashboard',
+  REPRESENTATIVE: '/hospital/live',
 };
 
 export function RoleGuard({

@@ -12,6 +12,7 @@ import { DeanLocationsPage } from '@/modules/dean/pages/DeanLocationsPage';
 import { DeanJustificationsPage } from '@/modules/dean/pages/DeanJustificationsPage';
 import { DeanAssignmentsPage } from '@/modules/dean/pages/DeanAssignmentsPage';
 import { IncidentsDashboardPage } from '@/modules/dean/pages/IncidentsDashboardPage';
+import { HolidaysPage } from '@/modules/dean/pages/HolidaysPage';
 import { UserManagement } from '@/modules/admin/components/UserManagement';
 import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
@@ -24,6 +25,8 @@ import { StudentAssignmentPage } from '@/modules/students/components/StudentAssi
 import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecisionHistoryPage';
 import { TeacherDashboardPage } from '@/modules/teacher/pages/TeacherDashboardPage';
 import { TeacherEvaluationsPage } from '@/modules/teacher/pages/TeacherEvaluationsPage';
+import { HospitalLivePage } from '@/modules/hospital/pages/HospitalLivePage';
+import { HospitalIncidentsPage } from '@/modules/hospital/pages/HospitalIncidentsPage';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
 import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
 import { ProfilePage } from '@/modules/profile/ProfilePage';
@@ -67,6 +70,12 @@ const UsersRoute = () => (
 const AssignmentsRoute = () => (
   <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR']}>
     <DeanAssignmentsPage />
+  </RoleGuard>
+);
+
+const HolidaysRoute = () => (
+  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR']}>
+    <HolidaysPage />
   </RoleGuard>
 );
 
@@ -119,6 +128,19 @@ const TeacherHistoryRoute = () => (
   </RoleGuard>
 );
 
+// Rutas del Representante Hospitalario (HU-38 / HU-40).
+const HospitalLiveRoute = () => (
+  <RoleGuard allow={['REPRESENTATIVE']}>
+    <HospitalLivePage />
+  </RoleGuard>
+);
+
+const HospitalIncidentsRoute = () => (
+  <RoleGuard allow={['REPRESENTATIVE']}>
+    <HospitalIncidentsPage />
+  </RoleGuard>
+);
+
 export const router = createBrowserRouter([
   { path: '/auth/recovery', Component: RecoveryPage },
   { path: '/legal/privacy', Component: PrivacyPolicyPage },
@@ -146,10 +168,13 @@ export const router = createBrowserRouter([
       { path: 'dean/locations', Component: DeanLocationsRoute },
       { path: 'dean/justifications', Component: DeanJustificationsRoute },
       { path: 'dean/assignments', Component: AssignmentsRoute },
+      { path: 'dean/holidays', Component: HolidaysRoute },
       { path: 'dean/incidents', Component: IncidentsDashboardRoute },
       { path: 'teacher/dashboard', Component: TeacherDashboardRoute },
       { path: 'teacher/evaluations', Component: TeacherEvaluationsRoute },
       { path: 'teacher/history', Component: TeacherHistoryRoute },
+      { path: 'hospital/live', Component: HospitalLiveRoute },
+      { path: 'hospital/incidents', Component: HospitalIncidentsRoute },
       { path: '*', Component: NotFound },
     ],
   },

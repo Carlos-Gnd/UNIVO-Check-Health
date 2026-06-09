@@ -195,6 +195,21 @@ const TEMPLATES: Record<string, {
       <p><strong>Comentario del revisor:</strong> ${p.reviewer_notes || 'Sin comentario adicional.'}</p>
       <p>Ingresa al sistema para revisar el detalle de tus justificaciones.</p>`,
   },
+  CONDUCT_REPORT: {
+    title:        'Reporte de conducta',
+    pushBody:     (p) => `${p.representative_name ?? 'El representante'} reportó la conducta de ${p.student_name ?? 'un estudiante'} (${p.student_code ?? ''}).`,
+    emailSubject: (p) => `Reporte de conducta — ${p.student_name ?? 'Estudiante'} · ${p.campus_name ?? ''}`,
+    emailHtml:    (p) => `
+      <h2>Reporte de conducta inadecuada</h2>
+      <p><strong>${p.representative_name ?? 'El representante de la sede'}</strong> reportó la conducta de
+         <strong>${p.student_name ?? 'un estudiante'}</strong> (${p.student_code ?? ''}).</p>
+      <ul>
+        <li><strong>Sede:</strong> ${p.campus_name ?? '—'}</li>
+        <li><strong>Fecha:</strong> ${p.attendance_date ?? '—'}</li>
+        <li><strong>Motivo:</strong> ${p.motivo ?? '—'}</li>
+      </ul>
+      <p>Ingresa al panel para revisar el caso del estudiante.</p>`,
+  },
   JUSTIFICATION_ESCALATED: {
     title:        'Justificacion escalada',
     pushBody:     (p) => p.recipient_role === 'teacher'

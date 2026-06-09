@@ -38,6 +38,7 @@ type CampusRow = {
   start_date: string | null;
   end_date: string | null;
   description: string | null;
+  max_students: number | null;
   is_active: boolean;
 };
 
@@ -132,7 +133,7 @@ export async function fetchDeanStudents(): Promise<DeanStudent[]> {
 export async function fetchDeanLocations(): Promise<Location[]> {
   const { data, error } = await supabase
     .from('campuses')
-    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active')
+    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active, max_students')
     .order('name');
 
   if (error || !data) return [];
@@ -154,6 +155,7 @@ export async function fetchDeanLocations(): Promise<Location[]> {
     averageCompliance: 0,
     status: (c.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
     students: [],
+    maxStudents: c.max_students ?? null,
   }));
 }
 
@@ -248,6 +250,7 @@ export type CampusFormData = {
   description: string;
   check_in_from: string;
   check_in_to: string;
+  max_students: string; // R-02: cupo máximo (vacío = sin límite)
 };
 
 export async function createCampus(form: CampusFormData): Promise<{ ok: boolean; message?: string }> {
@@ -266,6 +269,7 @@ export async function createCampus(form: CampusFormData): Promise<{ ok: boolean;
     description: form.description.trim() || null,
     check_in_from: form.check_in_from || null,
     check_in_to: form.check_in_to || null,
+    max_students: form.max_students.trim() ? Number(form.max_students) : null,
   });
   if (error) return { ok: false, message: error.message };
   return { ok: true };
@@ -289,6 +293,7 @@ export async function updateCampus(id: string, form: CampusFormData): Promise<{ 
       description: form.description.trim() || null,
       check_in_from: form.check_in_from || null,
       check_in_to: form.check_in_to || null,
+      max_students: form.max_students.trim() ? Number(form.max_students) : null,
     })
     .eq('id', id);
   if (error) return { ok: false, message: error.message };

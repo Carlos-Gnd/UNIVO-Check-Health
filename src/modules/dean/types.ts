@@ -43,6 +43,7 @@ export interface Location {
   averageCompliance: number;
   status: LocationStatus;
   students: DeanStudent[];
+  maxStudents: number | null; // R-02: cupo máximo (null = sin límite)
 }
 
 export interface DeanGlobalStats {

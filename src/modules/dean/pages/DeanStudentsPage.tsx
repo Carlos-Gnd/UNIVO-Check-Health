@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { toast } from 'sonner';
+import { fetchCycleRecords, exportCycleCsv, exportCycleJson } from '@/modules/dean/services/cycleExport.service';
 
 const PAGE_SIZE = 10;
 
@@ -19,6 +21,20 @@ export function DeanStudentsPage() {
   const [sortBy, setSortBy] = useState<keyof DeanStudent>('fullName');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
+
+  const handleCycleExport = async (fmt: 'csv' | 'json') => {
+    setExporting(true);
+    try {
+      const records = await fetchCycleRecords(filters.period);
+      if (records.length === 0) { toast.error('No hay datos del ciclo para exportar.'); return; }
+      if (fmt === 'csv') exportCycleCsv(records, filters.period);
+      else exportCycleJson(records, filters.period);
+      toast.success(`Ciclo exportado (${records.length} registros).`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     void loadData();
@@ -104,9 +120,15 @@ export function DeanStudentsPage() {
             <SelectItem value="2025-2">2025-2</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex gap-2">
-          <Button variant="outline" className="w-full" onClick={() => exportCSV(filtered)}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => exportCSV(filtered)}>
             <Download className="mr-2 h-4 w-4" />CSV
+          </Button>
+          <Button variant="outline" className="flex-1" disabled={exporting} onClick={() => void handleCycleExport('csv')} title="Exportar todas las asistencias del ciclo (sistemas externos)">
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Ciclo CSV
+          </Button>
+          <Button variant="outline" className="flex-1" disabled={exporting} onClick={() => void handleCycleExport('json')} title="Exportar todas las asistencias del ciclo en JSON (sistemas externos)">
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Ciclo JSON
           </Button>
         </div>
       </div>

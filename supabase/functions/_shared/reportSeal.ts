@@ -38,3 +38,43 @@ export async function hmacSeal(payload: string, secret: string): Promise<string>
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T-35.1 — Firma digital X.509 real (RSA-SHA256) sobre el payload del reporte.
+// Solo Web Crypto: importa la clave privada PKCS#8 (PEM) y firma; el certificado
+// X.509 acompaña la firma para que un verificador valide con la clave pública.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Convierte un bloque PEM (con o sin cabeceras) a los bytes DER. Sin anotación de
+// retorno para que TS infiera Uint8Array<ArrayBuffer> (no SharedArrayBuffer).
+export function pemToBytes(pem: string) {
+  const b64 = pem
+    .replace(/-----BEGIN [^-]+-----/g, '')
+    .replace(/-----END [^-]+-----/g, '')
+    .replace(/\s+/g, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// Variante que devuelve ArrayBuffer (compatibilidad). Web Crypto acepta ambos.
+export function pemToArrayBuffer(pem: string): ArrayBuffer {
+  return pemToBytes(pem).buffer;
+}
+
+// Firma el payload con la clave privada RSA (PKCS#8 PEM) → firma base64.
+export async function signRsaSha256(payload: string, privateKeyPem: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'pkcs8', pemToBytes(privateKeyPem),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(payload));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+// Huella SHA-256 del certificado X.509 (DER) en hex — identifica el certificado.
+export async function certFingerprint(certPem: string): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', pemToBytes(certPem));
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}

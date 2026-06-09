@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { CalendarRange, ClipboardList, Loader2, Pencil, Plus, RefreshCw, Trash2, UserCog } from 'lucide-react';
+import { ArrowRightLeft, CalendarRange, ClipboardList, Loader2, Pencil, Plus, RefreshCw, Trash2, UserCog } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -7,16 +7,18 @@ import { Switch } from '@/shared/components/ui/switch';
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Combobox } from '@/shared/components/ui/combobox';
+import { Textarea } from '@/shared/components/ui/textarea';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { ShieldAlert } from 'lucide-react';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { PageHeader } from '@/shared/components/PageHeader';
 import {
-  deleteAssignment, fetchAllSchedules, fetchAssignmentOptions, fetchAssignments, saveAssignment,
-  type Assignment, type AssignmentOptions, type ScheduleSlot,
+  deleteAssignment, fetchAllSchedules, fetchAssignmentOptions, fetchAssignments, grantAssignmentOverride, saveAssignment, transferAssignment,
+  type Assignment, type AssignmentForm, type AssignmentOptions, type ScheduleSlot,
 } from '@/modules/dean/services/assignments.service';
 
 // ISO: 1=lunes … 7=domingo (coincide con student_schedules.weekday y EXTRACT(ISODOW)).
@@ -60,6 +62,17 @@ export function DeanAssignmentsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Assignment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // S4-03.4 — override del decano: el gate bloqueó; se pide justificación y se reintenta.
+  const [overridePrompt, setOverridePrompt] = useState<{ form: AssignmentForm; message: string } | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [isOverriding, setIsOverriding] = useState(false);
+
+  // R-04 — traslado de alumno a otra sede.
+  const [transferTarget, setTransferTarget] = useState<Assignment | null>(null);
+  const [transferCampus, setTransferCampus] = useState('');
+  const [transferDate, setTransferDate] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
 
   const load = async () => {
     setIsLoading(true);
@@ -133,8 +146,7 @@ export function DeanAssignmentsPage() {
     const badDay = enabled.find((d) => d.to <= d.from);
     if (badDay) { toast.error(`En ${DAYS.find((x) => x.weekday === badDay.weekday)?.label} la hora de salida debe ser posterior a la de entrada.`); return; }
 
-    setIsSaving(true);
-    const result = await saveAssignment({
+    const formData: AssignmentForm = {
       id: editingId ?? undefined,
       student_id: studentId,
       teacher_id: teacherId,
@@ -146,13 +158,67 @@ export function DeanAssignmentsPage() {
       end_date: endDate || null,
       required_hours: hoursTrim ? Number(hoursTrim) : null,
       schedules: enabled.map((d) => ({ weekday: d.weekday, check_in_from: d.from, check_in_to: d.to })),
-    });
+    };
+
+    setIsSaving(true);
+    const result = await saveAssignment(formData);
     setIsSaving(false);
 
-    if (!result.ok) { toast.error(result.message ?? 'No se pudo guardar la asignación.'); return; }
+    if (!result.ok) {
+      // El gate de nivel/prerrequisitos bloqueó: el decano puede forzar con justificación.
+      if (result.gateBlocked) {
+        setOverrideReason('');
+        setOverridePrompt({ form: formData, message: result.message ?? 'El alumno no cumple los requisitos de la materia.' });
+        return;
+      }
+      toast.error(result.message ?? 'No se pudo guardar la asignación.');
+      return;
+    }
     toast.success(editingId ? 'Asignación actualizada' : 'Asignación creada');
     setOpen(false);
     resetForm();
+    void load();
+  };
+
+  const handleOverrideConfirm = async () => {
+    if (!overridePrompt) return;
+    const reason = overrideReason.trim();
+    if (reason.length < 10) { toast.error('Escribe una justificación de al menos 10 caracteres.'); return; }
+    const { form } = overridePrompt;
+    if (!form.subject_id) return;
+
+    setIsOverriding(true);
+    const granted = await grantAssignmentOverride(form.student_id, form.subject_id, reason);
+    if (!granted.ok) {
+      setIsOverriding(false);
+      toast.error(granted.message ?? 'No se pudo registrar el override.');
+      return;
+    }
+    const result = await saveAssignment(form);
+    setIsOverriding(false);
+    if (!result.ok) { toast.error(result.message ?? 'No se pudo guardar la asignación tras el override.'); return; }
+    toast.success('Asignación forzada y registrada en auditoría');
+    setOverridePrompt(null);
+    setOverrideReason('');
+    setOpen(false);
+    resetForm();
+    void load();
+  };
+
+  const openTransfer = (a: Assignment) => {
+    setTransferTarget(a);
+    setTransferCampus('');
+    setTransferDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const handleTransfer = async () => {
+    if (!transferTarget) return;
+    setIsTransferring(true);
+    const res = await transferAssignment(transferTarget.id, transferCampus, transferDate);
+    setIsTransferring(false);
+    if (!res.ok) { toast.error(res.message ?? 'No se pudo trasladar.'); return; }
+    toast.success('Alumno trasladado; el historial de la sede anterior se conserva.');
+    setTransferTarget(null);
     void load();
   };
 
@@ -210,8 +276,9 @@ export function DeanAssignmentsPage() {
                   <Badge className="mt-1 bg-brand-100 text-brand-700">{a.period}</Badge>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-50"
+                  <Button size="sm" variant="outline" title="Editar" aria-label="Editar asignación" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="outline" title="Trasladar a otra sede" aria-label="Trasladar a otra sede" onClick={() => openTransfer(a)}><ArrowRightLeft className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="outline" title="Eliminar" aria-label="Eliminar asignación" className="text-red-700 border-red-200 hover:bg-red-50"
                     onClick={() => setDeleteTarget(a)} disabled={deletingId === a.id}>
                     {deletingId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </Button>
@@ -265,8 +332,9 @@ export function DeanAssignmentsPage() {
                   <td className="px-4 py-3 text-gray-500 text-xs">{scheduleSummary(a.id)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-50"
+                      <Button size="sm" variant="outline" title="Editar" aria-label="Editar asignación" onClick={() => openEdit(a)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="outline" title="Trasladar a otra sede" aria-label="Trasladar a otra sede" onClick={() => openTransfer(a)}><ArrowRightLeft className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="outline" title="Eliminar" aria-label="Eliminar asignación" className="text-red-700 border-red-200 hover:bg-red-50"
                         onClick={() => setDeleteTarget(a)} disabled={deletingId === a.id}>
                         {deletingId === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                       </Button>
@@ -365,6 +433,74 @@ export function DeanAssignmentsPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Override del decano ante gate bloqueado (S4-03.4) */}
+      <Dialog open={Boolean(overridePrompt)} onOpenChange={(o) => { if (!o && !isOverriding) { setOverridePrompt(null); setOverrideReason(''); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <ShieldAlert className="h-5 w-5" />Forzar asignación
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              {overridePrompt?.message}
+            </div>
+            <p className="text-sm text-gray-600">
+              Como decano puedes asignar esta materia pese al bloqueo. La acción queda registrada en auditoría con tu justificación.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-brand-700">Justificación <span className="text-red-500">*</span></Label>
+              <Textarea
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Motivo del override (mínimo 10 caracteres)…"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setOverridePrompt(null); setOverrideReason(''); }} disabled={isOverriding}>Cancelar</Button>
+              <Button onClick={() => void handleOverrideConfirm()} disabled={isOverriding} className="bg-amber-600 hover:bg-amber-700 text-white">
+                {isOverriding ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Forzando…</> : <><ShieldAlert className="w-4 h-4 mr-2" />Forzar y registrar</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Traslado de sede (R-04) */}
+      <Dialog open={Boolean(transferTarget)} onOpenChange={(o) => { if (!o && !isTransferring) setTransferTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ArrowRightLeft className="h-5 w-5 text-brand-700" />Trasladar de sede</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Traslada a <strong>{transferTarget ? (nameMaps.person.get(transferTarget.student_id) ?? 'el alumno') : ''}</strong> a otra sede.
+              La asignación actual se cierra y se conserva su historial; el horario se copia a la nueva sede.
+            </p>
+            <Field label="Sede destino" required>
+              <Combobox
+                value={transferCampus}
+                onChange={setTransferCampus}
+                placeholder="Selecciona sede destino"
+                options={options.campuses
+                  .filter((c) => c.id !== transferTarget?.campus_id)
+                  .map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </Field>
+            <Field label="Inicio en la nueva sede" required>
+              <Input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setTransferTarget(null)} disabled={isTransferring}>Cancelar</Button>
+              <Button onClick={() => void handleTransfer()} disabled={isTransferring} className="bg-brand-800 hover:bg-brand-900 text-white">
+                {isTransferring ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Trasladando…</> : <><ArrowRightLeft className="w-4 h-4 mr-2" />Trasladar</>}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -26,6 +26,7 @@ type SubjectChoice = {
 };
 
 const SENSOR_LIMIT = 30;
+const CAMERA_STORAGE_KEY = 'checkhealth-camera-id';
 
 function peekQrPayload(token: string): { campus_id?: string; date?: string; exp?: number } | null {
   try {
@@ -77,10 +78,20 @@ export function StudentQrScannerPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
 
-  const [mode, setMode] = useState<Mode>('camera');
+  // S4-01.2: contexto seguro. Sin HTTPS (p. ej. abriendo por IP local) los
+  // navegadores no exponen getUserMedia → la cámara "no abre" sin explicación.
+  const isSecure = typeof window === 'undefined' ? true : window.isSecureContext;
+
+  const [mode, setMode] = useState<Mode>(isSecure ? 'camera' : 'manual');
   const [state, setState] = useState<ScanState>('idle');
   const [message, setMessage] = useState('');
   const [cameraError, setCameraError] = useState('');
+
+  // S4-01.4: selector de cámara (frontal/trasera) con recuerdo de la última usada.
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>(
+    () => (typeof localStorage !== 'undefined' ? localStorage.getItem(CAMERA_STORAGE_KEY) ?? '' : ''),
+  );
 
   // Modo manual
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -108,6 +119,19 @@ export function StudentQrScannerPage() {
     supabase.from('campuses').select('id, name').eq('is_active', true).order('name')
       .then(({ data }) => { if (data) setCampuses(data as Campus[]); });
   }, []);
+
+  // S4-01.4: enumerar cámaras disponibles (solo en contexto seguro). Si la última
+  // usada ya no existe, se cae a la primera (trasera en móviles por orden del SO).
+  useEffect(() => {
+    if (!isSecure || mode !== 'camera') return;
+    Html5Qrcode.getCameras()
+      .then((devices) => {
+        const list = devices.map((d) => ({ id: d.id, label: d.label || 'Cámara' }));
+        setCameras(list);
+        setSelectedCamera((prev) => (prev && list.some((c) => c.id === prev) ? prev : (list[0]?.id ?? '')));
+      })
+      .catch(() => { /* sin permiso aún o sin cámaras; el inicio del escáner lo reporta */ });
+  }, [isSecure, mode]);
 
   // Listener de acelerómetro (best-effort). En iOS 13+ el permiso debe pedirse
   // desde un gesto del usuario (ver ensureMotionPermission); aquí solo se engancha
@@ -167,6 +191,13 @@ export function StudentQrScannerPage() {
     return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
   }, [state]);
 
+  // Recuerda la última cámara elegida (S4-01.4).
+  useEffect(() => {
+    if (selectedCamera && typeof localStorage !== 'undefined') {
+      localStorage.setItem(CAMERA_STORAGE_KEY, selectedCamera);
+    }
+  }, [selectedCamera]);
+
   // Liberar la cámara al desmontar el componente
   useEffect(() => () => { teardownScanner(scannerRef.current); scannerRef.current = null; }, []);
 
@@ -179,9 +210,13 @@ export function StudentQrScannerPage() {
     if (!document.getElementById(scannerDivId)) return;
     const scanner = new Html5Qrcode(scannerDivId, { verbose: false });
     scannerRef.current = scanner;
+    // Cámara elegida por el usuario (S4-01.4); si no hay, trasera por defecto.
+    const cameraSource: string | { facingMode: string } = selectedCamera
+      ? selectedCamera
+      : { facingMode: 'environment' };
     scanner
       .start(
-        { facingMode: 'environment' },
+        cameraSource,
         { fps: 10, qrbox: { width: 260, height: 260 } },
         (decodedText) => void handleScan(decodedText, scanner),
         undefined,
@@ -388,6 +423,14 @@ export function StudentQrScannerPage() {
         action={<HelpTooltip side="left" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Debes estar dentro de la sede y dentro de tu horario para que el registro se acepte." />}
       />
 
+      {/* S4-01.2: aviso de contexto inseguro (sin HTTPS la cámara no abre) */}
+      {!isSecure && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Abriste la app por una conexión no segura (HTTP o IP local), por eso la cámara no puede abrir.
+          Entra por el enlace <strong>https</strong> oficial o usa el <strong>código manual</strong> del encargado.
+        </p>
+      )}
+
       {/* Selector de modo */}
       {(state === 'idle' || cameraError) && (
         <div className="flex rounded-lg border overflow-hidden">
@@ -420,6 +463,17 @@ export function StudentQrScannerPage() {
               {cameraError
                 ? <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{cameraError}</p>
                 : <p className="text-sm text-gray-600">Solicita el QR al encargado de tu sede y escanéalo.</p>}
+              {!cameraError && cameras.length > 1 && (
+                <div className="max-w-xs mx-auto text-left space-y-1.5">
+                  <Label className="text-xs text-gray-500">Cámara</Label>
+                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona cámara" /></SelectTrigger>
+                    <SelectContent>
+                      {cameras.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {!cameraError && (
                 <Button onClick={startScanner} className="bg-brand-700 hover:bg-brand-800 text-white">
                   <QrCode className="w-4 h-4 mr-2" />Iniciar escáner
