@@ -133,27 +133,65 @@ export function RotationsCalendarPage() {
   const selectedDayEntries = selectedDay ? dayEntries(selectedDay, visibleWindows) : [];
   const today = new Date();
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: 'landscape' });
-    const dateStr = format(new Date(), 'dd/MM/yyyy');
+  const exportPdf = async () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 14;
 
-    doc.setFontSize(14);
+    // Logo institucional (B13: el PDF de rotaciones ahora luce como el de horas).
+    let logoDataUrl: string | null = null;
+    try {
+      const res = await fetch('/images/isologo.png');
+      const blob = await res.blob();
+      logoDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* continúa sin logo */ }
+
+    // ── Encabezado con marca ──────────────────────────────────────────────
+    doc.setFillColor(27, 58, 107);
+    doc.rect(0, 0, W, 30, 'F');
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(margin, 5, 20, 20, 3, 3, 'F');
+      doc.addImage(logoDataUrl, 'PNG', margin + 2, 7, 16, 16);
+    }
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('UNIVO Check-Health — Calendario de Rotaciones', 14, 16);
-    doc.setFontSize(9);
+    doc.setFontSize(15);
+    doc.text('UNIVO Check-Health', margin + 26, 13);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generado: ${dateStr}  |  Rotaciones: ${visibleWindows.length}`, 14, 23);
+    doc.setFontSize(10);
+    doc.setTextColor(245, 166, 35);
+    doc.text('Calendario de Rotaciones', margin + 26, 20);
+    doc.setFontSize(8);
+    doc.setTextColor(226, 232, 240);
+    doc.text(`Generado: ${format(new Date(), "d 'de' MMMM yyyy", { locale: es })}  ·  ${visibleWindows.length} rotaciones`, margin + 26, 26);
 
     autoTable(doc, {
-      startY: 28,
+      startY: 36,
       head: [['Alumno', 'Carrera', 'Sede', 'Supervisor', 'Horario', 'Inicio', 'Fin']],
       body: visibleWindows.map((w) => [
         w.studentName, w.career, w.campusName, w.supervisorName,
         w.schedule, w.startDate, w.endDate,
       ]),
-      headStyles: { fillColor: [30, 58, 107], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [245, 245, 250] },
+      headStyles: { fillColor: [27, 58, 107], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
+      bodyStyles: { fontSize: 8, cellPadding: 2 },
+      alternateRowStyles: { fillColor: [240, 246, 255] },
+      margin: { left: margin, right: margin },
+      didDrawPage: () => {
+        doc.setDrawColor(215, 225, 240);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 12, W - margin, pageH - 12);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text('UNIVO Check-Health  •  Sistema de Control de Asistencias Clínicas', W / 2, pageH - 7, { align: 'center' });
+      },
     });
 
     doc.save(`rotaciones_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
@@ -161,16 +199,22 @@ export function RotationsCalendarPage() {
 
   const exportXlsx = async () => {
     const { utils, writeFile } = await import('xlsx');
-    const data = visibleWindows.map((w) => ({
-      Alumno: w.studentName,
-      Carrera: w.career,
-      Sede: w.campusName,
-      Supervisor: w.supervisorName,
-      Horario: w.schedule,
-      'Fecha inicio': w.startDate,
-      'Fecha fin': w.endDate,
-    }));
-    const ws = utils.json_to_sheet(data);
+    const headers = ['Alumno', 'Carrera', 'Sede', 'Supervisor', 'Horario', 'Fecha inicio', 'Fecha fin'];
+    const rows = visibleWindows.map((w) => [
+      w.studentName, w.career, w.campusName, w.supervisorName, w.schedule, w.startDate, w.endDate,
+    ]);
+    // Título + metadatos arriba y luego la tabla (B13: el Excel ya no sale "plano").
+    const aoa = [
+      ['UNIVO Check-Health — Calendario de Rotaciones'],
+      [`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, `Rotaciones: ${visibleWindows.length}`],
+      [],
+      headers,
+      ...rows,
+    ];
+    const ws = utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 24 }, { wch: 22 }, { wch: 20 }, { wch: 13 }, { wch: 13 }];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
+    ws['!autofilter'] = { ref: utils.encode_range({ s: { r: 3, c: 0 }, e: { r: 3 + rows.length, c: 6 } }) };
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, 'Rotaciones');
     writeFile(wb, `rotaciones_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);

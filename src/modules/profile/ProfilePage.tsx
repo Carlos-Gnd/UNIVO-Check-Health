@@ -1,7 +1,9 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { Bell, Building2, Camera, Image as ImageIcon, Info, KeyRound, Loader2, Mail, MonitorSmartphone, Phone, RefreshCw, Save, ShieldQuestion, Stethoscope, UserCircle, XCircle } from 'lucide-react';
+import { Bell, Building2, Camera, GraduationCap, Image as ImageIcon, Info, KeyRound, Loader2, Mail, MonitorSmartphone, Phone, RefreshCw, Save, ShieldQuestion, Stethoscope, UserCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { getStudentHoursProgress } from '@/shared/backend/checkHealthBackend';
+import { fetchCareers } from '@/modules/dean/services/catalog.service';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -38,6 +40,8 @@ interface UserProfile {
   photo_url: string | null;
   notif_push: boolean;
   notif_email: boolean;
+  career: string | null;
+  academic_level: number | null;
 }
 
 type ActiveSession = {
@@ -85,6 +89,9 @@ export function ProfilePage() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  // B18: información académica del alumno (carrera, ciclo, progreso de horas).
+  const [totalCycles, setTotalCycles] = useState<number | null>(null);
+  const [hours, setHours] = useState<{ completedHours: number; requiredHours: number } | null>(null);
   // Cambio de contraseña (requiere la contraseña actual).
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -152,7 +159,7 @@ export function ProfilePage() {
 
       const { data, error } = await supabase
         .from('users')
-        .select('role, full_name, email, phone, backup_email, security_question, photo_url, notif_push, notif_email')
+        .select('role, full_name, email, phone, backup_email, security_question, photo_url, notif_push, notif_email, career, academic_level')
         .eq('id', authData.user.id)
         .single();
 
@@ -174,6 +181,16 @@ export function ProfilePage() {
       setAvatarUrl(loadedProfile.photo_url ?? null);
       setNotifPush(loadedProfile.notif_push);
       setNotifEmail(loadedProfile.notif_email);
+
+      // B18: para estudiantes, carga ciclos de la carrera y progreso de horas.
+      if (loadedProfile.role === 'STUDENT') {
+        void getStudentHoursProgress(authData.user.id).then(setHours).catch(() => undefined);
+        if (loadedProfile.career) {
+          void fetchCareers().then((list) => {
+            setTotalCycles(list.find((c) => c.name === loadedProfile.career)?.totalCycles ?? null);
+          }).catch(() => undefined);
+        }
+      }
     };
 
     void loadProfile();
@@ -499,6 +516,47 @@ export function ProfilePage() {
             </p>
           </div>
         </div>
+
+        {profile.role === 'STUDENT' && (
+          <div className="mt-5 rounded-lg border border-brand-100 bg-white p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-900">
+              <GraduationCap className="h-4 w-4" />
+              Información académica
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-md border bg-brand-50/50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Carrera</p>
+                <p className="text-sm font-medium text-brand-900">{profile.career ?? 'No definida'}</p>
+              </div>
+              <div className="rounded-md border bg-brand-50/50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Ciclo actual</p>
+                <p className="text-sm font-medium text-brand-900">
+                  {profile.academic_level != null ? `Ciclo ${profile.academic_level}${totalCycles ? ` de ${totalCycles}` : ''}` : 'No definido'}
+                </p>
+              </div>
+              <div className="rounded-md border bg-brand-50/50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Progreso de carrera</p>
+                <p className="text-sm font-medium text-brand-900">
+                  {profile.academic_level != null && totalCycles ? `${Math.round((profile.academic_level / totalCycles) * 100)}%` : '—'}
+                </p>
+              </div>
+            </div>
+            {hours && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>Horas de práctica acumuladas</span>
+                  <span className="font-medium text-brand-800">{hours.completedHours} / {hours.requiredHours} h</span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${(hours.completedHours / hours.requiredHours) >= 0.85 ? 'bg-green-500' : (hours.completedHours / hours.requiredHours) >= 0.6 ? 'bg-amber-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.min(100, Math.round((hours.completedHours / Math.max(1, hours.requiredHours)) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {profile.role === 'STUDENT' && (
           <div className="mt-5 rounded-lg border border-brand-100 bg-brand-50/60 p-4">

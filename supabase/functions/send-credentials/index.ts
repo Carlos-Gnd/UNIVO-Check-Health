@@ -14,6 +14,7 @@ function json(body: unknown, status = 200): Response {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  try {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return json({ error: 'No autorizado' }, 401);
 
@@ -33,24 +34,42 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'No tienes permiso para enviar credenciales.' }, 403);
   }
 
-  const { email, password, full_name } = await req.json().catch(() => ({})) as
-    { email?: string; password?: string; full_name?: string };
+  const { email, password, full_name, reset } = await req.json().catch(() => ({})) as
+    { email?: string; password?: string; full_name?: string; reset?: boolean };
   if (!email || !password) return json({ error: 'email y password requeridos' }, 400);
 
-  const html = wrapHtml(`
-    <h2>Bienvenido/a a UNIVO Check-Health</h2>
-    <p>Hola ${full_name ?? ''}, se ha creado tu cuenta institucional. Estas son tus credenciales de acceso:</p>
-    <div class="cred">
-      <p>Usuario (carné o correo): <code>${email}</code></p>
-      <p>Contraseña temporal (un solo uso): <code>${password}</code></p>
-    </div>
-    <p><strong>Por seguridad, esta contraseña es de un solo uso.</strong> Al ingresar por primera vez,
-    el sistema te pedirá crear una contraseña nueva antes de continuar.</p>`);
+  const html = reset
+    ? wrapHtml(`
+      <h2>Tu contraseña fue restablecida</h2>
+      <p>Hola ${full_name ?? ''}, un administrador restableció tu contraseña de acceso. Usa esta contraseña temporal para ingresar:</p>
+      <div class="cred">
+        <p>Usuario (carné o correo): <code>${email}</code></p>
+        <p>Contraseña temporal (un solo uso): <code>${password}</code></p>
+      </div>
+      <p><strong>Por seguridad, esta contraseña es de un solo uso.</strong> Al ingresar, el sistema
+      te pedirá crear una contraseña nueva. Si no solicitaste este cambio, contacta a tu coordinación.</p>`)
+    : wrapHtml(`
+      <h2>Bienvenido/a a UNIVO Check-Health</h2>
+      <p>Hola ${full_name ?? ''}, se ha creado tu cuenta institucional. Estas son tus credenciales de acceso:</p>
+      <div class="cred">
+        <p>Usuario (carné o correo): <code>${email}</code></p>
+        <p>Contraseña temporal (un solo uso): <code>${password}</code></p>
+      </div>
+      <p><strong>Por seguridad, esta contraseña es de un solo uso.</strong> Al ingresar por primera vez,
+      el sistema te pedirá crear una contraseña nueva antes de continuar.</p>`);
 
-  const result = await sendMail({ to: email, subject: 'Tus credenciales de acceso — UNIVO Check-Health', html });
+  const subject = reset
+    ? 'Tu contraseña fue restablecida — UNIVO Check-Health'
+    : 'Tus credenciales de acceso — UNIVO Check-Health';
+  const result = await sendMail({ to: email, subject, html });
   if (!result.ok) {
     const status = result.error === 'missing_gmail_credentials' ? 500 : 502;
     return json({ error: 'No se pudo enviar el correo', detail: result.error }, status);
   }
   return json({ ok: true });
+  } catch (e) {
+    // Garantiza CORS y un motivo legible ante cualquier excepción inesperada
+    // (antes el runtime devolvía un 500 sin CORS = "CORS Missing Allow Origin").
+    return json({ error: 'Error interno en send-credentials', detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
 });

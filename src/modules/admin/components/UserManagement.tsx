@@ -21,6 +21,7 @@ import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
+import { fetchCareers, type Career } from '@/modules/dean/services/catalog.service';
 
 // B-01: las operaciones privilegiadas viven en la Edge Function admin-users.
 // El cliente nunca maneja la service_role key.
@@ -52,10 +53,9 @@ async function invokeAdmin<T = Record<string, unknown>>(
 }
 
 const UNIVO_DOMAIN = '@univo.edu.sv';
+// Fallback si aún no carga la tabla de carreras (B6). Los ciclos por carrera ahora
+// viven en public.careers y el selector de nivel se adapta a ellos.
 const CAREERS = ['Enfermería', 'Medicina', 'Fisioterapia', 'Radiología', 'Laboratorio Clínico', 'Nutrición'];
-// Escala académica híbrida (año o ciclo). Un smallint 1..10 que el gate de
-// asignación compara contra subjects.min_academic_level (S4-03.3).
-const ACADEMIC_LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
 const ROLES = [
   { value: 'STUDENT',        label: 'Estudiante' },
   { value: 'DOCENTE',        label: 'Docente' },
@@ -119,6 +119,8 @@ export function UserManagement() {
   const [createOpen, setCreateOpen]       = useState(false);
   const [createdCreds, setCreatedCreds]   = useState<CreatedCredentials>(null);
 
+  const [careers, setCareers]             = useState<Career[]>([]);
+
   const [editingUser, setEditingUser]     = useState<UserRow | null>(null);
   const [editName, setEditName]           = useState('');
   const [editRole, setEditRole]           = useState('STUDENT');
@@ -162,7 +164,16 @@ export function UserManagement() {
     setCampuses((data as CampusOption[]) ?? []);
   };
 
-  useEffect(() => { void loadUsers(); void loadCampuses(); }, []);
+  useEffect(() => { void loadUsers(); void loadCampuses(); void fetchCareers().then(setCareers); }, []);
+
+  // B6: nombres de carreras y niveles (ciclos) desde la tabla configurable. Las
+  // carreras inactivas no se ofrecen en formularios nuevos, pero si un usuario ya
+  // tiene una carrera inactiva asignada, se incluye para no perder su valor.
+  const activeCareerNames = careers.length ? careers.filter((c) => c.isActive).map((c) => c.name) : CAREERS;
+  const careerOptions = (current: string) =>
+    (!current || activeCareerNames.includes(current)) ? activeCareerNames : [current, ...activeCareerNames];
+  const cyclesFor = (name: string) => careers.find((c) => c.name === name)?.totalCycles ?? 16;
+  const levelsFor = (name: string) => Array.from({ length: cyclesFor(name) }, (_, i) => i + 1);
 
   // Rol del solicitante → define qué roles puede gestionar. El docente solo
   // alumnos y encargados; el ADMIN, cualquiera. Espeja la autorización de admin-users.
@@ -216,7 +227,7 @@ export function UserManagement() {
 
     setCreatedCreds({ email, password });
     void supabase.functions
-      .invoke('send-credentials', { body: { email, password } })
+      .invoke('send-credentials', { body: { email, password, full_name: fullName.trim() } })
       .then(({ error }) => {
         if (error) toast.error('Usuario creado, pero no se pudieron enviar las credenciales');
         else toast.success('Credenciales enviadas al correo institucional');
@@ -285,6 +296,21 @@ export function UserManagement() {
     }
     // Muestra la nueva contraseña temporal (el usuario la cambia al iniciar sesión).
     setCreatedCreds({ email: user.email, password: result.data.password, reset: true });
+    // B7: además, envía la contraseña temporal al correo institucional del usuario.
+    void supabase.functions
+      .invoke('send-credentials', { body: { email: user.email, password: result.data.password, full_name: user.full_name ?? '', reset: true } })
+      .then(async ({ error }) => {
+        if (!error) { toast.success('Contraseña restablecida y enviada al correo institucional.'); return; }
+        // Muestra el motivo real (p. ej. secretos de Gmail sin configurar o error SMTP),
+        // que viene en el cuerpo de la respuesta de la Edge Function.
+        let reason = error.message ?? '';
+        try {
+          const ctx = (error as { context?: { json?: () => Promise<{ error?: string; detail?: string }> } }).context;
+          const body = ctx?.json ? await ctx.json() : undefined;
+          reason = body?.detail ?? body?.error ?? reason;
+        } catch { /* respuesta no-JSON */ }
+        toast.error(`Contraseña restablecida, pero no se envió el correo${reason ? `: ${reason}` : '.'}`);
+      });
   };
 
   const roleBadge  = (r: string) => r === 'ADMIN' ? 'bg-purple-100 text-purple-700' : r === 'COORDINATOR' ? 'bg-brand-100 text-brand-700' : 'bg-green-100 text-green-700';
@@ -426,17 +452,17 @@ export function UserManagement() {
               <div className="space-y-1.5">
                 <Label htmlFor="create-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
                 <select id="create-career" value={career} onChange={(e) => setCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                  {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {careerOptions(career).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             )}
             {role === 'STUDENT' && (
               <div className="space-y-1.5">
-                <Label htmlFor="create-level" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />Nivel académico
-                  <HelpTooltip text="Año o ciclo académico del alumno (1 a 10). Las materias con nivel mínimo se bloquean si el alumno no lo alcanza." />
+                <Label htmlFor="create-level" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />Ciclo académico
+                  <HelpTooltip text={`Ciclo (nivel) que cursa el alumno dentro de su carrera. ${career} tiene ${cyclesFor(career)} ciclos. Las materias con nivel mínimo se bloquean si el alumno no lo alcanza.`} />
                 </Label>
                 <select id="create-level" value={academicLevel} onChange={(e) => setAcademicLevel(Number(e.target.value))} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                  {ACADEMIC_LEVELS.map((n) => <option key={n} value={n}>Nivel {n}</option>)}
+                  {levelsFor(career).map((n) => <option key={n} value={n}>Ciclo {n} de {cyclesFor(career)}</option>)}
                 </select>
               </div>
             )}
@@ -503,6 +529,14 @@ export function UserManagement() {
                   </div>
                 </div>
               </div>
+              <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  También enviamos estas credenciales al correo del usuario. Pídele que, si no las ve en unos minutos,
+                  <strong> revise su carpeta de Spam o Correo no deseado</strong> y marque el mensaje como seguro.
+                  Si aun así no llega, compártelas tú con los datos de arriba.
+                </span>
+              </p>
               <Badge className="bg-amber-100 text-amber-700 text-xs">
                 El panel del alumno empieza en /rotations al iniciar sesión
               </Badge>
@@ -533,15 +567,17 @@ export function UserManagement() {
               <div className="space-y-1.5">
                 <Label htmlFor="edit-career" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Carrera</Label>
                 <select id="edit-career" value={editCareer} onChange={(e) => setEditCareer(e.target.value)} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                  {CAREERS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {careerOptions(editCareer).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             )}
             {editRole === 'STUDENT' && (
               <div className="space-y-1.5">
-                <Label htmlFor="edit-level" className="text-xs uppercase tracking-wide text-brand-700"><BookOpen className="h-3.5 w-3.5" />Nivel académico</Label>
+                <Label htmlFor="edit-level" className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />Ciclo académico
+                  <HelpTooltip text={`Ciclo (nivel) que cursa el alumno. ${editCareer} tiene ${cyclesFor(editCareer)} ciclos.`} />
+                </Label>
                 <select id="edit-level" value={editAcademicLevel} onChange={(e) => setEditAcademicLevel(Number(e.target.value))} className="w-full h-10 rounded-md border border-brand-100 bg-white px-3 text-sm text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-700/25 focus:border-brand-700">
-                  {ACADEMIC_LEVELS.map((n) => <option key={n} value={n}>Nivel {n}</option>)}
+                  {levelsFor(editCareer).map((n) => <option key={n} value={n}>Ciclo {n} de {cyclesFor(editCareer)}</option>)}
                 </select>
               </div>
             )}

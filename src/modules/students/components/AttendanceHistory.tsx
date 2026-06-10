@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { CheckCircle, Clock, XCircle, HelpCircle, ChevronDown, History } from 'lucide-react';
-import { getAttendance } from '@/modules/attendance/services/attendance.service';
+import { getStudentAttendanceHistory } from '@/modules/attendance/services/attendance.service';
 import { getPractices } from '@/modules/practices/services/practices.service';
 import { Attendance } from '@/modules/attendance/types';
 import { format } from 'date-fns';
@@ -45,9 +45,14 @@ export function AttendanceHistory({ studentId, studentName }: Props) {
 
   useEffect(() => {
     const load = async () => {
-      const [attendance, practices] = await Promise.all([getAttendance(), getPractices()]);
-      const records = attendance
-        .filter(a => a.studentId === studentId)
+      // B11: filtra por alumno en el servidor (antes traía TODA la tabla con
+      // select('*') y filtraba en cliente, que con el tope de ~1000 filas dejaba
+      // el historial vacío "sin razón" a partir de cierto volumen).
+      const [attendance, practices] = await Promise.all([
+        getStudentAttendanceHistory(studentId, 'all', 0, 199),
+        getPractices(),
+      ]);
+      const records = attendance.data
         .map(a => ({
           ...a,
           practiceName: practices.find(p => p.id === a.practiceId)?.name ?? 'Desconocida',

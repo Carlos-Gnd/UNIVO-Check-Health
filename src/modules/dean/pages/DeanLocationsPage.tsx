@@ -78,8 +78,8 @@ export function DeanLocationsPage() {
       start_date: l.startDate ?? '',
       end_date: l.endDate ?? '',
       description: l.description ?? '',
-      check_in_from: (l as any).checkInFrom ?? '',
-      check_in_to: (l as any).checkInTo ?? '',
+      check_in_from: l.checkInFrom ?? '',
+      check_in_to: l.checkInTo ?? '',
       max_students: l.maxStudents != null ? String(l.maxStudents) : '',
     });
     setShowForm(true);

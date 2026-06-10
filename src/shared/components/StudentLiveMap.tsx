@@ -29,6 +29,7 @@ export function StudentLiveMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
+  const campusLayer = useRef<any>(null);
   const leafletModule = useRef<any>(null);
   const channelId = useRef(`live-map-${Math.random().toString(36).slice(2)}`);
   // Ref a la función para evitar stale closures en intervalos/realtime.
@@ -38,6 +39,39 @@ export function StudentLiveMap({
   const [studentCount, setStudentCount] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
+  // B14: marcadores con divIcon (CSS). El icono por defecto de Leaflet depende de
+  // imágenes que Vite no empaqueta, así que los marcadores salían "invisibles".
+  const studentIcon = (L: any) => L.divIcon({
+    className: '',
+    html: '<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35)"></div>',
+    iconSize: [16, 16], iconAnchor: [8, 8],
+  });
+  const campusIcon = (L: any) => L.divIcon({
+    className: '',
+    html: '<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#f5a623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:13px">🏥</div>',
+    iconSize: [24, 24], iconAnchor: [12, 12],
+  });
+
+  // B14: dibuja las sedes (marcador + círculo de geocerca) una sola vez.
+  const drawCampuses = async (L: any) => {
+    if (!campusLayer.current) return;
+    const { data } = await supabase
+      .from('campuses')
+      .select('name, latitude, longitude, radius_meters')
+      .eq('is_active', true);
+    (data ?? []).forEach((c: any) => {
+      if (c.latitude == null || c.longitude == null) return;
+      const lat = Number(c.latitude); const lng = Number(c.longitude);
+      L.marker([lat, lng], { icon: campusIcon(L) })
+        .bindPopup(`<b style="font-size:13px">${c.name}</b><br/><span style="font-size:11px;color:#6b7280">Sede de práctica</span>`)
+        .addTo(campusLayer.current);
+      if (c.radius_meters) {
+        L.circle([lat, lng], { radius: c.radius_meters, color: '#f5a623', weight: 1, fillColor: '#f5a623', fillOpacity: 0.08 })
+          .addTo(campusLayer.current);
+      }
+    });
+  };
+
   const refreshMarkers = async (L: any) => {
     const students = await fetchRef.current();
     setStudentCount(students.length);
@@ -45,7 +79,7 @@ export function StudentLiveMap({
     markersLayer.current.clearLayers();
     students.forEach((s) => {
       if (!s.lastLocation) return;
-      L.marker([s.lastLocation.latitude, s.lastLocation.longitude])
+      L.marker([s.lastLocation.latitude, s.lastLocation.longitude], { icon: studentIcon(L) })
         .bindPopup(
           `<b style="font-size:13px">${s.studentName}</b>` +
           (s.carnet ? `<br/><span style="font-size:11px;color:#6b7280">${s.carnet}</span>` : '') +
@@ -67,8 +101,10 @@ export function StudentLiveMap({
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);
+      campusLayer.current = L.layerGroup().addTo(map);
       markersLayer.current = L.layerGroup().addTo(map);
       leafletInstance.current = map;
+      void drawCampuses(L);
       void refreshMarkers(L);
       interval = setInterval(() => void refreshMarkers(L), 30000);
     });
@@ -78,6 +114,7 @@ export function StudentLiveMap({
       leafletInstance.current?.remove();
       leafletInstance.current = null;
       markersLayer.current = null;
+      campusLayer.current = null;
       leafletModule.current = null;
     };
   }, []);
@@ -125,6 +162,10 @@ export function StudentLiveMap({
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        <div className="flex items-center gap-4 px-4 py-2 text-xs text-gray-500 border-b">
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-white shadow" />Estudiante activo</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded bg-gold-500 border border-white" />Sede (con su radio permitido)</span>
+        </div>
         <div style={{ position: 'relative', width: '100%', height: '320px', overflow: 'hidden', borderRadius: '0 0 0.5rem 0.5rem' }}>
           <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
         </div>

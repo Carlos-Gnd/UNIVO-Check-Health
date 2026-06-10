@@ -10,7 +10,7 @@ import { CheckCircle2, Clock, Keyboard, Loader2, QrCode, XCircle } from 'lucide-
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getDeviceFingerprint, getDeviceInfo } from '@/modules/attendance/services/attendance.service';
-import { analyzeFakeGpsPattern } from '@/shared/backend/checkHealthBackend';
+import { analyzeFakeGpsPattern, registerStudentCheckOut } from '@/shared/backend/checkHealthBackend';
 import type { MotionSensorSample, GeoPointSample } from '@/modules/attendance/types';
 import { PageHeader } from '@/shared/components/PageHeader';
 
@@ -93,6 +93,10 @@ export function StudentQrScannerPage() {
     () => (typeof localStorage !== 'undefined' ? localStorage.getItem(CAMERA_STORAGE_KEY) ?? '' : ''),
   );
 
+  // B1: entrada activa sin salida → la página pasa a modo "registrar salida" (auto-checkout por QR).
+  const [openAttendance, setOpenAttendance] = useState<{ id: string; campusId: string } | null>(null);
+  const isCheckout = openAttendance !== null;
+
   // Modo manual
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [selectedCampus, setSelectedCampus] = useState('');
@@ -118,6 +122,24 @@ export function StudentQrScannerPage() {
   useEffect(() => {
     supabase.from('campuses').select('id, name').eq('is_active', true).order('name')
       .then(({ data }) => { if (data) setCampuses(data as Campus[]); });
+  }, []);
+
+  // B1: detecta si el alumno tiene una entrada abierta (sin check_out). Si la hay,
+  // el escaneo del QR de esa misma sede registra la SALIDA en vez de una entrada.
+  useEffect(() => {
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('attendances')
+        .select('id, campus_id')
+        .eq('student_id', user.id)
+        .is('check_out', null)
+        .order('check_in', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) setOpenAttendance({ id: data.id as string, campusId: data.campus_id as string });
+    })();
   }, []);
 
   // S4-01.4: enumerar cámaras disponibles (solo en contexto seguro). Si la última
@@ -230,8 +252,21 @@ export function StudentQrScannerPage() {
           video.muted = true;
         }
       })
-      .catch(() => {
-        setCameraError('No se pudo acceder a la cámara. Revisa los permisos del navegador o usa el código manual.');
+      .catch((err: unknown) => {
+        // B9: mensaje según el motivo real del fallo (clave en móviles, donde la
+        // cámara "abre a veces" por permiso pendiente o cámara ocupada por otra app).
+        const name = (err as { name?: string })?.name ?? '';
+        let msg = 'No se pudo abrir la cámara. ';
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          msg += 'Concede el permiso de cámara en tu navegador (icono de candado) e inténtalo de nuevo.';
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+          msg += 'Otra app está usando la cámara. Ciérrala (videollamadas, otra pestaña) e inténtalo de nuevo.';
+        } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+          msg += 'No se encontró una cámara compatible. Usa el código manual del encargado.';
+        } else {
+          msg += 'Revisa los permisos del navegador o usa el código manual.';
+        }
+        setCameraError(msg);
         teardownScanner(scanner);
         scannerRef.current = null;
         setState('idle');
@@ -318,6 +353,30 @@ export function StudentQrScannerPage() {
     return true;
   };
 
+  // B1: registra la SALIDA reutilizando la validación de geofence/hora del servidor.
+  const submitCheckout = async (scannedCampusId: string | undefined, coords: GeolocationCoordinates) => {
+    if (!openAttendance) return;
+    if (scannedCampusId && scannedCampusId !== openAttendance.campusId) {
+      setMessage('Escanea el QR de la sede donde registraste tu entrada para marcar la salida.');
+      setState('error');
+      return;
+    }
+    const result = await registerStudentCheckOut({
+      attendanceId: openAttendance.id,
+      location: { latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy },
+      deviceFingerprint: getDeviceFingerprint(),
+      deviceInfo: buildDeviceInfo(coords),
+    });
+    if (result.ok) {
+      setMessage(result.message ?? 'Salida registrada con hora oficial del servidor.');
+      setState('success');
+      setOpenAttendance(null);
+    } else {
+      setMessage(result.message ?? 'No se pudo registrar la salida.');
+      setState('error');
+    }
+  };
+
   const submitSubjectChoice = async () => {
     if (!pendingValidation || !selectedSubject) return;
     setState('validating');
@@ -365,6 +424,11 @@ export function StudentQrScannerPage() {
     }
 
     // El cierre de la cámara lo maneja el efecto al cambiar de estado (success/error/countdown).
+    if (isCheckout) {
+      await submitCheckout(peek.campus_id, coords);
+      processingRef.current = false;
+      return;
+    }
     await callValidate({
       qr_token: text,
       lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy,
@@ -392,6 +456,11 @@ export function StudentQrScannerPage() {
       setState('error'); setIsSubmittingManual(false); return;
     }
 
+    if (isCheckout) {
+      await submitCheckout(selectedCampus, coords);
+      setIsSubmittingManual(false);
+      return;
+    }
     await callValidate({
       short_code: code,
       campus_id: selectedCampus,
@@ -418,10 +487,18 @@ export function StudentQrScannerPage() {
   return (
     <div className="space-y-4 max-w-lg mx-auto">
       <PageHeader
-        title="Registrar entrada"
-        description="Escanea el QR de tu sede o usa el código manual del encargado."
-        action={<HelpTooltip side="left" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Debes estar dentro de la sede y dentro de tu horario para que el registro se acepte." />}
+        title={isCheckout ? 'Registrar salida' : 'Registrar entrada'}
+        description={isCheckout
+          ? 'Tienes una entrada activa. Escanea el QR de tu sede para registrar la salida.'
+          : 'Escanea el QR de tu sede o usa el código manual del encargado.'}
+        action={<HelpTooltip side="left" text="Apunta la cámara al QR que muestra tu encargado en la sede. Si la cámara no funciona, usa 'Código manual' e ingresa las 6 letras. Para la entrada debes estar dentro de la sede y de tu horario; la salida se registra al volver a escanear el QR de la misma sede." />}
       />
+
+      {isCheckout && (
+        <p className="text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          Tienes una <strong>entrada activa</strong> sin salida. Vuelve a escanear el QR de tu sede (o usa el código manual) para <strong>registrar tu salida</strong> y acumular las horas trabajadas.
+        </p>
+      )}
 
       {/* S4-01.2: aviso de contexto inseguro (sin HTTPS la cámara no abre) */}
       {!isSecure && (
@@ -532,7 +609,7 @@ export function StudentQrScannerPage() {
                 className="w-full bg-brand-700 hover:bg-brand-800 text-white"
               >
                 {isSubmittingManual ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Registrar entrada
+                {isCheckout ? 'Registrar salida' : 'Registrar entrada'}
               </Button>
             </div>
           )}
@@ -567,9 +644,9 @@ export function StudentQrScannerPage() {
           {state === 'success' && (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <CheckCircle2 className="w-12 h-12 text-green-500" />
-              <Badge className="bg-green-100 text-green-700 text-sm px-3 py-1">Entrada registrada</Badge>
+              <Badge className="bg-green-100 text-green-700 text-sm px-3 py-1">Registro exitoso</Badge>
               <p className="text-sm text-gray-600">{message}</p>
-              <Button variant="outline" onClick={resetAll}>Registrar otro</Button>
+              <Button variant="outline" onClick={resetAll}>Continuar</Button>
             </div>
           )}
 

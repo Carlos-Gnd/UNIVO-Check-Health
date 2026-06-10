@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
-import { MapPin, User, Calendar, Clock } from 'lucide-react';
-import { getPractices } from '../services/practices.service';
+import { MapPin, User, Calendar, Clock, Users } from 'lucide-react';
+import { getPractices, getStudentsByCampus, type AssignedStudent } from '../services/practices.service';
 import { getAttendance } from '@/modules/attendance/services/attendance.service';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Practice } from '../types';
@@ -11,10 +11,13 @@ import { format } from 'date-fns';
 export function Practices() {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [practiceStats, setPracticeStats] = useState<Record<string, { totalAttendance: number; activeStudents: number }>>({});
+  const [studentsByCampus, setStudentsByCampus] = useState<Map<string, AssignedStudent[]>>(new Map());
 
   useEffect(() => {
     const load = async () => {
-      const [loadedPractices, attendance] = await Promise.all([getPractices(), getAttendance()]);
+      const [loadedPractices, attendance, byCampus] = await Promise.all([
+        getPractices(), getAttendance(), getStudentsByCampus(),
+      ]);
       const stats: Record<string, { totalAttendance: number; activeStudents: number }> = {};
       loadedPractices.forEach((p) => {
         const pa = attendance.filter((a) => a.practiceId === p.id);
@@ -25,6 +28,7 @@ export function Practices() {
       });
       setPractices(loadedPractices);
       setPracticeStats(stats);
+      setStudentsByCampus(byCampus);
     };
     void load();
   }, []);
@@ -45,7 +49,7 @@ export function Practices() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Prácticas" description="Gestión de prácticas profesionales del área de salud." />
+      <PageHeader title="Prácticas" description="Sedes de práctica con sus alumnos asignados y actividad." />
 
       {practices.length === 0 && (
         <Card>
@@ -58,6 +62,7 @@ export function Practices() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {practices.map((p) => {
           const stats = practiceStats[p.id] ?? { totalAttendance: 0, activeStudents: 0 };
+          const assigned = studentsByCampus.get(p.id) ?? [];
           return (
             <Card key={p.id} className="hover:shadow-lg transition-shadow flex flex-col">
               <CardHeader className="pb-3">
@@ -114,15 +119,39 @@ export function Practices() {
                   </div>
                 )}
 
-                <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-3">
-                  <div className="text-center p-2.5 bg-brand-50 rounded-lg">
-                    <p className="text-xl font-semibold text-brand-900">{stats.activeStudents}</p>
-                    <p className="text-xs text-brand-700">Estudiantes</p>
+                <div className="pt-3 border-t border-gray-100 grid grid-cols-3 gap-2">
+                  <div className="text-center p-2 bg-brand-50 rounded-lg">
+                    <p className="text-lg font-semibold text-brand-900">{assigned.length}</p>
+                    <p className="text-[11px] text-brand-700">Asignados</p>
                   </div>
-                  <div className="text-center p-2.5 bg-green-50 rounded-lg">
-                    <p className="text-xl font-semibold text-green-900">{stats.totalAttendance}</p>
-                    <p className="text-xs text-green-600">Asistencias</p>
+                  <div className="text-center p-2 bg-amber-50 rounded-lg">
+                    <p className="text-lg font-semibold text-amber-900">{stats.activeStudents}</p>
+                    <p className="text-[11px] text-amber-700">Con registro</p>
                   </div>
+                  <div className="text-center p-2 bg-green-50 rounded-lg">
+                    <p className="text-lg font-semibold text-green-900">{stats.totalAttendance}</p>
+                    <p className="text-[11px] text-green-600">Asistencias</p>
+                  </div>
+                </div>
+
+                {/* Alumnos asignados a esta sede */}
+                <div className="pt-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1.5">
+                    <Users className="w-3.5 h-3.5 text-brand-500" />
+                    Alumnos asignados
+                  </div>
+                  {assigned.length === 0 ? (
+                    <p className="text-xs text-gray-400">Sin alumnos asignados a esta sede.</p>
+                  ) : (
+                    <ul className="space-y-1 max-h-40 overflow-y-auto">
+                      {assigned.map((s) => (
+                        <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate text-gray-700">{s.name}</span>
+                          <span className="font-mono text-[10px] text-gray-400 shrink-0">{s.code}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/shared/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { StudentLiveMap } from '@/shared/components/StudentLiveMap';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { fetchTeacherActiveSnapshot, fetchTeacherRoster, CURRENT_PERIOD, type TeacherStudent } from '../services/teacher.service';
 import { signGroupReport } from '../services/report.service';
 
@@ -71,11 +72,14 @@ export function TeacherDashboardPage() {
         title="Mi grupo"
         description="Estudiantes activos de tu grupo en tiempo real."
         action={(
-          <Button onClick={handleSignReport} disabled={isSigning} className="bg-white/10 border border-white/20 text-white hover:bg-white/20 backdrop-blur-sm font-semibold shrink-0">
-            {isSigning
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Firmando...</>
-              : <><FileSignature className="mr-2 h-4 w-4" />Firmar reporte del grupo</>}
-          </Button>
+          <div className="flex items-center gap-2">
+            <HelpTooltip side="left" text="Genera el reporte consolidado de asistencia de tu grupo y lo firma digitalmente (doble firma: docente + sistema). Sirve como respaldo oficial verificable de las horas de tus estudiantes ante coordinación." />
+            <Button onClick={handleSignReport} disabled={isSigning} className="bg-white/10 border border-white/20 text-white hover:bg-white/20 backdrop-blur-sm font-semibold shrink-0">
+              {isSigning
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Firmando...</>
+                : <><FileSignature className="mr-2 h-4 w-4" />Firmar y descargar reporte</>}
+            </Button>
+          </div>
         )}
       />
 
