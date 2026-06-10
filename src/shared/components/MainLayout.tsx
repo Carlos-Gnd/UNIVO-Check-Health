@@ -31,6 +31,7 @@ import {
   UserCog,
   AlertTriangle,
   UserCircle,
+  BookOpen,
 } from 'lucide-react';
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Label } from './ui/label';
@@ -43,7 +44,7 @@ import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
 import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
 import { LegalConsent } from '@/modules/legal/LegalConsent';
 import { LEGAL_VERSION } from '@/modules/legal/legalContent';
-import { PermissionsSetup, PERMISSIONS_KEY } from '@/modules/auth/PermissionsSetup';
+import { PermissionsSetup, PERMISSIONS_KEY, permissionsAlreadyGranted } from '@/modules/auth/PermissionsSetup';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente' | 'Representante';
@@ -123,7 +124,16 @@ export function MainLayout() {
       (_event, session) => {
         if (session?.user) {
           setCurrentUser(session.user);
-          setNeedsPermissions(localStorage.getItem(PERMISSIONS_KEY) !== '1');
+          // B8: solo pedir permisos si no se preguntó antes Y el navegador no los
+          // tiene ya concedidos (evita re-preguntar tras deploys o limpieza de cache).
+          if (localStorage.getItem(PERMISSIONS_KEY) === '1') {
+            setNeedsPermissions(false);
+          } else {
+            setNeedsPermissions(true);
+            void permissionsAlreadyGranted().then((granted) => {
+              if (granted) { localStorage.setItem(PERMISSIONS_KEY, '1'); setNeedsPermissions(false); }
+            });
+          }
           void resolveRole(session.user.id, session.user.email ?? '');
           // Sesión única: reclama (o reusa) el id de sesión para este usuario.
           void claimSession(session.user.id).then((id) => { sessionIdRef.current = id; });
@@ -197,6 +207,7 @@ export function MainLayout() {
         { name: 'Alumnos', href: '/dean/students', icon: Users },
         { name: 'Sedes', href: '/dean/locations', icon: MapPin },
         { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
+        { name: 'Catálogo académico', href: '/dean/catalog', icon: BookOpen },
         { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
         { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },
         { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle, badge: pendingCount },
@@ -204,6 +215,7 @@ export function MainLayout() {
       ]
     : currentRole === 'Alumno'
       ? [
+          { name: 'Inicio', href: '/student/dashboard', icon: LayoutDashboard },
           { name: 'Calendario', href: '/rotations', icon: CalendarDays },
           { name: 'Escanear QR', href: '/student/qr', icon: QrCode },
           { name: 'Historial', href: '/student/history', icon: History },
@@ -219,6 +231,7 @@ export function MainLayout() {
           { name: 'Justificaciones', href: '/dean/justifications', icon: FileWarning },
           { name: 'Historial de Decisiones', href: '/teacher/history', icon: History },
           { name: 'Incidencias', href: '/dean/incidents', icon: AlertTriangle },
+          { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
           { name: 'Sedes', href: '/dean/locations', icon: MapPin },
           { name: 'Gestión de Usuarios', href: '/users', icon: UserPlus },
         ]
@@ -233,6 +246,7 @@ export function MainLayout() {
           { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
           { name: 'Estudiantes', href: '/students', icon: Users },
           { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
+          { name: 'Catálogo académico', href: '/dean/catalog', icon: BookOpen },
           { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
           { name: 'Prácticas', href: '/practices', icon: Stethoscope },
           { name: 'Justificaciones', href: '/dean/justifications', icon: ClipboardList },

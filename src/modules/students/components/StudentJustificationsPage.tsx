@@ -11,12 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { Input } from '@/shared/components/ui/input';
 import {
   fetchStudentJustifications,
   fetchStudentAttendances,
+  fetchActiveCampuses,
   submitJustification,
   type StudentJustification,
   type AttendanceOption,
+  type CampusOptionLite,
 } from '@/modules/dean/services/justifications.service';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -34,11 +37,15 @@ const statusClass: Record<string, string> = {
 export function StudentJustificationsPage() {
   const [rows, setRows]           = useState<StudentJustification[]>([]);
   const [attendances, setAttendances] = useState<AttendanceOption[]>([]);
+  const [campuses, setCampuses]   = useState<CampusOptionLite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm]   = useState(false);
 
   // Form state
+  const [mode, setMode]           = useState<'attendance' | 'absence'>('attendance');
   const [attendanceId, setAttendanceId] = useState('');
+  const [absenceDate, setAbsenceDate]   = useState('');
+  const [absenceCampusId, setAbsenceCampusId] = useState('');
   const [reason, setReason]       = useState('');
   const [file, setFile]           = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,19 +54,24 @@ export function StudentJustificationsPage() {
 
   const load = async () => {
     setIsLoading(true);
-    const [justifs, atts] = await Promise.all([
+    const [justifs, atts, camps] = await Promise.all([
       fetchStudentJustifications(),
       fetchStudentAttendances(),
+      fetchActiveCampuses(),
     ]);
     setRows(justifs);
     setAttendances(atts);
+    setCampuses(camps);
     setIsLoading(false);
   };
 
   useEffect(() => { void load(); }, []);
 
   const resetForm = () => {
+    setMode('attendance');
     setAttendanceId('');
+    setAbsenceDate('');
+    setAbsenceCampusId('');
     setReason('');
     setFile(null);
     setIsSaving(false);
@@ -88,11 +100,16 @@ export function StudentJustificationsPage() {
   };
 
   const handleSubmit = async () => {
-    if (!attendanceId) { toast.error('Selecciona una asistencia.'); return; }
+    if (mode === 'attendance' && !attendanceId) { toast.error('Selecciona una asistencia.'); return; }
+    if (mode === 'absence' && !absenceDate) { toast.error('Indica la fecha de la ausencia.'); return; }
     if (!reason.trim()) { toast.error('El motivo es obligatorio.'); return; }
 
     setIsSaving(true);
-    const result = await submitJustification({ attendanceId, reason, documentFile: file ?? undefined });
+    const result = await submitJustification(
+      mode === 'attendance'
+        ? { attendanceId, reason, documentFile: file ?? undefined }
+        : { absenceDate, absenceCampusId: absenceCampusId || undefined, reason, documentFile: file ?? undefined },
+    );
     setIsSaving(false);
 
     if (!result.ok) {
@@ -139,8 +156,9 @@ export function StudentJustificationsPage() {
             <Card key={row.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
                 <div>
-                  <CardTitle className="text-sm font-semibold text-gray-900">
+                  <CardTitle className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                     {format(parseISO(row.attendanceDate), 'dd/MM/yyyy', { locale: es })} — {row.campusName}
+                    {row.isAbsence && <Badge className="bg-slate-100 text-slate-600 text-[10px]">Ausencia</Badge>}
                   </CardTitle>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Enviada el {format(parseISO(row.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}
@@ -181,26 +199,75 @@ export function StudentJustificationsPage() {
           </DialogHeader>
 
           <div className="space-y-4 mt-1">
-            {/* Selección de asistencia */}
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Asistencia a justificar *</Label>
-              <Select value={attendanceId} onValueChange={setAttendanceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una jornada" />
-                </SelectTrigger>
-                <SelectContent>
-                  {attendances.length === 0 ? (
-                    <SelectItem value="-" disabled>Sin asistencias registradas</SelectItem>
-                  ) : (
-                    attendances.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {format(parseISO(a.date), 'dd/MM/yyyy', { locale: es })} — {a.campusName}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+            {/* Tipo de justificación: jornada registrada vs ausencia sin marca */}
+            <div className="flex rounded-lg border overflow-hidden text-sm">
+              <button
+                type="button"
+                onClick={() => setMode('attendance')}
+                className={`flex-1 py-2 font-medium transition-colors ${mode === 'attendance' ? 'bg-brand-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Asistencia registrada
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('absence')}
+                className={`flex-1 py-2 font-medium transition-colors ${mode === 'absence' ? 'bg-brand-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Ausencia (no pude marcar)
+              </button>
             </div>
+
+            {mode === 'attendance' ? (
+              /* Selección de asistencia */
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Asistencia a justificar *</Label>
+                <Select value={attendanceId} onValueChange={setAttendanceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una jornada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attendances.length === 0 ? (
+                      <SelectItem value="-" disabled>Sin asistencias registradas</SelectItem>
+                    ) : (
+                      attendances.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {format(parseISO(a.date), 'dd/MM/yyyy', { locale: es })} — {a.campusName}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              /* Ausencia: fecha + sede opcional (no requiere asistencia previa) */
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  Usa esta opción si <strong>no pudiste marcar</strong> tu entrada (falla técnica, sin señal, etc.). Indica la fecha y, si aplica, la sede.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Fecha de la ausencia *</Label>
+                  <Input
+                    type="date"
+                    value={absenceDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setAbsenceDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wide text-brand-700"><CalendarDays className="h-3.5 w-3.5" />Sede (opcional)</Label>
+                  <Select value={absenceCampusId} onValueChange={setAbsenceCampusId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona tu sede" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campuses.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             {/* Motivo */}
             <div className="space-y-1.5">

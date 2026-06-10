@@ -40,6 +40,8 @@ type CampusRow = {
   description: string | null;
   max_students: number | null;
   is_active: boolean;
+  check_in_from: string | null;
+  check_in_to: string | null;
 };
 
 type SharedDeviceAlertRow = {
@@ -133,7 +135,7 @@ export async function fetchDeanStudents(): Promise<DeanStudent[]> {
 export async function fetchDeanLocations(): Promise<Location[]> {
   const { data, error } = await supabase
     .from('campuses')
-    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active, max_students')
+    .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active, max_students, check_in_from, check_in_to')
     .order('name');
 
   if (error || !data) return [];
@@ -156,6 +158,8 @@ export async function fetchDeanLocations(): Promise<Location[]> {
     status: (c.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
     students: [],
     maxStudents: c.max_students ?? null,
+    checkInFrom: c.check_in_from ? (c.check_in_from as string).slice(0, 5) : '',
+    checkInTo: c.check_in_to ? (c.check_in_to as string).slice(0, 5) : '',
   }));
 }
 

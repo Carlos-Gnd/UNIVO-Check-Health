@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Search, Mail, GraduationCap, History, X } from 'lucide-react';
 import { getStudents } from '../services/students.service';
@@ -17,6 +18,9 @@ import {
 export function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [careerFilter, setCareerFilter] = useState('all');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [sedeFilter, setSedeFilter] = useState('all');
   const [studentStats, setStudentStats] = useState<Record<string, { rate: number; totalAttendance: number }>>({});
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
@@ -38,12 +42,22 @@ export function Students() {
     void load();
   }, []);
 
-  const filtered = students.filter(
-    (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.carnet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.career.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // Opciones de filtro derivadas de los alumnos cargados.
+  const careerOptions = useMemo(() => Array.from(new Set(students.map((s) => s.career).filter(Boolean))).sort(), [students]);
+  const levelOptions = useMemo(() => Array.from(new Set(students.map((s) => s.academicLevel).filter((l): l is number => l != null))).sort((a, b) => a - b), [students]);
+  const sedeOptions = useMemo(() => Array.from(new Set(students.flatMap((s) => s.sedes))).sort(), [students]);
+
+  const filtered = students.filter((s) => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = !term ||
+      s.name.toLowerCase().includes(term) ||
+      s.carnet.toLowerCase().includes(term) ||
+      s.career.toLowerCase().includes(term);
+    const matchesCareer = careerFilter === 'all' || s.career === careerFilter;
+    const matchesLevel = levelFilter === 'all' || String(s.academicLevel) === levelFilter;
+    const matchesSede = sedeFilter === 'all' || s.sedes.includes(sedeFilter);
+    return matchesSearch && matchesCareer && matchesLevel && matchesSede;
+  });
 
   const initials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -56,7 +70,7 @@ export function Students() {
       <PageHeader title="Estudiantes" description="Gestión de estudiantes en prácticas del área de salud." />
 
       <Card>
-        <CardContent className="pt-5">
+        <CardContent className="pt-5 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-400" />
             <Input
@@ -66,6 +80,38 @@ export function Students() {
               className="pl-10"
             />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Select value={careerFilter} onValueChange={setCareerFilter}>
+              <SelectTrigger><SelectValue placeholder="Carrera" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las carreras</SelectItem>
+                {careerOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={levelFilter} onValueChange={setLevelFilter}>
+              <SelectTrigger><SelectValue placeholder="Ciclo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los ciclos</SelectItem>
+                {levelOptions.map((l) => <SelectItem key={l} value={String(l)}>Ciclo {l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={sedeFilter} onValueChange={setSedeFilter}>
+              <SelectTrigger><SelectValue placeholder="Sede" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las sedes</SelectItem>
+                {sedeOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {(careerFilter !== 'all' || levelFilter !== 'all' || sedeFilter !== 'all' || searchTerm) && (
+            <button
+              type="button"
+              onClick={() => { setSearchTerm(''); setCareerFilter('all'); setLevelFilter('all'); setSedeFilter('all'); }}
+              className="text-xs text-brand-600 hover:underline flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />Limpiar filtros · {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+            </button>
+          )}
         </CardContent>
       </Card>
 

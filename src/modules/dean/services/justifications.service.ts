@@ -7,7 +7,7 @@ export type JustificationStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 
 export type PendingJustification = {
   id: string;
-  attendanceId: string;
+  attendanceId: string | null;
   studentId: string;
   studentCode: string;
   studentName: string;
@@ -22,11 +22,13 @@ export type PendingJustification = {
   reviewerNotes: string | null;
   createdAt: string;
   updatedAt: string;
+  isAbsence: boolean;
 };
 
 type JustificationRow = {
   id: string;
-  attendance_id: string;
+  attendance_id: string | null;
+  absence_date: string | null;
   student_id: string;
   motivo: string;
   documento_url: string | null;
@@ -45,6 +47,7 @@ type JustificationRow = {
     check_out: string | null;
     campuses?: { name: string | null } | null;
   } | null;
+  absence_campus?: { name: string | null } | null;
 };
 
 function getJustificationStoragePath(value: string | null): string | null {
@@ -82,8 +85,8 @@ async function mapPendingJustification(row: JustificationRow): Promise<PendingJu
     studentCode: row.student?.student_code ?? 'Sin carnet',
     studentName: row.student?.full_name ?? 'Estudiante sin nombre',
     career: row.student?.career ?? 'Sin carrera',
-    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
-    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
+    campusName: row.attendance?.campuses?.name ?? row.absence_campus?.name ?? (row.attendance_id ? 'Sede desconocida' : 'Ausencia sin registro'),
+    attendanceDate: row.attendance?.date ?? row.absence_date ?? row.creado_en.slice(0, 10),
     checkIn: row.attendance?.check_in ?? null,
     checkOut: row.attendance?.check_out ?? null,
     reason: row.motivo,
@@ -92,6 +95,7 @@ async function mapPendingJustification(row: JustificationRow): Promise<PendingJu
     reviewerNotes: row.notas_revisor,
     createdAt: row.creado_en,
     updatedAt: row.actualizado_en,
+    isAbsence: !row.attendance_id,
   };
 }
 
@@ -101,6 +105,7 @@ export async function fetchPendingJustifications(): Promise<PendingJustification
     .select(`
       id,
       attendance_id,
+      absence_date,
       student_id,
       motivo,
       documento_url,
@@ -114,7 +119,8 @@ export async function fetchPendingJustifications(): Promise<PendingJustification
         check_in,
         check_out,
         campuses(name)
-      )
+      ),
+      absence_campus:campuses!justifications_absence_campus_id_fkey(name)
     `)
     .eq('status', 'PENDIENTE')
     .order('creado_en', { ascending: true });
@@ -162,6 +168,7 @@ export type StudentJustification = {
   status: JustificationStatus;
   reviewerNotes: string | null;
   createdAt: string;
+  isAbsence: boolean;
 };
 
 export type AttendanceOption = {
@@ -188,10 +195,11 @@ export async function fetchStudentJustifications(): Promise<StudentJustification
   const { data, error } = await supabase
     .from('justifications')
     .select(`
-      id, motivo, documento_url, status, notas_revisor, creado_en,
+      id, attendance_id, absence_date, motivo, documento_url, status, notas_revisor, creado_en,
       attendance:attendances!justifications_attendance_id_fkey(
         date, check_in, campuses(name)
-      )
+      ),
+      absence_campus:campuses!justifications_absence_campus_id_fkey(name)
     `)
     .eq('student_id', authData.user.id)
     .order('creado_en', { ascending: false });
@@ -200,13 +208,14 @@ export async function fetchStudentJustifications(): Promise<StudentJustification
 
   return Promise.all((data as any[]).map(async (row) => ({
     id: row.id,
-    attendanceDate: row.attendance?.date ?? row.creado_en.slice(0, 10),
-    campusName: row.attendance?.campuses?.name ?? 'Sede desconocida',
+    attendanceDate: row.attendance?.date ?? row.absence_date ?? row.creado_en.slice(0, 10),
+    campusName: row.attendance?.campuses?.name ?? row.absence_campus?.name ?? (row.attendance_id ? 'Sede desconocida' : 'Ausencia sin registro'),
     reason: row.motivo,
     documentUrl: await signJustificationDocument(row.documento_url),
     status: row.status as JustificationStatus,
     reviewerNotes: row.notas_revisor,
     createdAt: row.creado_en,
+    isAbsence: !row.attendance_id,
   })));
 }
 
@@ -232,8 +241,18 @@ export async function fetchStudentAttendances(): Promise<AttendanceOption[]> {
   }));
 }
 
+export type CampusOptionLite = { id: string; name: string };
+
+// B3: sedes activas para asociar (opcionalmente) una justificación de ausencia.
+export async function fetchActiveCampuses(): Promise<CampusOptionLite[]> {
+  const { data } = await supabase.from('campuses').select('id, name').eq('is_active', true).order('name');
+  return (data as CampusOptionLite[] | null) ?? [];
+}
+
 export async function submitJustification(params: {
-  attendanceId: string;
+  attendanceId?: string;
+  absenceDate?: string;       // B3: justificar una ausencia (no se pudo marcar)
+  absenceCampusId?: string;   // sede opcional asociada a la ausencia
   reason: string;
   documentFile?: File;
 }): Promise<{ ok: boolean; message?: string }> {
@@ -241,16 +260,29 @@ export async function submitJustification(params: {
   const userId = authData.user?.id;
   if (!userId) return { ok: false, message: 'Sesión no encontrada.' };
 
-  // Verificar que no haya una justificación pendiente para la misma asistencia
-  const { data: existing } = await supabase
+  if (!params.attendanceId && !params.absenceDate) {
+    return { ok: false, message: 'Selecciona una asistencia o indica la fecha de la ausencia.' };
+  }
+
+  // Verificar que no haya una justificación pendiente para el mismo objetivo.
+  let dupQuery = supabase
     .from('justifications')
     .select('id')
-    .eq('attendance_id', params.attendanceId)
     .eq('student_id', userId)
-    .eq('status', 'PENDIENTE')
-    .single();
+    .eq('status', 'PENDIENTE');
+  dupQuery = params.attendanceId
+    ? dupQuery.eq('attendance_id', params.attendanceId)
+    : dupQuery.eq('absence_date', params.absenceDate as string);
+  const { data: existing } = await dupQuery.maybeSingle();
 
-  if (existing) return { ok: false, message: 'Ya tienes una justificación pendiente para esta asistencia.' };
+  if (existing) {
+    return {
+      ok: false,
+      message: params.attendanceId
+        ? 'Ya tienes una justificación pendiente para esta asistencia.'
+        : 'Ya tienes una justificación pendiente para esa fecha.',
+    };
+  }
 
   let documentUrl: string | null = null;
 
@@ -267,7 +299,9 @@ export async function submitJustification(params: {
   }
 
   const { error } = await supabase.from('justifications').insert({
-    attendance_id: params.attendanceId,
+    attendance_id: params.attendanceId ?? null,
+    absence_date: params.attendanceId ? null : params.absenceDate ?? null,
+    absence_campus_id: params.attendanceId ? null : params.absenceCampusId ?? null,
     student_id: userId,
     motivo: params.reason.trim(),
     documento_url: documentUrl,

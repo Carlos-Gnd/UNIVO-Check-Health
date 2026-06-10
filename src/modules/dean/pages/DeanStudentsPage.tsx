@@ -10,6 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { PageHeader } from '@/shared/components/PageHeader';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/shared/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { fetchCycleRecords, exportCycleCsv, exportCycleJson } from '@/modules/dean/services/cycleExport.service';
 
@@ -120,17 +124,28 @@ export function DeanStudentsPage() {
             <SelectItem value="2025-2">2025-2</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => exportCSV(filtered)}>
-            <Download className="mr-2 h-4 w-4" />CSV
-          </Button>
-          <Button variant="outline" className="flex-1" disabled={exporting} onClick={() => void handleCycleExport('csv')} title="Exportar todas las asistencias del ciclo (sistemas externos)">
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Ciclo CSV
-          </Button>
-          <Button variant="outline" className="flex-1" disabled={exporting} onClick={() => void handleCycleExport('json')} title="Exportar todas las asistencias del ciclo en JSON (sistemas externos)">
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Ciclo JSON
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={exporting}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Exportar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Lista actual</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => exportCSV(filtered)}>
+              <Download className="mr-2 h-4 w-4" />CSV de la lista filtrada
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Ciclo completo (sistemas externos)</DropdownMenuLabel>
+            <DropdownMenuItem disabled={exporting} onClick={() => void handleCycleExport('csv')}>
+              <Download className="mr-2 h-4 w-4" />Asistencias del ciclo · CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={exporting} onClick={() => void handleCycleExport('json')}>
+              <Download className="mr-2 h-4 w-4" />Asistencias del ciclo · JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <p className="text-sm text-gray-600">

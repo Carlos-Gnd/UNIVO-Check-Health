@@ -13,11 +13,13 @@ import { DeanJustificationsPage } from '@/modules/dean/pages/DeanJustificationsP
 import { DeanAssignmentsPage } from '@/modules/dean/pages/DeanAssignmentsPage';
 import { IncidentsDashboardPage } from '@/modules/dean/pages/IncidentsDashboardPage';
 import { HolidaysPage } from '@/modules/dean/pages/HolidaysPage';
+import { AcademicCatalogPage } from '@/modules/dean/pages/AcademicCatalogPage';
 import { UserManagement } from '@/modules/admin/components/UserManagement';
 import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
 import { PlaceholderPage } from '@/shared/components/PlaceholderPage';
 import { StudentQrScannerPage } from '@/modules/students/components/StudentQrScannerPage';
+import { StudentDashboardPage } from '@/modules/students/components/StudentDashboardPage';
 import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
 import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
 import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
@@ -74,8 +76,20 @@ const AssignmentsRoute = () => (
 );
 
 const HolidaysRoute = () => (
-  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR']}>
+  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE']}>
     <HolidaysPage />
+  </RoleGuard>
+);
+
+const CatalogRoute = () => (
+  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR']}>
+    <AcademicCatalogPage />
+  </RoleGuard>
+);
+
+const StudentDashboardRoute = () => (
+  <RoleGuard allow={['STUDENT']}>
+    <StudentDashboardPage />
   </RoleGuard>
 );
 
@@ -158,6 +172,7 @@ export const router = createBrowserRouter([
       { path: 'users', Component: UsersRoute },
       { path: 'profile', Component: ProfilePage },
       { path: 'rotations', Component: RotationsCalendarPage },
+      { path: 'student/dashboard', Component: StudentDashboardRoute },
       { path: 'student/qr', Component: StudentQrRoute },
       { path: 'student/history', Component: StudentHistoryRoute },
       { path: 'student/progress', Component: StudentProgressRoute },
@@ -169,6 +184,7 @@ export const router = createBrowserRouter([
       { path: 'dean/justifications', Component: DeanJustificationsRoute },
       { path: 'dean/assignments', Component: AssignmentsRoute },
       { path: 'dean/holidays', Component: HolidaysRoute },
+      { path: 'dean/catalog', Component: CatalogRoute },
       { path: 'dean/incidents', Component: IncidentsDashboardRoute },
       { path: 'teacher/dashboard', Component: TeacherDashboardRoute },
       { path: 'teacher/evaluations', Component: TeacherEvaluationsRoute },

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
@@ -112,12 +113,15 @@ export function TeacherDecisionHistoryPage() {
     <div className="space-y-5">
       <PageHeader
         title="Historial de decisiones"
-        description="Decisiones registradas en audit_log para tus revisiones de incidencias."
+        description="Registro de las resoluciones que has tomado sobre las incidencias y justificaciones de tus estudiantes (aprobadas, rechazadas o escaladas)."
         action={(
-          <Button variant="outline" onClick={exportPdf} disabled={filtered.length === 0} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <HelpTooltip side="left" text="Cada fila es una resolución que registraste sobre una justificación o incidencia. El registro es inmutable: queda como respaldo de auditoría y no puede editarse ni borrarse." />
+            <Button variant="outline" onClick={exportPdf} disabled={filtered.length === 0} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+              <Download className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
+          </div>
         )}
       />
 
@@ -173,7 +177,7 @@ export function TeacherDecisionHistoryPage() {
           <CardTitle className="text-base">{filtered.length} decision{filtered.length !== 1 ? 'es' : ''}</CardTitle>
           <Badge className="bg-brand-100 text-brand-800">
             <FileText className="mr-1.5 h-3.5 w-3.5" />
-            audit_log
+            Registro inmutable
           </Badge>
         </CardHeader>
         <CardContent className="p-0">

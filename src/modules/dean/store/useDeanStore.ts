@@ -24,7 +24,7 @@ const emptyStats: DeanGlobalStats = {
   riskThreshold: 60,
 };
 
-export const useDeanStore = create<DeanStore>((set) => ({
+export const useDeanStore = create<DeanStore>((set, get) => ({
   students: [],
   locations: [],
   globalStats: emptyStats,
@@ -33,8 +33,12 @@ export const useDeanStore = create<DeanStore>((set) => ({
   selectedLocation: null,
   isLoading: false,
 
+  // B4: stale-while-revalidate. El spinner a pantalla completa solo aparece en la
+  // primera carga; al navegar entre páginas del decano se muestran los datos ya
+  // cacheados al instante y se refrescan en segundo plano (sin "flash" de recarga).
   loadData: async () => {
-    set({ isLoading: true });
+    const hasData = get().students.length > 0 || get().locations.length > 0;
+    if (!hasData) set({ isLoading: true });
     const { students, locations, globalStats } = await fetchDeanData();
     set({ students, locations, globalStats, isLoading: false });
   },

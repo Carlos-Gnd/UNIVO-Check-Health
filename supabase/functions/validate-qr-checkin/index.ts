@@ -241,7 +241,9 @@ async function resolveAssignment(params: {
   const matchingSlots = (slots as ScheduleSlot[]).filter((s) => {
     const from = (s.check_in_from ?? '').slice(0, 5);
     const to = (s.check_in_to ?? '').slice(0, 5);
-    return cur >= from && cur <= to;
+    // Turno nocturno: si la salida es "menor" que la entrada (p. ej. 21:00 -> 03:00),
+    // la ventana cruza medianoche, asi que el horario valido es cur >= from O cur <= to.
+    return from <= to ? cur >= from && cur <= to : cur >= from || cur <= to;
   });
 
   if (matchingSlots.length === 0) {

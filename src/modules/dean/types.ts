@@ -44,6 +44,8 @@ export interface Location {
   status: LocationStatus;
   students: DeanStudent[];
   maxStudents: number | null; // R-02: cupo máximo (null = sin límite)
+  checkInFrom: string; // ventana horaria informativa de la sede (HH:MM, '' = sin definir)
+  checkInTo: string;
 }
 
 export interface DeanGlobalStats {

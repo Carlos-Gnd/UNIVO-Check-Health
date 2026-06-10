@@ -11,6 +11,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import {
   fetchPendingJustifications,
   confirmHospitalPresenceAfterTechFailure,
@@ -182,6 +183,7 @@ export function DeanJustificationsPage() {
               <ShieldCheck className="mr-2 h-4 w-4" />
               Confirmar falla técnica
             </Button>
+            <HelpTooltip side="bottom" text="Úsalo cuando un estudiante SÍ estuvo en la sede pero no pudo marcar por una falla del sistema (sin señal, app caída, QR dañado). Registra manualmente su presencia ese día, dejando constancia en la auditoría." />
           </div>
         )}
       />

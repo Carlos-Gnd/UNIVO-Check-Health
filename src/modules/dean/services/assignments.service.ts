@@ -86,7 +86,7 @@ export async function fetchAssignmentOptions(): Promise<AssignmentOptions> {
   return {
     students: rows.filter((u) => ['STUDENT', 'ESTUDIANTE', 'ALUMNO'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
     teachers: rows.filter((u) => ['DOCENTE', 'TEACHER'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
-    coordinators: rows.filter((u) => ['COORDINATOR', 'COORDINADOR', 'ADMIN', 'ADMINISTRADOR'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
+    coordinators: rows.filter((u) => ['COORDINATOR', 'COORDINADOR'].includes(norm(u.role))).map((u) => ({ id: u.id, label: label(u) })),
     campuses: ((campuses as CampusOption[] | null) ?? []),
     subjects: ((subjects as SubjectOption[] | null) ?? []),
   };

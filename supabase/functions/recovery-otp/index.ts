@@ -35,20 +35,46 @@ async function sha256(input: string): Promise<string> {
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function sendOtpEmail(to: string, code: string): Promise<MailResult> {
-  const html = wrapHtml(`
-    <h2>Codigo de recuperacion</h2>
-    <p>Usa este codigo para continuar con la recuperacion de acceso. Expira en ${OTP_TTL_MINUTES} minutos.</p>
-    <p class="code">${code}</p>
-    <p>Si no solicitaste este codigo, puedes ignorar este correo.</p>`);
+// Contraseña temporal fuerte (sin caracteres ambiguos). Se exige cambiarla al entrar.
+function genTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const specials = '!@#$%&*';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  let out = '';
+  for (let i = 0; i < 10; i++) out += chars[bytes[i] % chars.length];
+  out += specials[bytes[10] % specials.length];
+  out += String(bytes[11] % 10);
+  return out;
+}
 
-  return await sendMail({ to, subject: 'Codigo de recuperacion - UNIVO Check-Health', html });
+async function sendRecoveredCredentialsEmail(to: string | string[], email: string, password: string): Promise<MailResult> {
+  const html = wrapHtml(`
+    <h2>Tu acceso fue restablecido</h2>
+    <p>Verificaste tu identidad correctamente. Usa esta contraseña temporal para ingresar:</p>
+    <div class="cred">
+      <p>Usuario (carné o correo): <code>${email}</code></p>
+      <p>Contraseña temporal (un solo uso): <code>${password}</code></p>
+    </div>
+    <p><strong>Por seguridad, esta contraseña es de un solo uso.</strong> Al ingresar, el sistema
+    te pedirá crear una contraseña nueva. Si no fuiste tú, contacta a tu coordinación.</p>`);
+  return await sendMail({ to, subject: 'Tu acceso fue restablecido - UNIVO Check-Health', html });
+}
+
+async function sendOtpEmail(to: string | string[], code: string): Promise<MailResult> {
+  const html = wrapHtml(`
+    <h2>Código de recuperación</h2>
+    <p>Usa este código para continuar con la recuperación de acceso. Expira en ${OTP_TTL_MINUTES} minutos.</p>
+    <p class="code">${code}</p>
+    <p>Si no solicitaste este código, puedes ignorar este correo.</p>`);
+
+  return await sendMail({ to, subject: 'Código de recuperación - UNIVO Check-Health', html });
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Metodo no permitido' }, 405);
 
+  try {
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -84,7 +110,14 @@ Deno.serve(async (req: Request) => {
       .select('id, backup_email')
       .eq('email', email)
       .single();
-    if (userError || !user?.backup_email) return json({ error: 'No hay correo de respaldo configurado.' }, 400);
+    if (userError || !user) return json({ error: 'No se pudo verificar la identidad.' }, 400);
+
+    // B2: el OTP se envía SIEMPRE al correo institucional y, si existe, también al de
+    // respaldo. Antes solo iba al respaldo y, sin respaldo, no llegaba ningún código.
+    const recipients = [email];
+    if (user.backup_email && user.backup_email.toLowerCase() !== email) {
+      recipients.push(user.backup_email);
+    }
 
     const since = new Date(Date.now() - OTP_TTL_MINUTES * 60_000).toISOString();
     const { count } = await admin
@@ -110,7 +143,7 @@ Deno.serve(async (req: Request) => {
     const { data: inserted, error: insertError } = await admin.from('recovery_otps').insert({
       user_id: user.id,
       email,
-      backup_email: user.backup_email,
+      backup_email: user.backup_email ?? email,
       otp_hash: otpHash,
       otp_salt: salt,
       expires_at: expiresAt,
@@ -119,13 +152,16 @@ Deno.serve(async (req: Request) => {
 
     // Si el correo no se envía, invalidamos el OTP recién creado y reportamos el
     // fallo de forma explícita (antes se respondía "enviado" aunque fallara).
-    const mail = await sendOtpEmail(user.backup_email, code);
+    const mail = await sendOtpEmail(recipients, code);
     if (!mail.ok) {
       await admin.from('recovery_otps').update({ consumed_at: new Date().toISOString() }).eq('id', inserted.id);
       const status = mail.error === 'missing_gmail_credentials' ? 500 : 502;
-      return json({ error: 'No se pudo enviar el codigo al correo de respaldo. Intenta mas tarde.', detail: mail.error }, status);
+      return json({ error: 'No se pudo enviar el código. Intenta más tarde.', detail: mail.error }, status);
     }
-    return json({ ok: true, message: 'Codigo enviado al correo de respaldo.' });
+    const masked = user.backup_email && user.backup_email.toLowerCase() !== email
+      ? 'Código enviado a tu correo institucional y de respaldo.'
+      : 'Código enviado a tu correo institucional.';
+    return json({ ok: true, message: masked });
   }
 
   if (body.action === 'verify') {
@@ -134,7 +170,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: otp, error } = await admin
       .from('recovery_otps')
-      .select('id, otp_hash, otp_salt, attempts, expires_at')
+      .select('id, user_id, backup_email, otp_hash, otp_salt, attempts, expires_at')
       .eq('email', email)
       .is('consumed_at', null)
       .order('created_at', { ascending: false })
@@ -156,8 +192,30 @@ Deno.serve(async (req: Request) => {
     }
 
     await admin.from('recovery_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otp.id);
-    return json({ ok: true, message: 'Codigo verificado correctamente.' });
+
+    // El código es válido → se restablece la contraseña a una temporal de un solo
+    // uso y se envía por correo (institucional + respaldo). Antes el flujo solo
+    // validaba el código y NUNCA entregaba credenciales nuevas: recuperación muerta.
+    const newPassword = genTempPassword();
+    const { error: pwErr } = await admin.auth.admin.updateUserById(otp.user_id as string, { password: newPassword });
+    if (pwErr) {
+      return json({ error: 'Código válido, pero no se pudo restablecer la contraseña. Intenta de nuevo o contacta a tu coordinación.' }, 500);
+    }
+    await admin.from('users').update({ must_change_password: true }).eq('id', otp.user_id);
+
+    const recipients = [email];
+    if (otp.backup_email && (otp.backup_email as string).toLowerCase() !== email) {
+      recipients.push(otp.backup_email as string);
+    }
+    const mail = await sendRecoveredCredentialsEmail(recipients, email, newPassword);
+    const note = mail.ok
+      ? 'Te enviamos una contraseña temporal a tu correo. Revisa también la carpeta de Spam.'
+      : 'No se pudo enviar el correo con la contraseña. Contacta a tu coordinación.';
+    return json({ ok: true, emailed: mail.ok, message: `Código verificado. ${note}` });
   }
 
   return json({ error: 'Accion no soportada.' }, 400);
+  } catch (e) {
+    return json({ error: 'Error interno en recovery-otp', detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
 });

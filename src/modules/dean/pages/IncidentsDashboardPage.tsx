@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import {
   fetchAllJustifications,
   type AllJustification,
@@ -91,8 +92,13 @@ export function IncidentsDashboardPage() {
     <div className="space-y-4">
       <PageHeader
         title="Panel de incidencias"
-        description="Vista global de justificaciones abiertas y cerradas."
-        action={<Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>}
+        description="Vista global de justificaciones y alertas: marcajes observados, ausencias justificadas y casos que requieren tu revisión."
+        action={(
+          <div className="flex items-center gap-2">
+            <HelpTooltip side="left" text="Una incidencia es cualquier evento que requiere revisión: una justificación enviada por un alumno, un marcaje observado (posible GPS falso o dispositivo compartido) o una ausencia reportada. Desde aquí las apruebas, rechazas o escalas." />
+            <Badge className="w-fit bg-amber-500/20 text-amber-200 border border-amber-400/30">{totalPending} pendiente{totalPending !== 1 ? 's' : ''}</Badge>
+          </div>
+        )}
       />
 
       <Card>

@@ -11,6 +11,23 @@ type Status = 'idle' | 'granted' | 'denied';
 
 export const PERMISSIONS_KEY = 'checkhealth-permissions-prompted-v1';
 
+// B8: consulta el estado real de los permisos en el SO/navegador. Si la cámara y la
+// ubicación YA están concedidas, no tiene sentido volver a mostrar el onboarding
+// (p. ej. tras un deploy o si se limpió localStorage). Best-effort: si la Permissions
+// API no existe o falla, devuelve false y se sigue el flujo normal.
+export async function permissionsAlreadyGranted(): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return false;
+    const names: PermissionName[] = ['camera' as PermissionName, 'geolocation'];
+    const results = await Promise.all(
+      names.map((name) => navigator.permissions.query({ name }).then((s) => s.state).catch(() => 'denied')),
+    );
+    return results.every((state) => state === 'granted');
+  } catch {
+    return false;
+  }
+}
+
 export function PermissionsSetup({ onDone }: { onDone: () => void }) {
   const [gps, setGps] = useState<Status>('idle');
   const [cam, setCam] = useState<Status>('idle');
