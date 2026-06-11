@@ -2,26 +2,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { canonicalRole, type CanonicalRole } from '@/shared/utils/roles';
 
+// El guard acepta sinónimos en `allow` (ADMIN/COORDINADOR/DOCENTE…) pero compara
+// contra el rol canónico del usuario, así un decano 'ADMINISTRADOR' nunca se bloquea.
 type UserRole = 'ADMIN' | 'STUDENT' | 'COORDINATOR' | 'COORDINADOR' | 'TEACHER' | 'DOCENTE' | 'REPRESENTATIVE';
 
-// Normaliza sinónimos de rol para que el guard no bloquee a un decano cuya cuenta
-// tenga rol 'ADMINISTRADOR'/'DECANO' (que el resto del sistema trata como ADMIN).
-function normalizeRole(raw: string | null | undefined): UserRole | null {
-  const u = (raw ?? '').toUpperCase().trim();
-  if (!u) return null;
-  if (u === 'ADMINISTRADOR' || u === 'DECANO') return 'ADMIN';
-  if (u === 'ALUMNO' || u === 'ESTUDIANTE') return 'STUDENT';
-  return u as UserRole;
-}
-
-const ROLE_HOME: Record<UserRole, string> = {
+const ROLE_HOME: Record<CanonicalRole, string> = {
   ADMIN: '/dean/dashboard',
   STUDENT: '/rotations',
   COORDINATOR: '/',
-  COORDINADOR: '/',
   TEACHER: '/teacher/dashboard',
-  DOCENTE: '/teacher/dashboard',
   REPRESENTATIVE: '/hospital/live',
 };
 
@@ -34,7 +25,7 @@ export function RoleGuard({
 }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [role, setRole] = useState<CanonicalRole | null>(null);
 
   useEffect(() => {
     const resolve = async () => {
@@ -51,8 +42,8 @@ export function RoleGuard({
         .from('users')
         .select('role')
         .eq('id', authUser.id)
-        .single<{ role: UserRole }>();
-      setRole(normalizeRole(data?.role));
+        .single<{ role: string }>();
+      setRole(canonicalRole(data?.role));
       setIsLoading(false);
     };
     void resolve();
@@ -69,6 +60,8 @@ export function RoleGuard({
 
   if (!isAuthenticated) return <Navigate to="/" replace />;
   if (!role) return <Navigate to="/" replace />;
-  if (!allow.includes(role)) return <Navigate to={ROLE_HOME[role]} replace />;
+  // `allow` puede traer sinónimos (COORDINADOR, DOCENTE…); se canonizan para comparar.
+  const allowed = allow.map(canonicalRole);
+  if (!allowed.includes(role)) return <Navigate to={ROLE_HOME[role]} replace />;
   return <>{children}</>;
 }
