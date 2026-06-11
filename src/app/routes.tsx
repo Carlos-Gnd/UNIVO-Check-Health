@@ -1,37 +1,49 @@
+import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { MainLayout } from '@/shared/components/MainLayout';
-import { Dashboard } from '@/modules/dashboard/components/Dashboard';
-import { CheckIn } from '@/modules/attendance/components/CheckIn';
-import { Students } from '@/modules/students/components/Students';
-import { Practices } from '@/modules/practices/components/Practices';
-import { Reports } from '@/modules/reports/components/Reports';
 import { NotFound } from '@/shared/components/NotFound';
-import { DeanDashboardPage } from '@/modules/dean/pages/DeanDashboardPage';
-import { DeanStudentsPage } from '@/modules/dean/pages/DeanStudentsPage';
-import { DeanLocationsPage } from '@/modules/dean/pages/DeanLocationsPage';
-import { DeanJustificationsPage } from '@/modules/dean/pages/DeanJustificationsPage';
-import { DeanAssignmentsPage } from '@/modules/dean/pages/DeanAssignmentsPage';
-import { IncidentsDashboardPage } from '@/modules/dean/pages/IncidentsDashboardPage';
-import { HolidaysPage } from '@/modules/dean/pages/HolidaysPage';
-import { AcademicCatalogPage } from '@/modules/dean/pages/AcademicCatalogPage';
-import { UserManagement } from '@/modules/admin/components/UserManagement';
-import { RotationsCalendarPage } from '@/modules/rotations/components/RotationsCalendarPage';
 import { RoleGuard } from '@/shared/components/RoleGuard';
-import { PlaceholderPage } from '@/shared/components/PlaceholderPage';
-import { StudentQrScannerPage } from '@/modules/students/components/StudentQrScannerPage';
-import { StudentDashboardPage } from '@/modules/students/components/StudentDashboardPage';
-import { StudentProgressPage } from '@/modules/students/components/StudentProgressPage';
-import { StudentHistoryPage } from '@/modules/students/components/StudentHistoryPage';
-import { StudentJustificationsPage } from '@/modules/students/components/StudentJustificationsPage';
-import { StudentAssignmentPage } from '@/modules/students/components/StudentAssignmentPage';
-import { TeacherDecisionHistoryPage } from '@/modules/teacher/pages/TeacherDecisionHistoryPage';
-import { TeacherDashboardPage } from '@/modules/teacher/pages/TeacherDashboardPage';
-import { TeacherEvaluationsPage } from '@/modules/teacher/pages/TeacherEvaluationsPage';
-import { HospitalLivePage } from '@/modules/hospital/pages/HospitalLivePage';
-import { HospitalIncidentsPage } from '@/modules/hospital/pages/HospitalIncidentsPage';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
 import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
-import { ProfilePage } from '@/modules/profile/ProfilePage';
+
+// Carga diferida de páginas: cada ruta se divide en su propio chunk y solo se
+// descarga al navegar a ella (reduce el bundle inicial). Las páginas son exports
+// nombrados, así que se resuelven con este helper. El <Suspense> está en MainLayout.
+function lazyPage<T extends Record<string, ComponentType<any>>>(factory: () => Promise<T>, name: keyof T) {
+  return lazy(async () => ({ default: (await factory())[name] }));
+}
+
+const Dashboard = lazyPage(() => import('@/modules/dashboard/components/Dashboard'), 'Dashboard');
+const CheckIn = lazyPage(() => import('@/modules/attendance/components/CheckIn'), 'CheckIn');
+const Students = lazyPage(() => import('@/modules/students/components/Students'), 'Students');
+const Practices = lazyPage(() => import('@/modules/practices/components/Practices'), 'Practices');
+const Reports = lazyPage(() => import('@/modules/reports/components/Reports'), 'Reports');
+const ProfilePage = lazyPage(() => import('@/modules/profile/ProfilePage'), 'ProfilePage');
+const RotationsCalendarPage = lazyPage(() => import('@/modules/rotations/components/RotationsCalendarPage'), 'RotationsCalendarPage');
+const UserManagement = lazyPage(() => import('@/modules/admin/components/UserManagement'), 'UserManagement');
+
+const DeanDashboardPage = lazyPage(() => import('@/modules/dean/pages/DeanDashboardPage'), 'DeanDashboardPage');
+const DeanStudentsPage = lazyPage(() => import('@/modules/dean/pages/DeanStudentsPage'), 'DeanStudentsPage');
+const DeanLocationsPage = lazyPage(() => import('@/modules/dean/pages/DeanLocationsPage'), 'DeanLocationsPage');
+const DeanJustificationsPage = lazyPage(() => import('@/modules/dean/pages/DeanJustificationsPage'), 'DeanJustificationsPage');
+const DeanAssignmentsPage = lazyPage(() => import('@/modules/dean/pages/DeanAssignmentsPage'), 'DeanAssignmentsPage');
+const IncidentsDashboardPage = lazyPage(() => import('@/modules/dean/pages/IncidentsDashboardPage'), 'IncidentsDashboardPage');
+const HolidaysPage = lazyPage(() => import('@/modules/dean/pages/HolidaysPage'), 'HolidaysPage');
+const AcademicCatalogPage = lazyPage(() => import('@/modules/dean/pages/AcademicCatalogPage'), 'AcademicCatalogPage');
+
+const StudentDashboardPage = lazyPage(() => import('@/modules/students/components/StudentDashboardPage'), 'StudentDashboardPage');
+const StudentQrScannerPage = lazyPage(() => import('@/modules/students/components/StudentQrScannerPage'), 'StudentQrScannerPage');
+const StudentProgressPage = lazyPage(() => import('@/modules/students/components/StudentProgressPage'), 'StudentProgressPage');
+const StudentHistoryPage = lazyPage(() => import('@/modules/students/components/StudentHistoryPage'), 'StudentHistoryPage');
+const StudentJustificationsPage = lazyPage(() => import('@/modules/students/components/StudentJustificationsPage'), 'StudentJustificationsPage');
+const StudentAssignmentPage = lazyPage(() => import('@/modules/students/components/StudentAssignmentPage'), 'StudentAssignmentPage');
+
+const TeacherDashboardPage = lazyPage(() => import('@/modules/teacher/pages/TeacherDashboardPage'), 'TeacherDashboardPage');
+const TeacherEvaluationsPage = lazyPage(() => import('@/modules/teacher/pages/TeacherEvaluationsPage'), 'TeacherEvaluationsPage');
+const TeacherDecisionHistoryPage = lazyPage(() => import('@/modules/teacher/pages/TeacherDecisionHistoryPage'), 'TeacherDecisionHistoryPage');
+
+const HospitalLivePage = lazyPage(() => import('@/modules/hospital/pages/HospitalLivePage'), 'HospitalLivePage');
+const HospitalIncidentsPage = lazyPage(() => import('@/modules/hospital/pages/HospitalIncidentsPage'), 'HospitalIncidentsPage');
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>

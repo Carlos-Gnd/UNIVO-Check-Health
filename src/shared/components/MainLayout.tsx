@@ -32,8 +32,9 @@ import {
   AlertTriangle,
   UserCircle,
   BookOpen,
+  Loader2,
 } from 'lucide-react';
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, Suspense, type FormEvent } from 'react';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -45,6 +46,7 @@ import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
 import { LegalConsent } from '@/modules/legal/LegalConsent';
 import { LEGAL_VERSION } from '@/modules/legal/legalContent';
 import { PermissionsSetup, PERMISSIONS_KEY, permissionsAlreadyGranted } from '@/modules/auth/PermissionsSetup';
+import { canonicalRole } from '@/shared/utils/roles';
 import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente' | 'Representante';
@@ -52,12 +54,13 @@ type NavItem = { name: string; href: string; icon: React.ElementType; badge?: nu
 const APP_LOGO_SRC = '/images/isologo.png';
 
 function mapAppRole(rawRole: string | null | undefined): AppRole {
-  const normalized = (rawRole ?? '').toUpperCase().trim();
-  if (normalized === 'ADMIN' || normalized === 'ADMINISTRADOR') return 'Decano';
-  if (normalized === 'STUDENT' || normalized === 'ESTUDIANTE' || normalized === 'ALUMNO') return 'Alumno';
-  if (normalized === 'DOCENTE' || normalized === 'TEACHER') return 'Docente';
-  if (normalized === 'REPRESENTATIVE') return 'Representante';
-  return 'Encargado';
+  switch (canonicalRole(rawRole)) {
+    case 'ADMIN': return 'Decano';
+    case 'STUDENT': return 'Alumno';
+    case 'TEACHER': return 'Docente';
+    case 'REPRESENTATIVE': return 'Representante';
+    default: return 'Encargado';
+  }
 }
 
 export function MainLayout() {
@@ -539,7 +542,9 @@ export function MainLayout() {
 
         <main className="flex-1 min-w-0 overflow-x-hidden">
           <div className="p-4 sm:p-6 lg:p-8">
-            <Outlet />
+            <Suspense fallback={<div className="flex h-64 items-center justify-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin mr-2" />Cargando…</div>}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
