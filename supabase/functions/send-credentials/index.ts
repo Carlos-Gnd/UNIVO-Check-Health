@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
   // el envío de credenciales del usuario recién creado.
   const { data: profile } = await userClient.from('users').select('role').eq('id', user.id).single();
   const requesterRole = (profile?.role ?? '').toUpperCase();
-  if (!['ADMIN', 'DOCENTE', 'TEACHER'].includes(requesterRole)) {
+  if (!['ADMIN', 'ADMINISTRADOR', 'DECANO', 'DOCENTE', 'TEACHER'].includes(requesterRole)) {
     return json({ error: 'No tienes permiso para enviar credenciales.' }, 403);
   }
 

@@ -5,6 +5,16 @@ import { supabase } from '@/shared/backend/supabaseClient';
 
 type UserRole = 'ADMIN' | 'STUDENT' | 'COORDINATOR' | 'COORDINADOR' | 'TEACHER' | 'DOCENTE' | 'REPRESENTATIVE';
 
+// Normaliza sinónimos de rol para que el guard no bloquee a un decano cuya cuenta
+// tenga rol 'ADMINISTRADOR'/'DECANO' (que el resto del sistema trata como ADMIN).
+function normalizeRole(raw: string | null | undefined): UserRole | null {
+  const u = (raw ?? '').toUpperCase().trim();
+  if (!u) return null;
+  if (u === 'ADMINISTRADOR' || u === 'DECANO') return 'ADMIN';
+  if (u === 'ALUMNO' || u === 'ESTUDIANTE') return 'STUDENT';
+  return u as UserRole;
+}
+
 const ROLE_HOME: Record<UserRole, string> = {
   ADMIN: '/dean/dashboard',
   STUDENT: '/rotations',
@@ -42,7 +52,7 @@ export function RoleGuard({
         .select('role')
         .eq('id', authUser.id)
         .single<{ role: UserRole }>();
-      setRole((data?.role as UserRole) ?? null);
+      setRole(normalizeRole(data?.role));
       setIsLoading(false);
     };
     void resolve();
