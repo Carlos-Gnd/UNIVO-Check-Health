@@ -95,7 +95,9 @@ Deno.serve(async (req: Request) => {
 
   // Rol del solicitante (lee su propia fila vía RLS)
   const { data: profile } = await userClient.from('users').select('role').eq('id', user.id).single();
-  const requesterRole = (profile?.role ?? '').toUpperCase();
+  const rawRequesterRole = (profile?.role ?? '').toUpperCase();
+  // Normaliza sinónimos: un decano puede tener rol 'ADMINISTRADOR'/'DECANO'.
+  const requesterRole = (rawRequesterRole === 'ADMINISTRADOR' || rawRequesterRole === 'DECANO') ? 'ADMIN' : rawRequesterRole;
   const isAdmin = requesterRole === 'ADMIN';
   const isTeacher = requesterRole === 'DOCENTE' || requesterRole === 'TEACHER';
   if (!isAdmin && !isTeacher) {
