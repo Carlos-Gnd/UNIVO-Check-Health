@@ -21,11 +21,12 @@ UNIVO Check-Health digitaliza el ciclo completo del registro de asistencia en pr
 
 ### Roles del sistema
 
-| Rol | Descripción |
-|-----|-------------|
-| `STUDENT` | Registra entrada/salida con validación GPS |
-| `ENCARGADO` | Coordinador de sede; supervisa asistencia en tiempo real |
-| `ADMIN` | Decano; acceso completo a KPIs, reportes y configuración |
+| Rol          | Descripción                                                        |
+| ------------ | ------------------------------------------------------------------ |
+| `ESTUDIANTE` | Registra entrada/salida con validación GPS                         |
+| `DOCENTE`    | Docente supervisor; revisa asistencia de sus estudiantes asignados |
+| `ENCARGADO`  | Coordinador de sede; supervisa asistencia en tiempo real           |
+| `ADMIN`      | Decano; acceso completo a KPIs, reportes y configuración           |
 
 ---
 
@@ -41,11 +42,11 @@ UNIVO Check-Health digitaliza el ciclo completo del registro de asistencia en pr
 
 La presencia física se verifica mediante tres capas independientes:
 
-| Mecanismo | Descripción | Umbral |
-|-----------|-------------|--------|
-| **Geofencing GPS** | El servidor verifica que las coordenadas del dispositivo estén dentro del radio de la sede antes de registrar la asistencia | Radio configurable por sede |
-| **Análisis de sensores IMU** | Detecta GPS simulado midiendo la varianza del acelerómetro y giroscopio; un dispositivo estático con GPS falso carece de microvibración natural | Confianza < 80 % → alerta |
-| **Velocidad imposible** | Compara la posición de check-in con el último registro conocido; un desplazamiento físicamente imposible invalida el registro | > 140 km/h → rechazo |
+| Mecanismo                    | Descripción                                                                                                                                     | Umbral                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **Geofencing GPS**           | El servidor verifica que las coordenadas del dispositivo estén dentro del radio de la sede antes de registrar la asistencia                     | Radio configurable por sede     |
+| **Análisis de sensores IMU** | Detecta GPS simulado midiendo la varianza del acelerómetro y giroscopio; un dispositivo estático con GPS falso carece de microvibración natural | Confianza < 80 % → alerta       |
+| **Coherencia de ubicación**  | Verifica que las coordenadas de check-in y check-out no difieran más del umbral permitido dentro de la misma jornada                            | > 150 m → marca como sospechoso |
 
 Todos los eventos —incluyendo los rechazos— quedan registrados en el **audit log inmutable**, protegido por un trigger de base de datos que impide modificaciones.
 
@@ -69,19 +70,20 @@ Todos los eventos —incluyendo los rechazos— quedan registrados en el **audit
 
 ## Stack tecnológico
 
-| Capa | Tecnología |
-|------|------------|
-| Frontend | React 18 + TypeScript + Vite 6 |
-| Estilos | Tailwind CSS 4 + shadcn/ui (Radix UI) |
-| Estado | Zustand + React Hook Form |
-| Gráficas | Recharts |
-| Mapas | Leaflet + react-leaflet |
-| Backend | Supabase (PostgreSQL + Auth + Realtime) |
-| Routing | React Router 7 |
-| Exportación | jsPDF + SheetJS (xlsx) + CSV |
-| Fechas | date-fns |
-| Notificaciones | Sonner |
-| Package manager | pnpm |
+| Capa            | Tecnología                              |
+| --------------- | --------------------------------------- |
+| Frontend        | React 18 + TypeScript + Vite 6          |
+| Estilos         | Tailwind CSS 4 + shadcn/ui (Radix UI)   |
+| Estado          | Zustand + React Hook Form               |
+| Gráficas        | Recharts                                |
+| Mapas           | Leaflet + react-leaflet                 |
+| Backend         | Supabase (PostgreSQL + Auth + Realtime) |
+| Routing         | React Router 7                          |
+| Exportación     | jsPDF + SheetJS (xlsx) + CSV            |
+| Fechas          | date-fns                                |
+| Notificaciones  | Sonner                                  |
+| Email           | SMTP Gmail (Nodemailer)                 |
+| Package manager | pnpm                                    |
 
 ---
 
@@ -98,44 +100,14 @@ Todos los eventos —incluyendo los rechazos— quedan registrados en el **audit
 npm install -g pnpm
 ```
 
-### Instalación
-
-```bash
-# 1. Clonar el repositorio
-git clone https://github.com/ReneAraniva/UNIVO-Check-Health-.git
-cd "UNIVO-Check-Health-/Asistencia práctica salud app"
-
-# 2. Instalar dependencias
-pnpm install
-
-# 3. Configurar variables de entorno (ver sección siguiente)
-
-# 4. Iniciar el servidor de desarrollo
-pnpm dev
-```
-
-La aplicación estará disponible en `http://localhost:5173`.
-
-### Variables de entorno
-
-Crear el archivo `.env.local` en la raíz del proyecto con las siguientes variables (solicitar valores al equipo):
-
-```env
-VITE_SUPABASE_URL=https://<proyecto>.supabase.co
-VITE_SUPABASE_ANON_KEY=<clave_anon_publica>
-VITE_SUPABASE_SERVICE_ROLE=<clave_service_role>
-```
-
-> `.env.local` está en `.gitignore` — nunca subir las claves al repositorio.
-
 ### Solución de errores comunes
 
-| Error | Causa | Solución |
-|-------|-------|----------|
-| Página en blanco o error de módulo | Se usó `npm install` en lugar de `pnpm` | Borrar `node_modules` y ejecutar `pnpm install` |
-| `Invalid API key` en consola | `.env.local` ausente o con claves incorrectas | Verificar el archivo y reiniciar con `pnpm dev` |
-| Login rechazado con correo válido | La cuenta no existe en Supabase Auth | Crearla desde el panel **Gestión de Usuarios** |
-| `node -v` inferior a 18 | Vite 6 requiere Node 18+ | Actualizar con `nvm install 18` |
+| Error                              | Causa                                         | Solución                                        |
+| ---------------------------------- | --------------------------------------------- | ----------------------------------------------- |
+| Página en blanco o error de módulo | Se usó `npm install` en lugar de `pnpm`       | Borrar `node_modules` y ejecutar `pnpm install` |
+| `Invalid API key` en consola       | `.env.local` ausente o con claves incorrectas | Verificar el archivo y reiniciar con `pnpm dev` |
+| Login rechazado con correo válido  | La cuenta no existe en Supabase Auth          | Crearla desde el panel **Gestión de Usuarios**  |
+| `node -v` inferior a 18            | Vite 6 requiere Node 18+                      | Actualizar con `nvm install 18`                 |
 
 ---
 
@@ -183,12 +155,12 @@ git commit -m "feat: descripción del cambio"
 
 ## Equipo
 
-| Nombre | Carné |
-|--------|-------|
-| Carlos Alberto Granados Amaya | U20240579 |
-| René Francisco Pacheco Araniva | U20240844 |
-| Nelson René Rodríguez Quintanilla | U20240270 |
-| Verónica Nataly Morales Jiménez | U20220902 |
-| David Alexander Urias Blanco | U20240435 |
+| Nombre                            | Carné     | GitHub                                         |
+| --------------------------------- | --------- | ---------------------------------------------- |
+| Carlos Alberto Granados Amaya     | U20240579 | [@Carlos-Gnd](https://github.com/Carlos-Gnd)   |
+| René Francisco Pacheco Araniva    | U20240844 | [@ReneAraniva](https://github.com/ReneAraniva) |
+| Nelson René Rodríguez Quintanilla | U20240270 | [@NelsonDev10](https://github.com/NelsonDev10) |
+| Verónica Nataly Morales Jiménez   | U20220902 | [@natalyxh](https://github.com/natalyxh)       |
+| David Alexander Urias Blanco      | U20240435 | [@Dalex1905](https://github.com/Dalex1905)     |
 
 **Cátedra:** Diseño de Componentes Web — Ing. José Adolfo Herrera Funes — UNIVO Ciclo I-2026
