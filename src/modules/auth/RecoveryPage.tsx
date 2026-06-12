@@ -166,11 +166,10 @@ export function RecoveryPage() {
               {step === 1 ? 'Paso 1 · Seguridad' : 'Paso 2 · Código OTP'}
             </p>
 
-            <div className="rounded-xl bg-white/95 p-5 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.25)]">
           {step === 1 ? (
             <form onSubmit={handleAnswerSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="recovery-email" className="text-xs uppercase tracking-wide text-brand-700">Correo institucional</Label>
+                <Label htmlFor="recovery-email" className="text-white/80 uppercase tracking-wide text-xs">Correo institucional</Label>
                 <Input
                   id="recovery-email"
                   type="email"
@@ -179,15 +178,16 @@ export function RecoveryPage() {
                   onBlur={handleEmailBlur}
                   placeholder={`U20240000${UNIVO_DOMAIN}`}
                   required
+                  className="h-12 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="security-answer" className="flex items-center gap-1 text-xs uppercase tracking-wide text-brand-700">
+                <Label htmlFor="security-answer" className="flex items-center gap-1 text-white/80 uppercase tracking-wide text-xs">
                   <ShieldQuestion className="h-3.5 w-3.5" />
                   Respuesta de seguridad
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" tabIndex={-1} aria-label="Más información" className="text-brand-400 hover:text-brand-700">
+                      <button type="button" tabIndex={-1} aria-label="Más información" className="text-gold-400/70 hover:text-gold-300">
                         <Info className="h-3.5 w-3.5" />
                       </button>
                     </TooltipTrigger>
@@ -197,11 +197,11 @@ export function RecoveryPage() {
                   </Tooltip>
                 </Label>
                 {question ? (
-                  <p className="rounded-md border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-900">
+                  <p className="rounded-md border border-gold-400/20 bg-white/10 px-3 py-2 text-sm text-white/90">
                     {question}
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-brand-200/60">
                     Escribe tu correo para ver tu pregunta de seguridad.
                   </p>
                 )}
@@ -211,53 +211,53 @@ export function RecoveryPage() {
                   onChange={(event) => setAnswer(event.target.value)}
                   placeholder="Ingresa tu respuesta"
                   required
+                  className="h-12 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400"
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting} className="w-full bg-brand-800 text-white hover:bg-brand-900">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verificando...</> : 'Continuar'}
               </Button>
             </form>
           ) : done ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 className="h-7 w-7 text-green-600" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/20 ring-1 ring-green-400/30">
+                <CheckCircle2 className="h-7 w-7 text-green-400" />
               </div>
-              <h2 className="text-lg font-semibold text-brand-900">¡Identidad verificada!</h2>
-              <p className="text-sm text-slate-600">{doneMsg}</p>
-              <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 text-left">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>Te enviamos una <strong>contraseña temporal</strong> a tu correo. Si no la ves, <strong>revisa la carpeta de Spam</strong>. Al iniciar sesión te pediremos crear una contraseña nueva.</span>
+              <h2 className="text-lg font-semibold text-white">¡Identidad verificada!</h2>
+              <p className="text-sm text-brand-200/80">{doneMsg}</p>
+              <p className="flex items-start gap-2 rounded-md border border-gold-400/20 bg-white/10 px-3 py-2 text-xs text-brand-100/80 text-left">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-400" />
+                <span>Te enviamos una <strong className="text-white">contraseña temporal</strong> a tu correo. Si no la ves, <strong className="text-white">revisa la carpeta de Spam</strong>. Al iniciar sesión te pediremos crear una contraseña nueva.</span>
               </p>
-              <Button asChild className="mt-2 w-full bg-brand-800 text-white hover:bg-brand-900">
+              <Button asChild className="mt-2 w-full h-12 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
                 <Link to="/">Ir a iniciar sesión</Link>
               </Button>
             </div>
           ) : (
             <form onSubmit={handleOtpSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-brand-700">Código de verificación</Label>
-                <p className="text-xs text-slate-500">Ingresa el código de 6 dígitos que enviamos a tu correo.</p>
+                <Label className="text-white/80 uppercase tracking-wide text-xs">Código de verificación</Label>
+                <p className="text-xs text-brand-200/60">Ingresa el código de 6 dígitos que enviamos a tu correo.</p>
                 <InputOTP maxLength={6} value={otp} onChange={setOtp} containerClassName="justify-center">
                   <InputOTPGroup className="gap-2">
                     {Array.from({ length: 6 }).map((_, index) => (
-                      <InputOTPSlot key={index} index={index} className="h-12 w-12 rounded-md border border-brand-200 bg-white text-lg font-semibold text-brand-900 shadow-sm" />
+                      <InputOTPSlot key={index} index={index} className="h-12 w-12 rounded-md border border-white/20 bg-white/90 text-lg font-semibold text-brand-900 shadow-sm focus:border-gold-400" />
                     ))}
                   </InputOTPGroup>
                 </InputOTP>
               </div>
-              <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>Enviamos el código a tu correo institucional (y de respaldo, si tienes). Si no lo ves en unos minutos, <strong>revisa tu carpeta de Spam o Correo no deseado</strong> y marca el mensaje como seguro.</span>
+              <p className="flex items-start gap-2 rounded-md border border-gold-400/20 bg-white/10 px-3 py-2 text-xs text-brand-100/80">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-400" />
+                <span>Enviamos el código a tu correo institucional (y de respaldo, si tienes). Si no lo ves en unos minutos, <strong className="text-white">revisa tu carpeta de Spam o Correo no deseado</strong> y marca el mensaje como seguro.</span>
               </p>
-              <Button type="submit" disabled={isSubmitting} className="w-full bg-brand-800 text-white hover:bg-brand-900">
+              <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Validando...</> : <><CheckCircle2 className="mr-2 h-4 w-4" />Validar codigo</>}
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setStep(1)} className="w-full text-brand-700">
+              <Button type="button" variant="ghost" onClick={() => setStep(1)} className="w-full text-gold-400/80 hover:text-gold-300 hover:bg-white/5">
                 Cambiar respuesta
               </Button>
             </form>
           )}
-            </div>
           </section>
         </div>
       </div>

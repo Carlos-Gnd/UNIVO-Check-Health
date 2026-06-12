@@ -1,23 +1,87 @@
+<div align="center">
+
 # UNIVO Check-Health
 
-Sistema web para el **registro y control de asistencias** de prácticas clínicas del área de salud en la Universidad de Oriente (UNIVO), El Salvador.
+**Sistema de control de asistencia para prácticas clínicas**  
+Universidad de Oriente (UNIVO) — El Salvador
 
-Digitaliza el ciclo completo de prácticas mediante geofencing GPS, auditoría inmutable, dashboard ejecutivo y gestión de usuarios por roles.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-univo--check--health.netlify.app-brightgreen?style=for-the-badge&logo=netlify)](https://univo-check-health.netlify.app/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+
+</div>
 
 ---
 
-### Funcionalidades completadas
+## Acerca del proyecto
 
-- **Autenticación** — Supabase Auth con validación de dominio `@univo.edu.sv`. Solo cuentas institucionales.
-- **RBAC** — Rol `ADMIN` (Decano) y `ENCARGADO` (Coordinador) asignados desde base de datos. Navegación diferenciada por rol.
-- **Gestión de usuarios** — Panel para crear cuentas (nombre, carné, rol, carrera) sin afectar la sesión activa.
-- **Check-in / Check-out** — Validación de geofencing en tiempo real vía RPC `validate_checkin_area`. Registro de hora firmada por servidor.
-- **Dashboard** — Estadísticas globales, gráficas de asistencia (Recharts), mapa de sedes activas.
-- **Módulo Decano** — Dashboard con KPIs reales desde Supabase, lista de estudiantes con cumplimiento, CRUD completo de sedes con geofence.
-- **Historial de asistencias** — Tabla paginada con filtros por estudiante, práctica y estado. Export CSV.
-- **Módulo Estudiantes / Prácticas / Reportes** — Vistas completas con datos en tiempo real.
-- **Diseño responsive** — Mobile (360 px), tablet, desktop y ultrawide (≥ 1536 px).
-- **Audit log** — Registro inmutable de acciones críticas (sign-out, eventos de seguridad).
+UNIVO Check-Health digitaliza el ciclo completo del registro de asistencia en prácticas clínicas del área de salud. Reemplaza el control manual en papel con una solución web que valida la presencia física del estudiante mediante **geofencing GPS**, detecta falsificación de ubicación, y genera un **audit trail inmutable** de cada evento.
+
+### Roles del sistema
+
+| Rol | Descripción |
+|-----|-------------|
+| `STUDENT` | Registra entrada/salida con validación GPS |
+| `ENCARGADO` | Coordinador de sede; supervisa asistencia en tiempo real |
+| `ADMIN` | Decano; acceso completo a KPIs, reportes y configuración |
+
+---
+
+## Página en vivo
+
+> Accede a la aplicación desplegada en Netlify:
+
+**[https://univo-check-health.netlify.app/](https://univo-check-health.netlify.app/)**
+
+---
+
+## Modelo de seguridad y detección de fraude
+
+La presencia física se verifica mediante tres capas independientes:
+
+| Mecanismo | Descripción | Umbral |
+|-----------|-------------|--------|
+| **Geofencing GPS** | El servidor verifica que las coordenadas del dispositivo estén dentro del radio de la sede antes de registrar la asistencia | Radio configurable por sede |
+| **Análisis de sensores IMU** | Detecta GPS simulado midiendo la varianza del acelerómetro y giroscopio; un dispositivo estático con GPS falso carece de microvibración natural | Confianza < 80 % → alerta |
+| **Velocidad imposible** | Compara la posición de check-in con el último registro conocido; un desplazamiento físicamente imposible invalida el registro | > 140 km/h → rechazo |
+
+Todos los eventos —incluyendo los rechazos— quedan registrados en el **audit log inmutable**, protegido por un trigger de base de datos que impide modificaciones.
+
+---
+
+## Funcionalidades
+
+- **Autenticación institucional** — Supabase Auth restringido a correos `@univo.edu.sv`
+- **Control de acceso por rol (RBAC)** — Navegación y vistas diferenciadas por `ADMIN`, `ENCARGADO` y `STUDENT`
+- **Check-in / Check-out GPS** — Validación de geofencing en tiempo real mediante RPC `validate_checkin_area`
+- **Detección de GPS falso** — Análisis de varianza de acelerómetro/giroscopio, umbral de confianza del 80 %
+- **Detección de velocidad imposible** — Alerta si el desplazamiento supera 140 km/h entre registros consecutivos
+- **Dashboard ejecutivo** — KPIs globales, gráficas Recharts y mapa interactivo de sedes (Leaflet)
+- **Panel del Decano** — Lista de estudiantes con cumplimiento, CRUD de sedes con geofence editable
+- **Gestión de usuarios** — Crear cuentas desde la app sin interrumpir la sesión activa
+- **Historial de asistencias** — Tabla paginada con filtros; exportación CSV, PDF y XLSX
+- **Audit log inmutable** — Registro de todas las acciones críticas protegido por trigger en base de datos
+- **Diseño responsive** — Compatible con móvil (360 px), tablet, escritorio y ultrawide (≥ 1536 px)
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React 18 + TypeScript + Vite 6 |
+| Estilos | Tailwind CSS 4 + shadcn/ui (Radix UI) |
+| Estado | Zustand + React Hook Form |
+| Gráficas | Recharts |
+| Mapas | Leaflet + react-leaflet |
+| Backend | Supabase (PostgreSQL + Auth + Realtime) |
+| Routing | React Router 7 |
+| Exportación | jsPDF + SheetJS (xlsx) + CSV |
+| Fechas | date-fns |
+| Notificaciones | Sonner |
+| Package manager | pnpm |
 
 ---
 
@@ -25,39 +89,36 @@ Digitaliza el ciclo completo de prácticas mediante geofencing GPS, auditoría i
 
 > El backend corre en **Supabase Cloud** — no se necesita Docker ni Supabase local.
 
-### Requisitos
+### Requisitos previos
 
-- **Node.js 18 o superior** — verificar con `node -v`
-- **pnpm** — el proyecto no acepta npm ni yarn
+- **Node.js 18+** — verificar con `node -v`
+- **pnpm** — el proyecto rechaza npm y yarn
 
 ```bash
-# Instalar pnpm si no lo tienes
 npm install -g pnpm
 ```
 
-### Pasos
+### Instalación
 
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/ReneAraniva/UNIVO-Check-Health-.git
-cd UNIVO-Check-Health-/Check-Health
+cd "UNIVO-Check-Health-/Asistencia práctica salud app"
 
-# 2. Crear el archivo de variables de entorno
-#    (pedir las credenciales)
-.env.local  
-
-# 3. Instalar dependencias
+# 2. Instalar dependencias
 pnpm install
 
-# 4. Levantar el servidor de desarrollo
+# 3. Configurar variables de entorno (ver sección siguiente)
+
+# 4. Iniciar el servidor de desarrollo
 pnpm dev
 ```
 
 La aplicación estará disponible en `http://localhost:5173`.
 
-### Archivo `.env.local`
+### Variables de entorno
 
-Crear el archivo `Check-Health/.env.local` con las siguientes variables (pedir valores al equipo):
+Crear el archivo `.env.local` en la raíz del proyecto con las siguientes variables (solicitar valores al equipo):
 
 ```env
 VITE_SUPABASE_URL=https://<proyecto>.supabase.co
@@ -67,60 +128,38 @@ VITE_SUPABASE_SERVICE_ROLE=<clave_service_role>
 
 > `.env.local` está en `.gitignore` — nunca subir las claves al repositorio.
 
-### Credenciales de prueba
-
-| Usuario | Correo | Rol |
-|---------|--------|-----|
-| Administrador | `admin@univo.edu.sv` | Decano (acceso completo) |
-| Estudiante 1 | `U20240001@univo.edu.sv` | Encargado |
-
-Contraseñas: solicitar al equipo. Para crear nuevos usuarios, usar el panel **Gestión de Usuarios** dentro de la app.
-
 ### Solución de errores comunes
 
 | Error | Causa | Solución |
-|-------|-------|---------|
-| Página en blanco / error de módulo | Se usó `npm install` en vez de `pnpm` | Borrar `node_modules` y `package-lock.json`, luego `pnpm install` |
-| `Invalid API key` en consola | `.env.local` no existe o tiene las claves incorrectas | Verificar el archivo y reiniciar `pnpm dev` |
-| Login rechazado con correo válido | La cuenta no existe en Supabase Auth | Crearla desde el panel de Gestión de Usuarios |
-| `node -v` < 18 | Vite 6 requiere Node 18+ | Actualizar Node con `nvm install 18` |
-
----
-
-## Stack tecnológico
-
-| Capa | Tecnología |
-|------|-----------|
-| Frontend | React 18 + TypeScript + Vite 6 |
-| Estilos | Tailwind CSS 4 + shadcn/ui (Radix UI) |
-| Estado | Zustand + React Hook Form |
-| Gráficas | Recharts |
-| Backend | Supabase (PostgreSQL + Auth + Storage + Realtime) |
-| Routing | React Router 7 |
-| Fechas | date-fns |
-| Notificaciones | Sonner |
-| Package manager | pnpm |
+|-------|-------|----------|
+| Página en blanco o error de módulo | Se usó `npm install` en lugar de `pnpm` | Borrar `node_modules` y ejecutar `pnpm install` |
+| `Invalid API key` en consola | `.env.local` ausente o con claves incorrectas | Verificar el archivo y reiniciar con `pnpm dev` |
+| Login rechazado con correo válido | La cuenta no existe en Supabase Auth | Crearla desde el panel **Gestión de Usuarios** |
+| `node -v` inferior a 18 | Vite 6 requiere Node 18+ | Actualizar con `nvm install 18` |
 
 ---
 
 ## Estructura del proyecto
 
 ```
-Check-Health/
+Asistencia práctica salud app/
 ├── src/
-│   ├── app/          # Rutas (React Router)
-│   ├── modules/      # Módulos por feature
+│   ├── app/              # React Router (rutas + guards por rol)
+│   ├── modules/          # Módulos por dominio de negocio
 │   │   ├── admin/        # Gestión de usuarios
-│   │   ├── attendance/   # Check-in / check-out
+│   │   ├── attendance/   # Check-in / check-out + detección de fraude
 │   │   ├── dashboard/    # Dashboard principal
-│   │   ├── dean/         # Panel del decano/coordinador
-│   │   ├── practices/    # Prácticas / sedes
-│   │   ├── reports/      # Reportes y exportación
-│   │   └── students/     # Listado de estudiantes
-│   └── shared/       # Layout, cliente Supabase, UI primitives
+│   │   ├── dean/         # Panel del Decano / Coordinador
+│   │   ├── practices/    # Prácticas y sedes
+│   │   ├── reports/      # Exportación CSV, PDF, XLSX
+│   │   ├── rotations/    # Calendarios de rotación
+│   │   └── students/     # Listado y progreso de estudiantes
+│   └── shared/
+│       ├── backend/      # Supabase clients + lógica de negocio
+│       └── components/   # Layout, RoleGuard, shadcn/ui primitives
 ├── supabase/
-│   └── migrations/   # Scripts SQL aplicados en Supabase Cloud
-└── .env.local        # Variables de entorno (no subir a git)
+│   └── migrations/       # Scripts SQL aplicados en Supabase Cloud
+└── .env.local            # Variables de entorno (gitignored)
 ```
 
 ---
@@ -128,28 +167,28 @@ Check-Health/
 ## Flujo de trabajo Git
 
 ```bash
-# Crear rama por feature
+# Crear rama por historia de usuario
 git checkout -b feature/HU-XX-descripcion
 
-# Commit con prefijo
+# Commit semántico
 git commit -m "feat: descripción del cambio"
 
 # Abrir Pull Request hacia main
-# Revisión requerida antes de fusionar
+# Se requiere revisión antes de fusionar
 ```
 
-Prefijos válidos: `feat:`, `fix:`, `docs:`, `refactor:`, `merge:`.
+**Prefijos válidos:** `feat:` `fix:` `docs:` `refactor:` `merge:`
 
 ---
 
 ## Equipo
 
-| Nombre | Carné | Rol |
-|--------|-------|-----|
+| Nombre | Carné |
+|--------|-------|
 | Carlos Alberto Granados Amaya | U20240579 |
 | René Francisco Pacheco Araniva | U20240844 |
 | Nelson René Rodríguez Quintanilla | U20240270 |
 | Verónica Nataly Morales Jiménez | U20220902 |
 | David Alexander Urias Blanco | U20240435 |
 
-Cátedra: **Diseño de Componentes Web** — Ing. José Adolfo Herrera Funes — UNIVO Ciclo I-2026.
+**Cátedra:** Diseño de Componentes Web — Ing. José Adolfo Herrera Funes — UNIVO Ciclo I-2026

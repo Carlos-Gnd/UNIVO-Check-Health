@@ -50,7 +50,7 @@ export function HolidaysPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <PageHeader title="Días no hábiles" description="Feriados y días sin práctica: no cuentan como falta en el progreso del alumno." />
 
       <Card>
