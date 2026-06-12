@@ -55,7 +55,7 @@ Todos los eventos —incluyendo los rechazos— quedan registrados en el **audit
 ## Funcionalidades
 
 - **Autenticación institucional** — Supabase Auth restringido a correos `@univo.edu.sv`
-- **Control de acceso por rol (RBAC)** — Navegación y vistas diferenciadas por `ADMIN`, `ENCARGADO` y `STUDENT`
+- **Control de acceso por rol (RBAC)** — Navegación y vistas diferenciadas por `ADMIN`, `ENCARGADO`, `DOCENTE`  y `ESTUDIANTE`
 - **Check-in / Check-out GPS** — Validación de geofencing en tiempo real mediante RPC `validate_checkin_area`
 - **Detección de GPS falso** — Análisis de varianza de acelerómetro/giroscopio, umbral de confianza del 80 %
 - **Detección de velocidad imposible** — Alerta si el desplazamiento supera 140 km/h entre registros consecutivos
