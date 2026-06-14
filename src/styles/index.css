@@ -2,6 +2,27 @@
 @import './theme.css';
 @import 'leaflet/dist/leaflet.css';
 
+/* Evita el "ghost drag" nativo del navegador: al mantener presionado un enlace
+   (ítems del menú) o un ícono/imagen, el navegador iniciaba un arrastre nativo
+   que hacía ver como si los módulos se pudieran mover/reubicar. Se desactiva
+   globalmente. Los arrastres legítimos (marcador de Leaflet, zona de soltar
+   archivos en justificaciones) usan sus propios handlers y no dependen de
+   -webkit-user-drag, así que no se ven afectados. */
+a,
+button,
+img,
+svg {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  user-drag: none;
+}
+
+nav a,
+aside a {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
 /* El mapa Leaflet crea su propio contexto de apilamiento: así sus paneles y
    controles (z-index hasta 1000) NO se sobreponen al header (z-50) ni al menú
    móvil (z-40). Sin esto, el mapa se montaba encima del menú en móvil y PC.

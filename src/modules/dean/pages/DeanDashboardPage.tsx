@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -228,19 +227,6 @@ export function DeanDashboardPage() {
   const totalRiskPages = Math.max(1, Math.ceil(riskStudents.length / RISK_PAGE_SIZE));
   const pagedRiskStudents = riskStudents.slice(riskPage * RISK_PAGE_SIZE, (riskPage + 1) * RISK_PAGE_SIZE);
 
-  const chartData = useMemo(
-    () =>
-      locations
-        .filter((l) => l.status === 'active')
-        .map((l) => ({
-          name: l.name.length > 20 ? l.name.slice(0, 18) + '…' : l.name,
-          fullName: l.name,
-          value: l.averageCompliance,
-        })),
-    [locations],
-  );
-
-  const barColor = (v: number) => (v > 75 ? '#16a34a' : v >= 50 ? '#f59e0b' : '#dc2626');
   const activeSharedDeviceAlerts = sharedDeviceAlerts.filter((alert) => !resolvedAlertIds.has(alert.id));
   const latestSharedDeviceAlert = activeSharedDeviceAlerts[0];
 
@@ -301,33 +287,7 @@ export function DeanDashboardPage() {
         <StatCard title="Sedes Activas" value={globalStats.activeLocations} subtitle="lugares con prácticas este semestre" icon={Building2} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* T-07.2: Cumplimiento por sede */}
-        <Card className="overflow-hidden border-brand-100 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <CardTitle className="flex items-center gap-2 text-white">
-              <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
-              Cumplimiento por Sede
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-64 sm:h-80 pt-4">
-            {chartData.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center pt-16">Sin datos de sedes activas</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number, _n, entry: any) => [`${v}%`, entry.payload.fullName]} />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                    {chartData.map((item) => <Cell key={item.fullName} fill={barColor(item.value)} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* T-19.3: Lista paginada de alumnos en riesgo */}
         <Card className="overflow-hidden border-brand-100 shadow-sm">
           <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between pb-3">

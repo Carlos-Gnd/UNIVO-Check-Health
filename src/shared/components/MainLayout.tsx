@@ -38,6 +38,7 @@ import { useState, useEffect, useRef, Suspense, type FormEvent } from 'react';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
@@ -63,6 +64,19 @@ function mapAppRole(rawRole: string | null | undefined): AppRole {
   }
 }
 
+// Avatar del usuario en el navbar (bug #2): muestra la foto de perfil real
+// (users.photo_url) y cae al ícono genérico si no hay foto o falla la carga.
+function ProfileAvatar({ photoUrl, name, className }: { photoUrl: string | null; name: string; className: string }) {
+  return (
+    <Avatar className={`${className} shrink-0 border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700`}>
+      {photoUrl && <AvatarImage src={photoUrl} alt={name} className="object-cover" />}
+      <AvatarFallback className="bg-transparent text-brand-700">
+        <UserCircle className="h-5 w-5" />
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
@@ -82,6 +96,7 @@ export function MainLayout() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isResolvingRole, setIsResolvingRole] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(true);
@@ -95,11 +110,12 @@ export function MainLayout() {
     setIsResolvingRole(true);
     const { data } = await supabase
       .from('users')
-      .select('role, full_name')
+      .select('role, full_name, photo_url')
       .eq('id', userId)
       .single();
     setCurrentRole(mapAppRole(data?.role));
     setDisplayName(data?.full_name ?? fallbackEmail);
+    setAvatarUrl((data?.photo_url as string | null) ?? null);
     setIsResolvingRole(false);
 
     // must_change_password se consulta aparte: si la columna aún no existe
@@ -144,6 +160,7 @@ export function MainLayout() {
           setCurrentUser(null);
           setCurrentRole('Encargado');
           setDisplayName('');
+          setAvatarUrl(null);
           setMustChangePassword(false);
           setLegalAccepted(true);
           setNeedsPermissions(false);
@@ -468,9 +485,7 @@ export function MainLayout() {
             {isSidebarCollapsed ? (
               <div className="flex justify-center w-full">
                 <Link to="/profile" title={displayName || currentUser.email} className="flex w-11 h-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024] shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
-                    <UserCircle className="h-5 w-5" />
-                  </div>
+                  <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-8 w-8" />
                 </Link>
               </div>
             ) : (
@@ -479,9 +494,7 @@ export function MainLayout() {
                   <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
                   <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
                 </div>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
-                  <UserCircle className="h-5 w-5" />
-                </div>
+                <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-9 w-9" />
               </Link>
             )}
             <Button
