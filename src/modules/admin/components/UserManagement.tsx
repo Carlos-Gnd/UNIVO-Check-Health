@@ -22,6 +22,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 import { fetchCareers, type Career } from '@/modules/dean/services/catalog.service';
+import { fetchPendingAccessRequests, markAccessRequest, type AccessRequest } from '@/modules/auth/access.service';
 
 // B-01: las operaciones privilegiadas viven en la Edge Function admin-users.
 // El cliente nunca maneja la service_role key.
@@ -140,6 +141,10 @@ export function UserManagement() {
   const [roleFilter, setRoleFilter]       = useState('all');
   const [careerFilter, setCareerFilter]   = useState('all');
 
+  // #19: solicitudes de acceso pendientes (creadas desde el login).
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [processingReqId, setProcessingReqId] = useState<string | null>(null);
+
   const derivedEmail = studentCode ? `${studentCode.toUpperCase()}${UNIVO_DOMAIN}` : '';
 
   const resetCreateForm = () => {
@@ -169,7 +174,55 @@ export function UserManagement() {
     setCampuses((data as CampusOption[]) ?? []);
   };
 
-  useEffect(() => { void loadUsers(); void loadCampuses(); void fetchCareers().then(setCareers); }, []);
+  const loadAccessRequests = async () => {
+    setAccessRequests(await fetchPendingAccessRequests());
+  };
+
+  useEffect(() => { void loadUsers(); void loadCampuses(); void fetchCareers().then(setCareers); void loadAccessRequests(); }, []);
+
+  // #19: aprobar una solicitud crea el usuario (con credenciales temporales que se
+  // envían al correo) y marca la solicitud como aprobada. Rechazar solo la cierra.
+  const handleApproveRequest = async (req: AccessRequest) => {
+    const code = req.studentCode.trim().toUpperCase();
+    const email = `${code}${UNIVO_DOMAIN}`;
+    const tempPassword = generateTempPassword();
+    setProcessingReqId(req.id);
+    const result = await invokeAdmin('create', {
+      email,
+      password: tempPassword,
+      student_code: code,
+      full_name: req.fullName.trim(),
+      role: req.requestedRole,
+      career: req.requestedRole === 'STUDENT' ? req.career : null,
+      academic_level: req.requestedRole === 'STUDENT' ? 1 : null,
+      campus_id: null,
+    });
+    if (!result.ok) {
+      setProcessingReqId(null);
+      toast.error(result.message ?? 'No se pudo crear el usuario.');
+      return;
+    }
+    await markAccessRequest(req.id, 'approved');
+    setProcessingReqId(null);
+    setCreatedCreds({ email, password: tempPassword });
+    void supabase.functions
+      .invoke('send-credentials', { body: { email, password: tempPassword, full_name: req.fullName.trim() } })
+      .then(({ error }) => {
+        if (error) toast.error('Usuario creado, pero no se pudieron enviar las credenciales');
+        else toast.success('Solicitud aprobada y credenciales enviadas');
+      });
+    void loadAccessRequests();
+    void loadUsers();
+  };
+
+  const handleRejectRequest = async (req: AccessRequest) => {
+    setProcessingReqId(req.id);
+    const result = await markAccessRequest(req.id, 'rejected');
+    setProcessingReqId(null);
+    if (!result.ok) { toast.error(result.message ?? 'No se pudo rechazar la solicitud.'); return; }
+    toast.success('Solicitud rechazada');
+    void loadAccessRequests();
+  };
 
   // B6: nombres de carreras y niveles (ciclos) desde la tabla configurable. Las
   // carreras inactivas no se ofrecen en formularios nuevos, pero si un usuario ya
@@ -345,6 +398,43 @@ export function UserManagement() {
           </Button>
         )}
       />
+
+      {/* #19: solicitudes de acceso pendientes (creadas desde el login) */}
+      {accessRequests.length > 0 && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm">
+          <div className="flex items-center gap-2 px-6 py-4 border-b border-amber-100">
+            <UserPlus className="w-4 h-4 text-amber-700" />
+            <h2 className="text-base font-semibold text-amber-900">Solicitudes de acceso pendientes</h2>
+            <Badge className="bg-amber-200 text-amber-800">{accessRequests.length}</Badge>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {accessRequests.map((r) => {
+              // #19: el docente solo puede aprobar los roles que admin-users le deja
+              // crear (STUDENT/COORDINATOR). Para los demás, solo el decano aprueba.
+              const canApprove = manageableRoles.includes((r.requestedRole ?? '').toUpperCase());
+              return (
+              <div key={r.id} className="flex flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{r.fullName} <span className="font-mono text-xs text-gray-500">{r.studentCode}</span></p>
+                  <p className="text-xs text-gray-600">{roleLabel(r.requestedRole)}{r.career ? ` · ${r.career}` : ''}{r.reason ? ` — ${r.reason}` : ''}</p>
+                  {!canApprove && (
+                    <p className="text-xs text-amber-700 mt-0.5">Este rol solo lo puede aprobar el decano.</p>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" disabled={processingReqId === r.id || !canApprove} title={!canApprove ? 'Tu rol no puede crear este tipo de usuario.' : undefined} onClick={() => void handleApproveRequest(r)} className="bg-green-700 hover:bg-green-800 text-white">
+                    {processingReqId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Aprobar'}
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={processingReqId === r.id} onClick={() => void handleRejectRequest(r)} className="text-red-700 border-red-200 hover:bg-red-50">
+                    Rechazar
+                  </Button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

@@ -4,6 +4,7 @@ import { MainLayout } from '@/shared/components/MainLayout';
 import { NotFound } from '@/shared/components/NotFound';
 import { RoleGuard } from '@/shared/components/RoleGuard';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
+import { RequestAccessPage } from '@/modules/auth/RequestAccessPage';
 import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
 
 // Carga diferida de páginas: cada ruta se divide en su propio chunk y solo se
@@ -44,6 +45,7 @@ const TeacherDecisionHistoryPage = lazyPage(() => import('@/modules/teacher/page
 
 const HospitalLivePage = lazyPage(() => import('@/modules/hospital/pages/HospitalLivePage'), 'HospitalLivePage');
 const HospitalIncidentsPage = lazyPage(() => import('@/modules/hospital/pages/HospitalIncidentsPage'), 'HospitalIncidentsPage');
+const HospitalSubjectsPage = lazyPage(() => import('@/modules/hospital/pages/HospitalSubjectsPage'), 'HospitalSubjectsPage');
 
 const DeanDashboardRoute = () => (
   <RoleGuard allow={['ADMIN']}>
@@ -167,8 +169,15 @@ const HospitalIncidentsRoute = () => (
   </RoleGuard>
 );
 
+const HospitalSubjectsRoute = () => (
+  <RoleGuard allow={['REPRESENTATIVE']}>
+    <HospitalSubjectsPage />
+  </RoleGuard>
+);
+
 export const router = createBrowserRouter([
   { path: '/auth/recovery', Component: RecoveryPage },
+  { path: '/auth/request-access', Component: RequestAccessPage },
   { path: '/legal/privacy', Component: PrivacyPolicyPage },
   { path: '/legal/cookies', Component: CookiesPolicyPage },
   { path: '/legal/terms', Component: TermsPage },
@@ -202,6 +211,7 @@ export const router = createBrowserRouter([
       { path: 'teacher/evaluations', Component: TeacherEvaluationsRoute },
       { path: 'teacher/history', Component: TeacherHistoryRoute },
       { path: 'hospital/live', Component: HospitalLiveRoute },
+      { path: 'hospital/subjects', Component: HospitalSubjectsRoute },
       { path: 'hospital/incidents', Component: HospitalIncidentsRoute },
       { path: '*', Component: NotFound },
     ],

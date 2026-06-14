@@ -280,6 +280,7 @@ export function MainLayout() {
     : currentRole === 'Representante'
       ? [
           { name: 'Estudiantes en mi sede', href: '/hospital/live', icon: Hospital },
+          { name: 'Materias en mi sede', href: '/hospital/subjects', icon: BookOpen },
           { name: 'Reportes de Conducta', href: '/hospital/incidents', icon: AlertTriangle },
         ]
       : [
@@ -409,7 +410,10 @@ export function MainLayout() {
                     <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400" required />
                     <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-400 hover:text-gold-500" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
                   </div>
-                  <div className="text-right"><Link to="/auth/recovery" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿Olvidaste tu contraseña?</Link></div>
+                  <div className="flex items-center justify-between">
+                    <Link to="/auth/request-access" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿No tienes cuenta? Solicita acceso</Link>
+                    <Link to="/auth/recovery" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿Olvidaste tu contraseña?</Link>
+                  </div>
                 </div>
                 <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>

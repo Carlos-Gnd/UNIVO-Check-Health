@@ -56,6 +56,31 @@ export async function reportStudentConduct(
   return { ok: true };
 }
 
+// #7 — Materias / prácticas programadas en la sede del representante.
+export type CampusSubject = {
+  subjectId: string | null;
+  subjectCode: string;
+  subjectName: string;
+  career: string | null;
+  teacherName: string;
+  studentCount: number;
+  scheduleDays: string | null;
+};
+
+export async function fetchCampusSubjects(): Promise<CampusSubject[]> {
+  const { data, error } = await supabase.rpc('get_campus_subjects');
+  if (error || !data) return [];
+  return (data as any[]).map((r) => ({
+    subjectId: r.subject_id ?? null,
+    subjectCode: r.subject_code ?? '',
+    subjectName: r.subject_name ?? 'Práctica general',
+    career: r.career ?? null,
+    teacherName: r.teacher_name ?? 'Sin docente asignado',
+    studentCount: Number(r.student_count ?? 0),
+    scheduleDays: r.schedule_days ?? null,
+  }));
+}
+
 export type ConductReport = {
   id: string;
   studentName: string;
