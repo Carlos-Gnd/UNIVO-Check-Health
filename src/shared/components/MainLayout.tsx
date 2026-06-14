@@ -198,6 +198,28 @@ export function MainLayout() {
     };
   }, [currentUser]);
 
+  // #1: cierre por inactividad. Tras IDLE_LIMIT_MS sin interacción del usuario, la
+  // sesión se cierra automáticamente. Cualquier actividad reinicia el contador.
+  useEffect(() => {
+    if (!currentUser) return;
+    const IDLE_LIMIT_MS = 30 * 60 * 1000; // 30 minutos
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void supabase.auth.signOut();
+        toast.info('Tu sesión se cerró por inactividad.');
+      }, IDLE_LIMIT_MS);
+    };
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [currentUser]);
+
   useEffect(() => {
     if (currentRole !== 'Decano') return;
     const load = () => {

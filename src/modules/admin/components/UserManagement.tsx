@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { BookOpen, Copy, IdCard, KeyRound, Loader2, Pencil, Puzzle, RefreshCw, ShieldCheck, Trash2, User, UserPlus } from 'lucide-react';
+import { BookOpen, Copy, IdCard, KeyRound, Loader2, Pencil, Puzzle, RefreshCw, Search, ShieldCheck, Trash2, User, UserPlus } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
@@ -135,6 +135,11 @@ export function UserManagement() {
   const [togglingId, setTogglingId]       = useState<string | null>(null);
   const [resetingId, setResetingId]       = useState<string | null>(null);
 
+  // #20: búsqueda y filtros de la tabla de usuarios.
+  const [search, setSearch]               = useState('');
+  const [roleFilter, setRoleFilter]       = useState('all');
+  const [careerFilter, setCareerFilter]   = useState('all');
+
   const derivedEmail = studentCode ? `${studentCode.toUpperCase()}${UNIVO_DOMAIN}` : '';
 
   const resetCreateForm = () => {
@@ -191,6 +196,19 @@ export function UserManagement() {
   const visibleRoles = ROLES.filter((r) => manageableRoles.includes(r.value));
   // El docente no ve (ni puede operar) cuentas ADMIN ni de otros docentes.
   const visibleUsers = users.filter((u) => manageableRoles.includes((u.role ?? '').toUpperCase()));
+
+  // #20: aplica búsqueda (nombre/carné/correo) + filtros de rol y carrera.
+  const careerFilterOptions = [...new Set(visibleUsers.map((u) => u.career).filter(Boolean))] as string[];
+  const filteredUsers = visibleUsers.filter((u) => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q
+      || (u.full_name ?? '').toLowerCase().includes(q)
+      || (u.student_code ?? '').toLowerCase().includes(q)
+      || (u.email ?? '').toLowerCase().includes(q);
+    const matchesRole = roleFilter === 'all' || (u.role ?? '').toUpperCase() === roleFilter;
+    const matchesCareer = careerFilter === 'all' || (u.career ?? '') === careerFilter;
+    return matchesSearch && matchesRole && matchesCareer;
+  });
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -335,6 +353,37 @@ export function UserManagement() {
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />Actualizar
           </Button>
         </div>
+        {/* #20: buscador + filtros por rol y carrera */}
+        <div className="flex flex-col gap-3 px-6 py-3 border-b border-gray-100 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, carné o correo…"
+              className="pl-9"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label="Filtrar por rol"
+            className="h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-700/25"
+          >
+            <option value="all">Todos los roles</option>
+            {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <select
+            value={careerFilter}
+            onChange={(e) => setCareerFilter(e.target.value)}
+            aria-label="Filtrar por carrera"
+            className="h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-700/25"
+          >
+            <option value="all">Todas las carreras</option>
+            {careerFilterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <span className="text-xs text-gray-400 whitespace-nowrap">{filteredUsers.length} de {visibleUsers.length}</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-sm">
             <thead>
@@ -352,10 +401,12 @@ export function UserManagement() {
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
                 <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
-              ) : visibleUsers.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                  {visibleUsers.length === 0 ? 'Sin usuarios registrados' : 'Ningún usuario coincide con la búsqueda o los filtros'}
+                </td></tr>
               ) : (
-                visibleUsers.map((u) => (
+                filteredUsers.map((u) => (
                   <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>
