@@ -7,7 +7,12 @@ import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
 
 export const CURRENT_PERIOD = '2026-1';
 
+export type DaySlot = { weekday: number; from: string; to: string };
+
+export type GoalDecision = 'APROBADO' | 'REPROBADO' | null;
+
 export type TeacherStudent = {
+  assignmentId: string; // teacher_groups.id — para decidir la meta del ciclo (#18)
   studentId: string;
   fullName: string;
   studentCode: string;
@@ -16,6 +21,8 @@ export type TeacherStudent = {
   campusName: string;
   subjectId: string | null;
   subjectName: string;
+  schedule: DaySlot[]; // #6: horario por día del alumno en esta asignación
+  goalDecision: GoalDecision; // #18: decisión del docente sobre la meta
 };
 
 // Devuelve los student_id asignados al docente autenticado en el período actual.
@@ -41,13 +48,14 @@ export async function fetchTeacherRoster(period = CURRENT_PERIOD): Promise<Teach
 
   const { data, error } = await supabase
     .from('teacher_groups')
-    .select('campus_id, subject_id, campus:campuses(name), subject:subjects(name, code), student:users!teacher_groups_student_id_fkey(id, full_name, student_code, career)')
+    .select('id, campus_id, subject_id, goal_decision, campus:campuses(name), subject:subjects(name, code), schedules:student_schedules(weekday, check_in_from, check_in_to), student:users!teacher_groups_student_id_fkey(id, full_name, student_code, career)')
     .eq('period', period)
     .eq('teacher_id', auth.user.id);
 
   if (error || !data) return [];
 
   return (data as any[]).map((row) => ({
+    assignmentId: row.id,
     studentId: row.student?.id,
     fullName: row.student?.full_name ?? 'Sin nombre',
     studentCode: row.student?.student_code ?? '',
@@ -56,7 +64,28 @@ export async function fetchTeacherRoster(period = CURRENT_PERIOD): Promise<Teach
     campusName: row.campus?.name ?? 'Sin sede',
     subjectId: row.subject_id ?? null,
     subjectName: row.subject ? `${row.subject.code ? `${row.subject.code} · ` : ''}${row.subject.name}` : 'Sin materia',
+    schedule: ((row.schedules ?? []) as any[])
+      .filter((s) => s.check_in_from && s.check_in_to)
+      .map((s) => ({ weekday: s.weekday as number, from: (s.check_in_from as string).slice(0, 5), to: (s.check_in_to as string).slice(0, 5) }))
+      .sort((a, b) => a.weekday - b.weekday),
+    goalDecision: (row.goal_decision as GoalDecision) ?? null,
   })).filter((s) => s.studentId);
+}
+
+// #18: el docente registra si el alumno APROBÓ o REPROBÓ la meta del ciclo.
+// La validación de que sea el docente de la asignación vive en el RPC.
+export async function decideAssignmentGoal(
+  assignmentId: string,
+  decision: 'APROBADO' | 'REPROBADO',
+  note?: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await supabase.rpc('decide_assignment_goal', {
+    p_assignment_id: assignmentId,
+    p_decision: decision,
+    p_note: note?.trim() || null,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
 }
 
 // Snapshot de estudiantes ACTIVOS (con check-in abierto) del grupo del docente.

@@ -389,11 +389,13 @@ export function DeanLocationsPage() {
               <Input value={form.location_label} onChange={set('location_label')} placeholder="Hospital Nacional Rosales, SS" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-brand-700"><Stethoscope className="h-3.5 w-3.5" />Supervisor encargado</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700 flex items-center gap-1"><Stethoscope className="h-3.5 w-3.5" />Encargado de referencia (opcional)
+                <HelpTooltip text="Contacto de referencia para mostrar en la sede. Los encargados REALES (con acceso a la app y al módulo de su sede) se crean como usuarios con rol «Representante hospitalario» en Gestión de usuarios, y una sede puede tener varios." />
+              </Label>
               <Input value={form.supervisor_name} onChange={set('supervisor_name')} placeholder="Dr. Roberto Martínez" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-brand-700"><Phone className="h-3.5 w-3.5" />Teléfono supervisor</Label>
+              <Label className="text-xs uppercase tracking-wide text-brand-700"><Phone className="h-3.5 w-3.5" />Teléfono de referencia</Label>
               <Input value={form.supervisor_phone} onChange={set('supervisor_phone')} placeholder="2222-3333" />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
@@ -504,6 +506,20 @@ export function DeanLocationsPage() {
 }
 
 function LocationDetailModal({ location, onClose }: { location: Location | null; onClose: () => void }) {
+  // #8: encargados de la sede = usuarios con rol Representante ligados a esta sede
+  // (users.campus_id). Una sede puede tener varios; se gestionan en Gestión de usuarios.
+  const [reps, setReps] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  useEffect(() => {
+    if (!location) { setReps([]); return; }
+    void supabase
+      .from('users')
+      .select('id, full_name, email')
+      .eq('role', 'REPRESENTATIVE')
+      .eq('campus_id', location.id)
+      .order('full_name')
+      .then(({ data }) => setReps((data as { id: string; full_name: string | null; email: string }[]) ?? []));
+  }, [location]);
+
   return (
     <Dialog open={Boolean(location)} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
@@ -514,8 +530,30 @@ function LocationDetailModal({ location, onClose }: { location: Location | null;
               <p><span className="font-semibold">Dirección:</span> {location.address}</p>
               <p><span className="font-semibold">Coordenadas:</span> {location.coordinates.lat}, {location.coordinates.lng}</p>
               <p><span className="font-semibold">Radio permitido:</span> {location.allowedRadiusMeters} m</p>
-              <p><span className="font-semibold">Supervisor:</span> {location.doctorName}</p>
-              {location.doctorPhone && <p><span className="font-semibold">Teléfono:</span> {location.doctorPhone}</p>}
+
+              <div className="rounded-lg border border-brand-100 bg-brand-50/40 p-3">
+                <p className="font-semibold text-brand-900">Encargados de la sede</p>
+                {reps.length === 0 ? (
+                  <p className="text-gray-500 mt-1">
+                    {location.doctorName && location.doctorName !== '—'
+                      ? <>Referencia: {location.doctorName}{location.doctorPhone ? ` · ${location.doctorPhone}` : ''}</>
+                      : 'Sin encargados asignados.'}
+                  </p>
+                ) : (
+                  <ul className="mt-1 space-y-0.5 text-gray-700">
+                    {reps.map((r) => (
+                      <li key={r.id} className="flex items-center gap-2">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-500" />
+                        <span className="font-medium">{r.full_name ?? 'Sin nombre'}</span>
+                        <span className="text-xs text-gray-500">{r.email}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-xs text-gray-400 mt-2">
+                  Para agregar otro encargado, crea un usuario con rol «Representante hospitalario» y asígnale esta sede en Gestión de usuarios.
+                </p>
+              </div>
               {location.schedule && <p><span className="font-semibold">Horario:</span> {location.schedule}</p>}
               {location.description && <p><span className="font-semibold">Descripción:</span> {location.description}</p>}
 
