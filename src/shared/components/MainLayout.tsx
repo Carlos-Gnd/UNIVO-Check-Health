@@ -12,6 +12,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Eye,
   EyeOff,
   LogOut,
@@ -52,6 +53,7 @@ import type { User } from '@supabase/supabase-js';
 
 type AppRole = 'Encargado' | 'Decano' | 'Alumno' | 'Docente' | 'Representante';
 type NavItem = { name: string; href: string; icon: React.ElementType; badge?: number };
+type NavGroup = { name: string; icon: React.ElementType; items: NavItem[] };
 const APP_LOGO_SRC = '/images/isologo.png';
 
 function mapAppRole(rawRole: string | null | undefined): AppRole {
@@ -102,6 +104,7 @@ export function MainLayout() {
   const [legalAccepted, setLegalAccepted] = useState(true);
   const [needsPermissions, setNeedsPermissions] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({});
   const sessionIdRef = useRef<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -288,6 +291,7 @@ export function MainLayout() {
           { name: 'Calendario', href: '/rotations', icon: CalendarDays },
           { name: 'Registro de Asistencia', href: '/checkin', icon: ClipboardCheck },
           { name: 'Estudiantes', href: '/students', icon: Users },
+          { name: 'Sedes', href: '/dean/locations', icon: MapPin },
           { name: 'Asignaciones', href: '/dean/assignments', icon: UserCog },
           { name: 'Catálogo académico', href: '/dean/catalog', icon: BookOpen },
           { name: 'Días no hábiles', href: '/dean/holidays', icon: CalendarOff },
@@ -300,6 +304,54 @@ export function MainLayout() {
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
+  };
+
+  const dashboardItem = navigation.find((item) => ['Dashboard', 'Inicio', 'Mi Grupo'].includes(item.name)) ?? null;
+  const navigationGroups: NavGroup[] = (() => {
+    const byName = (names: string[]) => navigation.filter((item) => names.includes(item.name));
+    if (currentRole === 'Decano') {
+      return [
+        { name: 'Gestión académica', icon: BookOpen, items: byName(['Calendario', 'Catálogo académico', 'Días no hábiles']) },
+        { name: 'Prácticas y sedes', icon: Stethoscope, items: byName(['Alumnos', 'Sedes', 'Asignaciones']) },
+        { name: 'Seguimiento', icon: ClipboardList, items: byName(['Justificaciones', 'Incidencias']) },
+        { name: 'Administración', icon: UserPlus, items: byName(['Gestión de Usuarios']) },
+      ].filter((group) => group.items.length > 0);
+    }
+    if (currentRole === 'Alumno') {
+      return [
+        { name: 'Asistencia', icon: ClipboardCheck, items: byName(['Escanear QR', 'Historial']) },
+        { name: 'Práctica', icon: Hospital, items: byName(['Calendario', 'Mi Sede y Encargado', 'Progreso de Horas']) },
+        { name: 'Solicitudes', icon: FileWarning, items: byName(['Justificaciones']) },
+      ].filter((group) => group.items.length > 0);
+    }
+    if (currentRole === 'Docente') {
+      return [
+        { name: 'Gestión académica', icon: BookOpen, items: byName(['Calendario', 'Evaluaciones', 'Días no hábiles']) },
+        { name: 'Seguimiento', icon: ClipboardList, items: byName(['Justificaciones', 'Historial de Decisiones', 'Incidencias']) },
+        { name: 'Sedes y usuarios', icon: MapPin, items: byName(['Sedes', 'Gestión de Usuarios']) },
+      ].filter((group) => group.items.length > 0);
+    }
+    if (currentRole === 'Representante') {
+      return [
+        { name: 'Mi sede', icon: Hospital, items: byName(['Estudiantes en mi sede', 'Materias en mi sede']) },
+        { name: 'Seguimiento', icon: AlertTriangle, items: byName(['Reportes de Conducta']) },
+      ].filter((group) => group.items.length > 0);
+    }
+    return [
+      { name: 'Operación diaria', icon: ClipboardCheck, items: byName(['Calendario', 'Registro de Asistencia', 'Estudiantes']) },
+      { name: 'Prácticas y sedes', icon: Stethoscope, items: byName(['Sedes', 'Asignaciones', 'Prácticas']) },
+      { name: 'Gestión académica', icon: BookOpen, items: byName(['Catálogo académico', 'Días no hábiles']) },
+      { name: 'Seguimiento', icon: ClipboardList, items: byName(['Justificaciones', 'Incidencias', 'Reportes']) },
+    ].filter((group) => group.items.length > 0);
+  })();
+  const isGroupOpen = (group: NavGroup) =>
+    openNavGroups[group.name] ?? group.items.some((item) => isActive(item.href));
+  const toggleNavGroup = (groupName: string) => {
+    setOpenNavGroups((prev) => {
+      const group = navigationGroups.find((g) => g.name === groupName);
+      const currentOpen = prev[groupName] ?? (group?.items.some((item) => isActive(item.href)) ?? false);
+      return { ...prev, [groupName]: !currentOpen };
+    });
   };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -361,10 +413,10 @@ export function MainLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative bg-brand-900" style={{ backgroundImage: 'url(/images/fondo_login.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="absolute inset-0 bg-brand-900/50" />
-        <div className="relative z-10 w-full max-w-6xl rounded-2xl overflow-hidden border border-gold-400/20 shadow-[0_24px_70px_rgba(10,17,40,0.55)]">
+        <div className="login-card relative z-10 w-full max-w-6xl rounded-2xl overflow-hidden border border-gold-400/20 shadow-[0_24px_70px_rgba(10,17,40,0.55)]">
           {/* Mobile header */}
           <div className="lg:hidden p-5 border-b border-white/10 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900">
-            <div className="flex items-center gap-3">
+            <div className="login-logo flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-white border border-gold-200 flex items-center justify-center shadow-sm overflow-hidden">
                 <img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-10 h-10 object-contain" />
               </div>
@@ -378,10 +430,10 @@ export function MainLayout() {
           <div className="grid grid-cols-1 lg:grid-cols-2">
             {/* Panel izquierdo — navy con detalles dorados */}
             <section className="hidden lg:block p-8 sm:p-10 border-r border-white/10 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900">
-              <div className="w-24 h-24 rounded-2xl bg-white border border-gold-200 flex items-center justify-center shadow-[0_4px_18px_rgba(0,0,0,0.35)] overflow-hidden">
+              <div className="login-logo w-24 h-24 rounded-2xl bg-white border border-gold-200 flex items-center justify-center shadow-[0_4px_18px_rgba(0,0,0,0.35)] overflow-hidden">
                 <img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-20 h-20 object-contain" />
               </div>
-              <div className="mt-6 flex items-center gap-3">
+              <div className="login-title mt-6 flex items-center gap-3">
                 <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
                 <div>
                   <h1 className="text-3xl font-bold tracking-wide text-white">UNIVO Check-Health</h1>
@@ -389,22 +441,22 @@ export function MainLayout() {
                 </div>
               </div>
               <div className="mt-10 space-y-3">
-                <div className="rounded-xl border border-white/10 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center ring-1 ring-white/15 shrink-0"><FileCheck2 className="w-5 h-5 text-gold-300" /></div><div><p className="text-sm font-semibold text-white">Registro de Asistencias</p><p className="text-xs text-brand-100/60">Control diario por estudiante y práctica</p></div></div>
-                <div className="rounded-xl border border-gold-400/25 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-gold-400/15 flex items-center justify-center ring-1 ring-gold-400/30 shrink-0"><HeartPulse className="w-5 h-5 text-gold-400" /></div><div><p className="text-sm font-semibold text-white">Prácticas del Área de Salud</p><p className="text-xs text-brand-100/60">Seguimiento de jornadas y cumplimiento</p></div></div>
-                <div className="rounded-xl border border-white/10 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center ring-1 ring-white/15 shrink-0"><Activity className="w-5 h-5 text-gold-300" /></div><div><p className="text-sm font-semibold text-white">Reportes y Trazabilidad</p><p className="text-xs text-brand-100/60">Datos para revisión académica y clínica</p></div></div>
+                <div className="login-feature-1 rounded-xl border border-white/10 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center ring-1 ring-white/15 shrink-0"><FileCheck2 className="w-5 h-5 text-gold-300" /></div><div><p className="text-sm font-semibold text-white">Registro de Asistencias</p><p className="text-xs text-brand-100/60">Control diario por estudiante y práctica</p></div></div>
+                <div className="login-feature-2 rounded-xl border border-gold-400/25 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-gold-400/15 flex items-center justify-center ring-1 ring-gold-400/30 shrink-0"><HeartPulse className="w-5 h-5 text-gold-400" /></div><div><p className="text-sm font-semibold text-white">Prácticas del Área de Salud</p><p className="text-xs text-brand-100/60">Seguimiento de jornadas y cumplimiento</p></div></div>
+                <div className="login-feature-3 rounded-xl border border-white/10 bg-white/7 p-4 flex items-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"><div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center ring-1 ring-white/15 shrink-0"><Activity className="w-5 h-5 text-gold-300" /></div><div><p className="text-sm font-semibold text-white">Reportes y Trazabilidad</p><p className="text-xs text-brand-100/60">Datos para revisión académica y clínica</p></div></div>
               </div>
             </section>
 
             {/* Panel derecho — formulario */}
             <section className="p-5 sm:p-8 lg:p-10 bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024]">
-              <p className="text-xs uppercase tracking-[0.22em] text-gold-400 text-center mb-5 sm:mb-6">Acceso al sistema</p>
+              <p className="login-label text-xs uppercase tracking-[0.22em] text-gold-400 text-center mb-5 sm:mb-6">Acceso al sistema</p>
               <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-                <div className="space-y-2">
+                <div className="login-field-1 space-y-2">
                   <Label htmlFor="email" className="text-white/80 uppercase tracking-wide text-xs">Carné o correo institucional</Label>
                   <Input id="email" type="text" placeholder="U20240000" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400" />
                   <p className="text-xs text-brand-200/60">Estudiantes: ingresa tu carné. Personal (decano, docente, encargado): tu correo institucional.</p>
                 </div>
-                <div className="space-y-2">
+                <div className="login-field-2 space-y-2">
                   <Label htmlFor="password" className="text-white/80 uppercase tracking-wide text-xs">Contraseña</Label>
                   <div className="relative">
                     <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400" required />
@@ -415,7 +467,7 @@ export function MainLayout() {
                     <Link to="/auth/recovery" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿Olvidaste tu contraseña?</Link>
                   </div>
                 </div>
-                <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
+                <Button type="submit" disabled={isLoading} className="login-btn w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
             </section>
           </div>
@@ -481,15 +533,15 @@ export function MainLayout() {
               {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
-          <nav className="flex-1 p-3 pt-0 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
+          <nav className="flex-1 p-3 pt-0 space-y-1 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            {/* Dashboard — siempre fijo arriba */}
+            {dashboardItem && (() => {
+              const Icon = dashboardItem.icon;
+              const active = isActive(dashboardItem.href);
               return (
                 <Link
-                  key={item.name}
-                  to={item.href}
-                  title={isSidebarCollapsed ? item.name : undefined}
+                  to={dashboardItem.href}
+                  title={isSidebarCollapsed ? dashboardItem.name : undefined}
                   className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 rounded-md text-sm transition-all duration-300 ease-out ${
                     active
                       ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
@@ -497,15 +549,87 @@ export function MainLayout() {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {!isSidebarCollapsed && <span className="flex-1">{item.name}</span>}
-                  {!isSidebarCollapsed && item.badge != null && item.badge > 0 && (
-                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
-                      {item.badge}
-                    </span>
-                  )}
+                  {!isSidebarCollapsed && <span className="flex-1">{dashboardItem.name}</span>}
                 </Link>
               );
+            })()}
+
+            {/* Expandido: grupos desplegables */}
+            {!isSidebarCollapsed && navigationGroups.map((group) => {
+              const open = isGroupOpen(group);
+              const GroupIcon = group.icon;
+              return (
+                <div key={group.name} className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleNavGroup(group.name)}
+                    className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-colors border-l-2 pl-2.5 ${
+                      open
+                        ? 'text-gold-400 bg-white/6 border-gold-400'
+                        : 'text-brand-100/45 hover:text-brand-100/75 hover:bg-white/5 border-transparent'
+                    }`}
+                  >
+                    <GroupIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="flex-1 text-left">{group.name}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                  </button>
+                  {open && (
+                    <div className="pl-2 space-y-0.5">
+                      {group.items.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href);
+                        return (
+                          <Link
+                            key={item.name}
+                            to={item.href}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                              active
+                                ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                                : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4 shrink-0" />
+                            <span className="flex-1">{item.name}</span>
+                            {item.badge != null && item.badge > 0 && (
+                              <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                                {item.badge}
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
             })}
+
+            {/* Colapsado: iconos de todos los items */}
+            {isSidebarCollapsed && navigation
+              .filter((item) => item !== dashboardItem)
+              .map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    title={item.name}
+                    className={`relative flex items-center justify-center px-2 py-2.5 rounded-md text-sm transition-all duration-200 ${
+                      active
+                        ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                        : 'border-l-4 border-transparent text-brand-100/85 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {item.badge != null && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 px-1 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
           </nav>
           <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/55">
             {isSidebarCollapsed ? (
@@ -535,30 +659,77 @@ export function MainLayout() {
         </aside>
 
         {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto">
+          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto [&::-webkit-scrollbar]:hidden">
             <nav className="p-3 space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
+              {/* Dashboard móvil */}
+              {dashboardItem && (() => {
+                const Icon = dashboardItem.icon;
+                const active = isActive(dashboardItem.href);
                 return (
                   <Link
-                    key={item.name}
-                    to={item.href}
+                    to={dashboardItem.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-300 ease-out ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-200 ${
                       active
                         ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
                         : 'border-l-4 border-transparent text-brand-100/85 hover:bg-white/10 hover:text-white pl-2'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1">{item.name}</span>
-                    {item.badge != null && item.badge > 0 && (
-                      <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
-                        {item.badge}
-                      </span>
-                    )}
+                    <span className="flex-1">{dashboardItem.name}</span>
                   </Link>
+                );
+              })()}
+
+              {/* Grupos desplegables móvil */}
+              {navigationGroups.map((group) => {
+                const open = isGroupOpen(group);
+                const GroupIcon = group.icon;
+                const hasActiveItem = group.items.some((item) => isActive(item.href));
+                return (
+                  <div key={group.name} className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleNavGroup(group.name)}
+                      className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                        hasActiveItem
+                          ? 'text-gold-400 bg-white/6 border-l-2 border-gold-400 pl-2.5'
+                          : 'text-brand-100/45 hover:text-brand-100/75 hover:bg-white/5 border-l-2 border-transparent pl-2.5'
+                      }`}
+                    >
+                      <GroupIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="flex-1 text-left">{group.name}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                    {open && (
+                      <div className="pl-2 space-y-0.5">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const active = isActive(item.href);
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.href}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                                active
+                                  ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                                  : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
+                              }`}
+                            >
+                              <Icon className="w-4 h-4 shrink-0" />
+                              <span className="flex-1">{item.name}</span>
+                              {item.badge != null && item.badge > 0 && (
+                                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">

@@ -5,7 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { StudentLiveMap } from '@/shared/components/StudentLiveMap';
+import { StudentLiveMap, type LiveMapCampusOption } from '@/shared/components/StudentLiveMap';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { fetchTeacherActiveSnapshot, fetchTeacherRoster, decideAssignmentGoal, CURRENT_PERIOD, type TeacherStudent } from '../services/teacher.service';
@@ -41,6 +41,17 @@ export function TeacherDashboardPage() {
   );
   const campuses = useMemo(
     () => [...new Set(roster.map((s) => s.campusName))].sort(),
+    [roster],
+  );
+  const mapCampuses = useMemo<LiveMapCampusOption[]>(
+    () =>
+      Array.from(
+        new Map(
+          roster
+            .filter((s) => s.campusId && s.campusName !== 'Sin sede')
+            .map((s) => [s.campusId, { id: s.campusId, name: s.campusName }]),
+        ).values(),
+      ).sort((a, b) => a.name.localeCompare(b.name)),
     [roster],
   );
 
@@ -96,7 +107,12 @@ export function TeacherDashboardPage() {
         )}
       />
 
-      <StudentLiveMap title="Estudiantes activos de mi grupo" fetchSnapshot={fetchTeacherActiveSnapshot} />
+      <StudentLiveMap
+        title="Estudiantes activos de mi grupo"
+        fetchSnapshot={fetchTeacherActiveSnapshot}
+        showCampusFilter
+        campusOptions={mapCampuses}
+      />
 
       {/* Grupos por materia / sede (S4-04.1) */}
       <div className="space-y-3">

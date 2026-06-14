@@ -15,6 +15,7 @@ import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
+import { canonicalRole, type CanonicalRole } from '@/shared/utils/roles';
 
 const EMPTY_FORM: CampusFormData = {
   name: '', latitude: '', longitude: '', radius_meters: '100',
@@ -43,10 +44,24 @@ export function DeanLocationsPage() {
   const [qrModal, setQrModal] = useState<QrModal | null>(null);
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<CanonicalRole | null>(null);
+  const canManageCampuses = currentRole === 'ADMIN';
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(async ({ data: auth }) => {
+      if (!auth.user?.id) return;
+      const { data } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', auth.user.id)
+        .single<{ role: string }>();
+      setCurrentRole(canonicalRole(data?.role));
+    });
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -232,12 +247,12 @@ export function DeanLocationsPage() {
     <div className="space-y-4">
       <PageHeader
         title="Sedes"
-        description="Administra ubicaciones, radios GPS, encargados y QR de registro."
-        action={(
+        description={canManageCampuses ? 'Administra ubicaciones, radios GPS, encargados y QR de registro.' : 'Consulta tus sedes asignadas y genera el QR o código manual de asistencia.'}
+        action={canManageCampuses ? (
           <Button onClick={openCreate} className="bg-white/10 border border-white/20 text-white hover:bg-white/20">
             <Plus className="w-4 h-4 mr-1.5" />Nueva sede
           </Button>
-        )}
+        ) : undefined}
       />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -276,15 +291,17 @@ export function DeanLocationsPage() {
                   <Badge className={l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}>
                     {l.status === 'active' ? 'Activa' : 'Inactiva'}
                   </Badge>
-                  {togglingId === l.id
-                    ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                    : (
-                      <Switch
-                        checked={l.status === 'active'}
-                        onCheckedChange={() => void handleToggleActive(l)}
-                        aria-label={l.status === 'active' ? 'Desactivar sede' : 'Activar sede'}
-                      />
-                    )}
+                  {canManageCampuses && (
+                    togglingId === l.id
+                      ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                      : (
+                        <Switch
+                          checked={l.status === 'active'}
+                          onCheckedChange={() => void handleToggleActive(l)}
+                          aria-label={l.status === 'active' ? 'Desactivar sede' : 'Activar sede'}
+                        />
+                      )
+                  )}
                 </div>
               </div>
 
@@ -325,12 +342,16 @@ export function DeanLocationsPage() {
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <QrCode className="w-3.5 h-3.5" />}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => openEdit(l)}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteTarget(l)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                {canManageCampuses && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(l)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteTarget(l)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           ))

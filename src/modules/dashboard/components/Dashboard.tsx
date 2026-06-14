@@ -52,7 +52,6 @@ export function Dashboard() {
 
   // T-07.4 — filtros de mapa
   const [sedeFilter, setSedeFilter] = useState('all');
-  const [careerFilter, setCareerFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<ActiveStudent | null>(null);
   const [expandedSede, setExpandedSede] = useState<string | null>(null);
 
@@ -181,20 +180,15 @@ export function Dashboard() {
     () => [...new Set(activeStudents.map((s) => s.siteName))],
     [activeStudents],
   );
-  const careerOptions = useMemo(
-    () => [...new Set(activeStudents.map((s) => s.career))],
-    [activeStudents],
-  );
 
-  // T-07.4 — estudiantes filtrados por sede y carrera
+  // T-07.4 — estudiantes filtrados por sede
   const filteredStudents = useMemo(
     () =>
       activeStudents.filter((s) => {
         const matchSede = sedeFilter === 'all' || s.siteName === sedeFilter;
-        const matchCareer = careerFilter === 'all' || s.career === careerFilter;
-        return matchSede && matchCareer;
+        return matchSede;
       }),
-    [activeStudents, sedeFilter, careerFilter],
+    [activeStudents, sedeFilter],
   );
 
   // T-07.4 — agrupa estudiantes filtrados por sede
@@ -510,6 +504,9 @@ export function Dashboard() {
                 <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
                 <MapPin className="w-4 h-4 text-gold-300" />
                 Estudiantes Activos por Sede
+                <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">
+                  {sedeGroups.length} {sedeGroups.length === 1 ? 'sede' : 'sedes'}
+                </Badge>
               </CardTitle>
               <CardDescription className="text-brand-200">
                 Jornadas en curso · actualiza cada 30 segundos
@@ -525,17 +522,6 @@ export function Dashboard() {
                   <SelectItem value="all">Todas las sedes</SelectItem>
                   {sedeOptions.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={careerFilter} onValueChange={(v) => { setCareerFilter(v); setExpandedSede(null); }}>
-                <SelectTrigger className="w-full sm:w-40 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
-                  <SelectValue placeholder="Carrera" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las carreras</SelectItem>
-                  {careerOptions.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

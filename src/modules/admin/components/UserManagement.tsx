@@ -23,6 +23,7 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 import { fetchCareers, type Career } from '@/modules/dean/services/catalog.service';
 import { fetchPendingAccessRequests, markAccessRequest, type AccessRequest } from '@/modules/auth/access.service';
+import { canonicalRole } from '@/shared/utils/roles';
 
 // B-01: las operaciones privilegiadas viven en la Edge Function admin-users.
 // El cliente nunca maneja la service_role key.
@@ -243,12 +244,19 @@ export function UserManagement() {
     });
   }, []);
 
-  const manageableRoles = requesterRole.toUpperCase() === 'ADMIN'
-    ? ['STUDENT', 'DOCENTE', 'COORDINATOR', 'ADMIN']
+  const requesterCanonicalRole = canonicalRole(requesterRole);
+  const manageableRoles = requesterCanonicalRole === 'ADMIN'
+    ? ['STUDENT', 'TEACHER', 'COORDINATOR', 'ADMIN', 'REPRESENTATIVE']
     : ['STUDENT', 'COORDINATOR'];
-  const visibleRoles = ROLES.filter((r) => manageableRoles.includes(r.value));
+  const visibleRoles = ROLES.filter((r) => {
+    const canonical = canonicalRole(r.value);
+    return Boolean(canonical && manageableRoles.includes(canonical));
+  });
   // El docente no ve (ni puede operar) cuentas ADMIN ni de otros docentes.
-  const visibleUsers = users.filter((u) => manageableRoles.includes((u.role ?? '').toUpperCase()));
+  const visibleUsers = users.filter((u) => {
+    const canonical = canonicalRole(u.role);
+    return Boolean(canonical && manageableRoles.includes(canonical));
+  });
 
   // #20: aplica búsqueda (nombre/carné/correo) + filtros de rol y carrera.
   const careerFilterOptions = [...new Set(visibleUsers.map((u) => u.career).filter(Boolean))] as string[];
@@ -411,7 +419,8 @@ export function UserManagement() {
             {accessRequests.map((r) => {
               // #19: el docente solo puede aprobar los roles que admin-users le deja
               // crear (STUDENT/COORDINATOR). Para los demás, solo el decano aprueba.
-              const canApprove = manageableRoles.includes((r.requestedRole ?? '').toUpperCase());
+              const requestCanonicalRole = canonicalRole(r.requestedRole);
+              const canApprove = Boolean(requestCanonicalRole && manageableRoles.includes(requestCanonicalRole));
               return (
               <div key={r.id} className="flex flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm">
