@@ -268,7 +268,9 @@ function StudentDetailModal({ student, onClose }: { student: DeanStudent | null;
             </DialogHeader>
             <div className="space-y-4 text-sm">
               <p><span className="font-semibold">Carrera:</span> {student.career}</p>
-              <p><span className="font-semibold">Sede:</span> {student.sedeName} · {student.doctorName}</p>
+              <p><span className="font-semibold">Sede asignada:</span> {student.sedeName}</p>
+              <p><span className="font-semibold">Encargado de sede:</span> {student.doctorName}</p>
+              <p><span className="font-semibold">Docente:</span> {student.teacherName} · <span className="font-semibold">Coordinador:</span> {student.coordinatorName}</p>
 
               <div className="grid gap-3 md:grid-cols-4">
                 <Info label="Horas" value={student.completedHours} />
