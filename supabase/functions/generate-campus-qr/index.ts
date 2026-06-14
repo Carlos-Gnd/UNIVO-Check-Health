@@ -4,6 +4,14 @@ import QRCode from 'npm:qrcode';
 import { corsHeaders } from '../_shared/cors.ts';
 import { deriveShortCode } from '../_shared/qr_utils.ts';
 
+function normalizeRole(raw: string | null | undefined): string {
+  const role = (raw ?? '').toUpperCase().trim();
+  if (role === 'ADMINISTRADOR' || role === 'DECANO') return 'ADMIN';
+  if (role === 'TEACHER') return 'DOCENTE';
+  if (role === 'COORDINATOR') return 'COORDINADOR';
+  return role;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -20,6 +28,8 @@ Deno.serve(async (req: Request) => {
   const webhookSecret = Deno.env.get('DISPATCH_WEBHOOK_SECRET');
   const isInternalCall = webhookSecret && authHeader === `Bearer ${webhookSecret}`;
 
+  let requester: { id: string; role: string } | null = null;
+
   if (!isInternalCall) {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -33,12 +43,13 @@ Deno.serve(async (req: Request) => {
       });
     }
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    const role = (userData?.role ?? '').toUpperCase();
-    if (!['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE'].includes(role)) {
+    const role = normalizeRole(userData?.role);
+    if (!['ADMIN', 'COORDINADOR', 'DOCENTE'].includes(role)) {
       return new Response(JSON.stringify({ error: 'No tienes permiso para generar el QR de la sede.' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    requester = { id: user.id, role };
   }
 
   const body = await req.json().catch(() => ({})) as { campus_id?: string };
@@ -46,6 +57,23 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'campus_id requerido' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  if (requester && requester.role !== 'ADMIN') {
+    const column = requester.role === 'COORDINADOR' ? 'coordinator_id' : 'teacher_id';
+    const { data: assignment } = await admin
+      .from('teacher_groups')
+      .select('id')
+      .eq(column, requester.id)
+      .eq('campus_id', body.campus_id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!assignment) {
+      return new Response(JSON.stringify({ error: 'Solo puedes generar el QR de tus sedes asignadas.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const qrSecret = Deno.env.get('QR_JWT_SECRET');

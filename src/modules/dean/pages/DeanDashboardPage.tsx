@@ -28,32 +28,24 @@ const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
 
 function LiveMap({
   campusFilter,
-  careerFilter,
   campusOptions,
-  careerOptions,
   onCampusChange,
-  onCareerChange,
 }: {
   campusFilter: string;
-  careerFilter: string;
   campusOptions: { id: string; name: string }[];
-  careerOptions: string[];
   onCampusChange: (v: string) => void;
-  onCareerChange: (v: string) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
   const campusLayer = useRef<any>(null);
   const leafletModule = useRef<any>(null);
-  const [studentCount, setStudentCount] = useState(0);
+  const [visibleCampusCount, setVisibleCampusCount] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   // Refs para evitar stale closures en callbacks async
   const campusFilterRef = useRef(campusFilter);
-  const careerFilterRef = useRef(careerFilter);
   campusFilterRef.current = campusFilter;
-  careerFilterRef.current = careerFilter;
 
   // #14: divIcon por CSS. El icono por defecto de Leaflet depende de imágenes que
   // Vite no empaqueta, por lo que los marcadores de alumno salían "invisibles".
@@ -74,10 +66,14 @@ function LiveMap({
     if (!campusLayer.current) return;
     const { data } = await supabase
       .from('campuses')
-      .select('name, latitude, longitude, radius_meters')
+      .select('id, name, latitude, longitude, radius_meters')
       .eq('is_active', true);
     campusLayer.current.clearLayers();
-    (data ?? []).forEach((c: any) => {
+    const visibleCampuses = (data ?? []).filter((c: any) =>
+      campusFilterRef.current === 'all' || c.id === campusFilterRef.current,
+    );
+    setVisibleCampusCount(visibleCampuses.length);
+    visibleCampuses.forEach((c: any) => {
       if (c.latitude == null || c.longitude == null) return;
       const lat = Number(c.latitude); const lng = Number(c.longitude);
       L.marker([lat, lng], { icon: campusIcon(L) })
@@ -94,10 +90,8 @@ function LiveMap({
     const all = await getActiveStudentsSnapshot();
     const filtered = all.filter((s) => {
       if (campusFilterRef.current !== 'all' && s.practiceId !== campusFilterRef.current) return false;
-      if (careerFilterRef.current !== 'all' && s.career !== careerFilterRef.current) return false;
       return true;
     });
-    setStudentCount(filtered.length);
     if (!markersLayer.current) return;
     markersLayer.current.clearLayers();
     filtered.forEach((s) => {
@@ -171,8 +165,10 @@ function LiveMap({
 
   // Re-renderizar marcadores cuando cambian los filtros
   useEffect(() => {
-    if (leafletModule.current) void refreshMarkers(leafletModule.current);
-  }, [campusFilter, careerFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!leafletModule.current) return;
+    void drawCampuses(leafletModule.current);
+    void refreshMarkers(leafletModule.current);
+  }, [campusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Card className="overflow-hidden border-brand-100 shadow-sm">
@@ -188,7 +184,9 @@ function LiveMap({
             <Badge className={isRealtimeConnected ? 'bg-green-500/20 text-green-200 border border-green-400/30' : 'bg-white/10 text-brand-200 border border-white/20'}>
               {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
             </Badge>
-            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">{studentCount} en sedes</Badge>
+            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">
+              {visibleCampusCount} {visibleCampusCount === 1 ? 'sede' : 'sedes'}
+            </Badge>
           </div>
         </div>
         {/* Fila 2: filtros — apilados en móvil, en fila en sm+ */}
@@ -200,15 +198,6 @@ function LiveMap({
             <SelectContent className="z-[1000]">
               <SelectItem value="all">Todas las sedes</SelectItem>
               {campusOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={careerFilter} onValueChange={onCareerChange}>
-            <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
-              <SelectValue placeholder="Todas las carreras" />
-            </SelectTrigger>
-            <SelectContent className="z-[1000]">
-              <SelectItem value="all">Todas las carreras</SelectItem>
-              {careerOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -238,18 +227,17 @@ export function DeanDashboardPage() {
 
   // T-18.3: filtros de mapa persistidos en URL
   const campusFilter = searchParams.get('campus') ?? 'all';
-  const careerFilter = searchParams.get('career') ?? 'all';
 
-  const setMapFilter = (key: 'campus' | 'career', value: string) => {
+  const setMapFilter = (key: 'campus', value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (value === 'all') next.delete(key); else next.set(key, value);
+      next.delete('career');
       return next;
     }, { replace: true });
   };
 
   const campusOptions = useMemo(() => locations.map((l) => ({ id: l.id, name: l.name })), [locations]);
-  const careerOptions = useMemo(() => [...new Set(students.map((s) => s.career).filter(Boolean))], [students]);
 
   useEffect(() => {
     void loadData();
@@ -434,11 +422,8 @@ export function DeanDashboardPage() {
       {/* Mapa Realtime con filtros integrados en la tarjeta */}
       <LiveMap
         campusFilter={campusFilter}
-        careerFilter={careerFilter}
         campusOptions={campusOptions}
-        careerOptions={careerOptions}
         onCampusChange={(v) => setMapFilter('campus', v)}
-        onCareerChange={(v) => setMapFilter('career', v)}
       />
     </div>
   );

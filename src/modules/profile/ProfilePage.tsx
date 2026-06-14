@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
-import { Bell, Building2, Camera, GraduationCap, Image as ImageIcon, Info, KeyRound, Loader2, Mail, MonitorSmartphone, Phone, RefreshCw, Save, ShieldQuestion, Stethoscope, UserCircle, XCircle } from 'lucide-react';
+import { Bell, Building2, Camera, GraduationCap, Image as ImageIcon, Info, KeyRound, Loader2, Mail, MonitorSmartphone, Phone, RefreshCw, Save, ShieldQuestion, Stethoscope, Trash2, UserCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { getStudentHoursProgress } from '@/shared/backend/checkHealthBackend';
@@ -252,6 +252,26 @@ export function ProfilePage() {
     }
   };
 
+  const handleRemovePhoto = async () => {
+    setIsUploadingPhoto(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) { toast.error('Sesión no encontrada.'); return; }
+
+      const { error } = await supabase
+        .from('users')
+        .update({ photo_url: null })
+        .eq('id', authData.user.id);
+
+      if (error) { toast.error('No se pudo quitar la foto.'); return; }
+
+      setAvatarUrl(null);
+      toast.success('Foto de perfil eliminada.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -401,7 +421,7 @@ export function ProfilePage() {
             <p className="text-sm text-gray-500">{profile.email}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role}</p>
             {/* Cámara (capture en móvil) o galería (selector de archivos). */}
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <label className={`inline-flex cursor-pointer items-center gap-1 rounded-md border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 ${isUploadingPhoto ? 'pointer-events-none opacity-50' : ''}`}>
                 <Camera className="h-3.5 w-3.5" /> Cámara
                 <input type="file" accept="image/*" capture="environment" className="hidden" disabled={isUploadingPhoto} onChange={handlePhotoChange} />
@@ -410,6 +430,16 @@ export function ProfilePage() {
                 <ImageIcon className="h-3.5 w-3.5" /> Galería
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={isUploadingPhoto} onChange={handlePhotoChange} />
               </label>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => void handleRemovePhoto()}
+                  disabled={isUploadingPhoto}
+                  className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Quitar foto
+                </button>
+              )}
             </div>
             <p className="mt-1 text-xs text-slate-400">JPG, PNG o WebP · máx 2 MB</p>
           </div>

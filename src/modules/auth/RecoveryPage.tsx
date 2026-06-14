@@ -131,14 +131,14 @@ export function RecoveryPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative bg-brand-900" style={{ backgroundImage: 'url(/images/fondo_login.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="absolute inset-0 bg-brand-900/50" />
-      <div className="relative z-10 w-full max-w-5xl rounded-2xl overflow-hidden border border-gold-400/20 shadow-[0_24px_70px_rgba(10,17,40,0.55)]">
+      <div className="login-card relative z-10 w-full max-w-5xl rounded-2xl overflow-hidden border border-gold-400/20 shadow-[0_24px_70px_rgba(10,17,40,0.55)]">
         <div className="grid grid-cols-1 lg:grid-cols-2">
           {/* Panel izquierdo — marca (igual al login) */}
           <section className="hidden lg:block p-8 sm:p-10 border-r border-white/10 bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900">
-            <div className="w-24 h-24 rounded-2xl bg-white border border-gold-200 flex items-center justify-center shadow-[0_4px_18px_rgba(0,0,0,0.35)] overflow-hidden">
+            <div className="login-logo w-24 h-24 rounded-2xl bg-white border border-gold-200 flex items-center justify-center shadow-[0_4px_18px_rgba(0,0,0,0.35)] overflow-hidden">
               <img src="/images/isologo.png" alt="Logo UNIVO Check-Health" className="w-20 h-20 object-contain" />
             </div>
-            <div className="mt-6 flex items-center gap-3">
+            <div className="login-title mt-6 flex items-center gap-3">
               <div className="w-1 h-10 rounded-full bg-gold-400 shrink-0" />
               <div>
                 <h1 className="text-3xl font-bold tracking-wide text-white">UNIVO Check-Health</h1>
@@ -146,11 +146,11 @@ export function RecoveryPage() {
               </div>
             </div>
             <div className="mt-10 space-y-3">
-              <div className={`rounded-xl border p-4 flex items-center gap-3 ${step === 1 ? 'border-gold-400/30 bg-white/10' : 'border-white/10 bg-white/5'}`}>
+              <div className={`login-feature-1 rounded-xl border p-4 flex items-center gap-3 ${step === 1 ? 'border-gold-400/30 bg-white/10' : 'border-white/10 bg-white/5'}`}>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold-400/15 ring-1 ring-gold-400/30 text-gold-300 font-semibold shrink-0">1</div>
                 <div><p className="text-sm font-semibold text-white">Verifica tu identidad</p><p className="text-xs text-brand-100/60">Pregunta de seguridad ligada a tu correo</p></div>
               </div>
-              <div className={`rounded-xl border p-4 flex items-center gap-3 ${step === 2 ? 'border-gold-400/30 bg-white/10' : 'border-white/10 bg-white/5'}`}>
+              <div className={`login-feature-2 rounded-xl border p-4 flex items-center gap-3 ${step === 2 ? 'border-gold-400/30 bg-white/10' : 'border-white/10 bg-white/5'}`}>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15 text-gold-300 font-semibold shrink-0">2</div>
                 <div><p className="text-sm font-semibold text-white">Código OTP</p><p className="text-xs text-brand-100/60">Te llega a tu correo institucional</p></div>
               </div>
@@ -159,16 +159,16 @@ export function RecoveryPage() {
 
           {/* Panel derecho — formulario */}
           <section className="p-5 sm:p-8 lg:p-10 bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024]">
-            <Link to="/" className="inline-flex items-center gap-2 text-xs font-medium text-gold-400/80 hover:text-gold-300">
+            <Link to="/" className="login-label inline-flex items-center gap-2 text-xs font-medium text-gold-400/80 hover:text-gold-300">
               <ArrowLeft className="h-4 w-4" />Volver al acceso
             </Link>
-            <p className="mt-5 text-xs uppercase tracking-[0.22em] text-gold-400 mb-5">
+            <p className="login-label mt-5 text-xs uppercase tracking-[0.22em] text-gold-400 mb-5">
               {step === 1 ? 'Paso 1 · Seguridad' : 'Paso 2 · Código OTP'}
             </p>
 
           {step === 1 ? (
             <form onSubmit={handleAnswerSubmit} className="space-y-5">
-              <div className="space-y-2">
+              <div className="login-field-1 space-y-2">
                 <Label htmlFor="recovery-email" className="text-white/80 uppercase tracking-wide text-xs">Correo institucional</Label>
                 <Input
                   id="recovery-email"
@@ -181,7 +181,7 @@ export function RecoveryPage() {
                   className="h-12 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="login-field-2 space-y-2">
                 <Label htmlFor="security-answer" className="flex items-center gap-1 text-white/80 uppercase tracking-wide text-xs">
                   <ShieldQuestion className="h-3.5 w-3.5" />
                   Respuesta de seguridad
@@ -214,7 +214,7 @@ export function RecoveryPage() {
                   className="h-12 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400"
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting} className="w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
+              <Button type="submit" disabled={isSubmitting} className="login-btn w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verificando...</> : 'Continuar'}
               </Button>
             </form>
@@ -235,7 +235,7 @@ export function RecoveryPage() {
             </div>
           ) : (
             <form onSubmit={handleOtpSubmit} className="space-y-5">
-              <div className="space-y-2">
+              <div className="login-field-1 space-y-2">
                 <Label className="text-white/80 uppercase tracking-wide text-xs">Código de verificación</Label>
                 <p className="text-xs text-brand-200/60">Ingresa el código de 6 dígitos que enviamos a tu correo.</p>
                 <InputOTP maxLength={6} value={otp} onChange={setOtp} containerClassName="justify-center">
@@ -246,14 +246,14 @@ export function RecoveryPage() {
                   </InputOTPGroup>
                 </InputOTP>
               </div>
-              <p className="flex items-start gap-2 rounded-md border border-gold-400/20 bg-white/10 px-3 py-2 text-xs text-brand-100/80">
+              <p className="login-field-2 flex items-start gap-2 rounded-md border border-gold-400/20 bg-white/10 px-3 py-2 text-xs text-brand-100/80">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-400" />
                 <span>Enviamos el código a tu correo institucional (y de respaldo, si tienes). Si no lo ves en unos minutos, <strong className="text-white">revisa tu carpeta de Spam o Correo no deseado</strong> y marca el mensaje como seguro.</span>
               </p>
-              <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
+              <Button type="submit" disabled={isSubmitting} className="login-btn w-full h-12 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Validando...</> : <><CheckCircle2 className="mr-2 h-4 w-4" />Validar codigo</>}
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setStep(1)} className="w-full text-gold-400/80 hover:text-gold-300 hover:bg-white/5">
+              <Button type="button" variant="ghost" onClick={() => setStep(1)} className="login-btn w-full text-gold-400/80 hover:text-gold-300 hover:bg-white/5">
                 Cambiar respuesta
               </Button>
             </form>

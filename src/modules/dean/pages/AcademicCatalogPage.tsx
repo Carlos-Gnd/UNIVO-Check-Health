@@ -179,7 +179,12 @@ export function AcademicCatalogPage() {
                   <Input type="number" min={1} value={subjectForm.requiredHours} onChange={(e) => setSubjectForm({ ...subjectForm, requiredHours: Number(e.target.value) })} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs uppercase tracking-wide text-brand-700">Nivel mín.</Label>
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs uppercase tracking-wide text-brand-700">
+                      Nivel mín.
+                    </Label>
+                    <HelpTooltip text="Ciclo o nivel académico mínimo que debe tener el estudiante para poder cursar o ser asignado a esta materia. Por ejemplo: si colocas 4, solo alumnos desde nivel 4 en adelante podrán asignarse." />
+                  </div>
                   <Input type="number" min={0} max={20} value={subjectForm.minAcademicLevel ?? 0} onChange={(e) => setSubjectForm({ ...subjectForm, minAcademicLevel: Number(e.target.value) })} />
                 </div>
               </div>

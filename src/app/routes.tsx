@@ -60,7 +60,7 @@ const DeanStudentsRoute = () => (
 );
 
 const DeanLocationsRoute = () => (
-  <RoleGuard allow={['ADMIN', 'TEACHER', 'DOCENTE']}>
+  <RoleGuard allow={['ADMIN', 'COORDINATOR', 'COORDINADOR', 'TEACHER', 'DOCENTE']}>
     <DeanLocationsPage />
   </RoleGuard>
 );

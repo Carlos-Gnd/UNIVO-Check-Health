@@ -1,5 +1,6 @@
 import { supabase } from '@/shared/backend/supabaseClient';
 import type { DeanAttendance, DeanGlobalStats, DeanStudent, Location } from '../types';
+import { canonicalRole } from '@/shared/utils/roles';
 
 const GOAL_HOURS = 240;
 const SHARED_DEVICE_ALERT_ACTION = 'SHARED_DEVICE_ACTIVE_CONFLICT';
@@ -57,6 +58,12 @@ type SharedDeviceAlertRow = {
   } | null;
 };
 
+type CampusScope = {
+  role: ReturnType<typeof canonicalRole>;
+  userId: string | null;
+  campusIds: Set<string> | null;
+};
+
 export type SharedDeviceAlert = {
   id: string;
   attemptedStudentId: string;
@@ -78,6 +85,35 @@ async function fetchRiskThreshold(): Promise<number> {
   const rawValue = data?.find((item) => item.value != null)?.value;
   const threshold = Number(rawValue);
   return Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_RISK_THRESHOLD;
+}
+
+async function fetchCampusScope(): Promise<CampusScope> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id ?? null;
+  if (!userId) return { role: null, userId: null, campusIds: null };
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .single<{ role: string }>();
+  const role = canonicalRole(profile?.role);
+
+  if (role === 'ADMIN') return { role, userId, campusIds: null };
+  if (role !== 'COORDINATOR' && role !== 'TEACHER') return { role, userId, campusIds: new Set() };
+
+  const column = role === 'COORDINATOR' ? 'coordinator_id' : 'teacher_id';
+  const { data } = await supabase
+    .from('teacher_groups')
+    .select('campus_id')
+    .eq(column, userId)
+    .not('campus_id', 'is', null);
+
+  return {
+    role,
+    userId,
+    campusIds: new Set(((data as { campus_id: string | null }[]) ?? []).map((row) => row.campus_id).filter(Boolean) as string[]),
+  };
 }
 
 function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
@@ -134,7 +170,7 @@ export async function fetchDeanStudents(): Promise<DeanStudent[]> {
   return (studentsResult.data as unknown as UserRow[]).map((row) => mapStudentRow(row, riskThreshold));
 }
 
-export async function fetchDeanLocations(): Promise<Location[]> {
+export async function fetchDeanLocations(scope?: CampusScope): Promise<Location[]> {
   const { data, error } = await supabase
     .from('campuses')
     .select('id, name, latitude, longitude, radius_meters, location_label, supervisor_name, supervisor_phone, schedule, start_date, end_date, description, is_active, max_students, check_in_from, check_in_to')
@@ -142,7 +178,11 @@ export async function fetchDeanLocations(): Promise<Location[]> {
 
   if (error || !data) return [];
 
-  return (data as CampusRow[]).map((c) => ({
+  const rows = scope?.campusIds
+    ? (data as CampusRow[]).filter((c) => scope.campusIds!.has(c.id))
+    : (data as CampusRow[]);
+
+  return rows.map((c) => ({
     id: c.id,
     name: c.name,
     address: c.location_label ?? c.name,
@@ -195,7 +235,7 @@ type AssignmentInfo = {
 // #4/#10/#17: asignación oficial del alumno (teacher_groups) — fuente de verdad de
 // su sede, docente y coordinador, independiente de si ya marcó asistencia. Se filtran
 // las vigentes por fecha; un alumno puede tener varias (multi-sede).
-async function fetchActiveAssignments(): Promise<AssignmentInfo[]> {
+async function fetchActiveAssignments(scope?: CampusScope): Promise<AssignmentInfo[]> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from('teacher_groups')
@@ -208,6 +248,7 @@ async function fetchActiveAssignments(): Promise<AssignmentInfo[]> {
   if (error || !data) return [];
   return (data as any[])
     .filter((r) => (!r.start_date || r.start_date <= today) && (!r.end_date || r.end_date >= today))
+    .filter((r) => !scope?.campusIds || scope.campusIds.has(r.campus_id))
     .map((r) => ({
       studentId: r.student_id,
       campusId: r.campus_id,
@@ -223,10 +264,11 @@ export async function fetchDeanData(): Promise<{
   locations: Location[];
   globalStats: DeanGlobalStats;
 }> {
+  const scope = await fetchCampusScope();
   const [students, locations, assignments, riskThreshold] = await Promise.all([
     fetchDeanStudents(),
-    fetchDeanLocations(),
-    fetchActiveAssignments(),
+    fetchDeanLocations(scope),
+    fetchActiveAssignments(scope),
     fetchRiskThreshold(),
   ]);
 

@@ -2,6 +2,31 @@
 @import './theme.css';
 @import 'leaflet/dist/leaflet.css';
 
+/* ── Animaciones de bienvenida (pantalla de login) ── */
+@keyframes loginScaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+@keyframes loginFadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes loginFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.login-card        { animation: loginScaleIn 0.55s cubic-bezier(0.16,1,0.3,1) both; }
+.login-logo        { animation: loginFadeUp  0.45s cubic-bezier(0.16,1,0.3,1) 0.12s both; }
+.login-title       { animation: loginFadeUp  0.45s cubic-bezier(0.16,1,0.3,1) 0.22s both; }
+.login-feature-1   { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.30s both; }
+.login-feature-2   { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.40s both; }
+.login-feature-3   { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.50s both; }
+.login-label       { animation: loginFadeIn  0.4s  ease-out                   0.30s both; }
+.login-field-1     { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.38s both; }
+.login-field-2     { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.48s both; }
+.login-btn         { animation: loginFadeUp  0.4s  cubic-bezier(0.16,1,0.3,1) 0.56s both; }
+
 /* Evita el "ghost drag" nativo del navegador: al mantener presionado un enlace
    (ítems del menú) o un ícono/imagen, el navegador iniciaba un arrastre nativo
    que hacía ver como si los módulos se pudieran mover/reubicar. Se desactiva

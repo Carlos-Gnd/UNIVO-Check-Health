@@ -2,16 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { supabase } from '@/shared/backend/supabaseClient';
 
 // Forma mínima que necesita el mapa (subconjunto del snapshot de checkHealthBackend).
 export type LiveMapStudent = {
   studentName: string;
   carnet?: string | null;
+  practiceId?: string | null;
   siteName: string;
   hoursToday: number;
   totalCycleHours?: number;
   lastLocation?: { latitude: number; longitude: number } | null;
+};
+
+export type LiveMapCampusOption = {
+  id?: string | null;
+  name: string;
 };
 
 // Mapa Leaflet reutilizable de estudiantes activos. La fuente de datos se inyecta
@@ -21,10 +28,14 @@ export function StudentLiveMap({
   fetchSnapshot,
   title = 'Estudiantes activos en tiempo real',
   realtime = true,
+  showCampusFilter = false,
+  campusOptions,
 }: {
   fetchSnapshot: () => Promise<LiveMapStudent[]>;
   title?: string;
   realtime?: boolean;
+  showCampusFilter?: boolean;
+  campusOptions?: LiveMapCampusOption[];
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
@@ -34,10 +45,14 @@ export function StudentLiveMap({
   const channelId = useRef(`live-map-${Math.random().toString(36).slice(2)}`);
   // Ref a la función para evitar stale closures en intervalos/realtime.
   const fetchRef = useRef(fetchSnapshot);
+  const campusFilterRef = useRef('all');
   fetchRef.current = fetchSnapshot;
 
-  const [studentCount, setStudentCount] = useState(0);
+  const [visibleCampusCount, setVisibleCampusCount] = useState(0);
+  const [campusFilter, setCampusFilter] = useState('all');
+  const [mapCampusOptions, setMapCampusOptions] = useState<LiveMapCampusOption[]>([]);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  campusFilterRef.current = campusFilter;
 
   // B14: marcadores con divIcon (CSS). El icono por defecto de Leaflet depende de
   // imágenes que Vite no empaqueta, así que los marcadores salían "invisibles".
@@ -57,13 +72,31 @@ export function StudentLiveMap({
     if (!campusLayer.current) return;
     const { data } = await supabase
       .from('campuses')
-      .select('name, latitude, longitude, radius_meters')
+      .select('id, name, location_label, latitude, longitude, radius_meters')
       .eq('is_active', true);
-    (data ?? []).forEach((c: any) => {
+    const allowed = campusOptions
+      ? new Set(campusOptions.map((c) => c.id ?? c.name))
+      : null;
+    const campuses = (data ?? [])
+      .map((c: any) => ({
+        ...c,
+        displayName: (c.location_label as string) ?? (c.name as string),
+      }))
+      .filter((c: any) => !allowed || allowed.has(c.id) || allowed.has(c.name) || allowed.has(c.displayName));
+    const visibleCampuses = campuses.filter((c: any) =>
+      campusFilterRef.current === 'all' ||
+      c.id === campusFilterRef.current ||
+      c.name === campusFilterRef.current ||
+      c.displayName === campusFilterRef.current,
+    );
+    campusLayer.current.clearLayers();
+    setVisibleCampusCount(visibleCampuses.length);
+    setMapCampusOptions(campuses.map((c: any) => ({ id: c.id, name: c.displayName })));
+    visibleCampuses.forEach((c: any) => {
       if (c.latitude == null || c.longitude == null) return;
       const lat = Number(c.latitude); const lng = Number(c.longitude);
       L.marker([lat, lng], { icon: campusIcon(L) })
-        .bindPopup(`<b style="font-size:13px">${c.name}</b><br/><span style="font-size:11px;color:#6b7280">Sede de práctica</span>`)
+        .bindPopup(`<b style="font-size:13px">${c.displayName}</b><br/><span style="font-size:11px;color:#6b7280">Sede de práctica</span>`)
         .addTo(campusLayer.current);
       if (c.radius_meters) {
         L.circle([lat, lng], { radius: c.radius_meters, color: '#f5a623', weight: 1, fillColor: '#f5a623', fillOpacity: 0.08 })
@@ -73,8 +106,11 @@ export function StudentLiveMap({
   };
 
   const refreshMarkers = async (L: any) => {
-    const students = await fetchRef.current();
-    setStudentCount(students.length);
+    const students = (await fetchRef.current()).filter((s) =>
+      campusFilterRef.current === 'all' ||
+      s.practiceId === campusFilterRef.current ||
+      s.siteName === campusFilterRef.current,
+    );
     if (!markersLayer.current) return;
     markersLayer.current.clearLayers();
     students.forEach((s) => {
@@ -142,6 +178,12 @@ export function StudentLiveMap({
     };
   }, [realtime]);
 
+  useEffect(() => {
+    if (!leafletModule.current) return;
+    void drawCampuses(leafletModule.current);
+    void refreshMarkers(leafletModule.current);
+  }, [campusFilter, campusOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Card className="overflow-hidden border-brand-100 shadow-sm">
       <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-700 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -157,9 +199,26 @@ export function StudentLiveMap({
                 {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
               </Badge>
             )}
-            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">{studentCount} en sedes</Badge>
+            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">
+              {visibleCampusCount} {visibleCampusCount === 1 ? 'sede' : 'sedes'}
+            </Badge>
           </div>
         </div>
+        {showCampusFilter && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select value={campusFilter} onValueChange={setCampusFilter}>
+              <SelectTrigger className="w-full sm:w-52 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
+                <SelectValue placeholder="Todas las sedes" />
+              </SelectTrigger>
+              <SelectContent className="z-[1000]">
+                <SelectItem value="all">Todas las sedes</SelectItem>
+                {mapCampusOptions.map((c) => (
+                  <SelectItem key={c.id ?? c.name} value={c.id ?? c.name}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="flex items-center gap-4 px-4 py-2 text-xs text-gray-500 border-b">
