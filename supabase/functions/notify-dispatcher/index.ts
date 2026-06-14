@@ -243,9 +243,15 @@ const TEMPLATES: Record<string, {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  // El secreto compartido viaja en x-dispatch-secret (no en Authorization, que lleva
+  // la anon key para pasar el gateway de Edge Functions). Se acepta también el formato
+  // antiguo `Authorization: Bearer <secreto>` por retrocompatibilidad.
+  const dispatchSecret = req.headers.get('x-dispatch-secret') ?? '';
   const authHeader     = req.headers.get('Authorization') ?? '';
   const expectedSecret = Deno.env.get('DISPATCH_WEBHOOK_SECRET');
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  const secretOk = Boolean(expectedSecret) &&
+    (dispatchSecret === expectedSecret || authHeader === `Bearer ${expectedSecret}`);
+  if (!secretOk) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

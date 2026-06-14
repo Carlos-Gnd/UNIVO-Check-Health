@@ -106,6 +106,8 @@ function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
     sedeId,
     sedeName,
     doctorName,
+    teacherName: '—',
+    coordinatorName: '—',
     completedHours: Math.round(completedHours * 10) / 10,
     goalHours: GOAL_HOURS,
     compliancePercentage: pct,
@@ -181,27 +183,86 @@ export async function toggleUserActive(id: string, isActive: boolean): Promise<{
   return { ok: true };
 }
 
+type AssignmentInfo = {
+  studentId: string;
+  campusId: string;
+  campusName: string;
+  supervisorName: string;
+  teacherName: string;
+  coordinatorName: string;
+};
+
+// #4/#10/#17: asignación oficial del alumno (teacher_groups) — fuente de verdad de
+// su sede, docente y coordinador, independiente de si ya marcó asistencia. Se filtran
+// las vigentes por fecha; un alumno puede tener varias (multi-sede).
+async function fetchActiveAssignments(): Promise<AssignmentInfo[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('teacher_groups')
+    .select(`
+      student_id, campus_id, start_date, end_date,
+      campus:campuses(name, supervisor_name),
+      teacher:users!teacher_groups_teacher_id_fkey(full_name),
+      coordinator:users!teacher_groups_coordinator_id_fkey(full_name)
+    `);
+  if (error || !data) return [];
+  return (data as any[])
+    .filter((r) => (!r.start_date || r.start_date <= today) && (!r.end_date || r.end_date >= today))
+    .map((r) => ({
+      studentId: r.student_id,
+      campusId: r.campus_id,
+      campusName: r.campus?.name ?? 'Sin sede',
+      supervisorName: r.campus?.supervisor_name ?? '—',
+      teacherName: r.teacher?.full_name ?? '—',
+      coordinatorName: r.coordinator?.full_name ?? '—',
+    }));
+}
+
 export async function fetchDeanData(): Promise<{
   students: DeanStudent[];
   locations: Location[];
   globalStats: DeanGlobalStats;
 }> {
-  const [students, locations, riskThreshold] = await Promise.all([
+  const [students, locations, assignments, riskThreshold] = await Promise.all([
     fetchDeanStudents(),
     fetchDeanLocations(),
+    fetchActiveAssignments(),
     fetchRiskThreshold(),
   ]);
 
+  const studentMap = new Map(students.map((s) => [s.id, s]));
   const locMap = new Map(locations.map((l) => [l.id, l]));
-  students.forEach((s) => {
-    const loc = locMap.get(s.sedeId);
-    if (loc) {
-      loc.students.push(s);
-      loc.totalStudents = loc.students.length;
-      loc.averageCompliance = Math.round(
-        loc.students.reduce((sum, st) => sum + st.compliancePercentage, 0) / loc.students.length,
-      );
-    }
+
+  // #4/#17: sobreponer la asignación oficial (sede/docente/coordinador) al alumno.
+  // La primera vigente se usa como sede "principal" para la tabla/detalle.
+  const primaryByStudent = new Map<string, AssignmentInfo>();
+  assignments.forEach((a) => { if (!primaryByStudent.has(a.studentId)) primaryByStudent.set(a.studentId, a); });
+  primaryByStudent.forEach((a, studentId) => {
+    const s = studentMap.get(studentId);
+    if (!s) return;
+    s.sedeId = a.campusId;
+    s.sedeName = a.campusName;
+    s.doctorName = a.supervisorName;
+    s.teacherName = a.teacherName;
+    s.coordinatorName = a.coordinatorName;
+  });
+
+  // #10: poblar los alumnos asignados por sede (un alumno puede figurar en varias).
+  const seen = new Set<string>();
+  assignments.forEach((a) => {
+    const loc = locMap.get(a.campusId);
+    const s = studentMap.get(a.studentId);
+    if (!loc || !s) return;
+    const key = `${a.campusId}:${a.studentId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    loc.students.push(s);
+  });
+  locMap.forEach((loc) => {
+    loc.totalStudents = loc.students.length;
+    loc.averageCompliance = loc.students.length
+      ? Math.round(loc.students.reduce((sum, st) => sum + st.compliancePercentage, 0) / loc.students.length)
+      : 0;
   });
 
   const globalStats: DeanGlobalStats = {

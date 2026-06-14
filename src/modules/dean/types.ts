@@ -18,6 +18,8 @@ export interface DeanStudent {
   sedeId: string;
   sedeName: string;
   doctorName: string;
+  teacherName: string;      // #4 docente asignado (teacher_groups)
+  coordinatorName: string;  // #4 coordinador asignado (teacher_groups)
   completedHours: number;
   goalHours: number;
   compliancePercentage: number;

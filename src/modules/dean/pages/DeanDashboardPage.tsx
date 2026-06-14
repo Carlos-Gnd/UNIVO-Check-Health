@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -45,6 +44,7 @@ function LiveMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
+  const campusLayer = useRef<any>(null);
   const leafletModule = useRef<any>(null);
   const [studentCount, setStudentCount] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
@@ -54,6 +54,41 @@ function LiveMap({
   const careerFilterRef = useRef(careerFilter);
   campusFilterRef.current = campusFilter;
   careerFilterRef.current = careerFilter;
+
+  // #14: divIcon por CSS. El icono por defecto de Leaflet depende de imágenes que
+  // Vite no empaqueta, por lo que los marcadores de alumno salían "invisibles".
+  const studentIcon = (L: any) => L.divIcon({
+    className: '',
+    html: '<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35)"></div>',
+    iconSize: [16, 16], iconAnchor: [8, 8],
+  });
+  const campusIcon = (L: any) => L.divIcon({
+    className: '',
+    html: '<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#f5a623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:13px">🏥</div>',
+    iconSize: [24, 24], iconAnchor: [12, 12],
+  });
+
+  // #13: dibuja los pines de las sedes (marcador + círculo de geocerca). Antes el
+  // mapa solo pintaba alumnos, así que las sedes nunca aparecían. Se dibuja una vez.
+  const drawCampuses = async (L: any) => {
+    if (!campusLayer.current) return;
+    const { data } = await supabase
+      .from('campuses')
+      .select('name, latitude, longitude, radius_meters')
+      .eq('is_active', true);
+    campusLayer.current.clearLayers();
+    (data ?? []).forEach((c: any) => {
+      if (c.latitude == null || c.longitude == null) return;
+      const lat = Number(c.latitude); const lng = Number(c.longitude);
+      L.marker([lat, lng], { icon: campusIcon(L) })
+        .bindPopup(`<b style="font-size:13px">${c.name}</b><br/><span style="font-size:11px;color:#6b7280">Sede de práctica</span>`)
+        .addTo(campusLayer.current);
+      if (c.radius_meters) {
+        L.circle([lat, lng], { radius: c.radius_meters, color: '#f5a623', weight: 1, fillColor: '#f5a623', fillOpacity: 0.08 })
+          .addTo(campusLayer.current);
+      }
+    });
+  };
 
   const refreshMarkers = async (L: any) => {
     const all = await getActiveStudentsSnapshot();
@@ -67,7 +102,7 @@ function LiveMap({
     markersLayer.current.clearLayers();
     filtered.forEach((s) => {
       if (!s.lastLocation) return;
-      L.marker([s.lastLocation.latitude, s.lastLocation.longitude])
+      L.marker([s.lastLocation.latitude, s.lastLocation.longitude], { icon: studentIcon(L) })
         .bindPopup(
           `<b style="font-size:13px">${s.studentName}</b>` +
           (s.carnet ? `<br/><span style="font-size:11px;color:#6b7280">${s.carnet}</span>` : '') +
@@ -88,8 +123,10 @@ function LiveMap({
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);
+      campusLayer.current = L.layerGroup().addTo(map);
       markersLayer.current = L.layerGroup().addTo(map);
       leafletInstance.current = map;
+      void drawCampuses(L);
       void refreshMarkers(L);
       interval = setInterval(() => void refreshMarkers(L), 30000);
     });
@@ -99,6 +136,7 @@ function LiveMap({
       leafletInstance.current?.remove();
       leafletInstance.current = null;
       markersLayer.current = null;
+      campusLayer.current = null;
       leafletModule.current = null;
     };
   }, []);
@@ -176,6 +214,10 @@ function LiveMap({
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        <div className="flex items-center gap-4 px-4 py-2 text-xs text-gray-500 border-b">
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-white shadow" />Estudiante activo</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded bg-gold-500 border border-white" />Sede (con su radio permitido)</span>
+        </div>
         {/* Wrapper fijo: Leaflet no puede modificar este div — define dimensiones y clip */}
         <div style={{ position: 'relative', width: '100%', height: '320px', overflow: 'hidden', borderRadius: '0 0 0.5rem 0.5rem' }}>
           {/* mapRef: Leaflet overrides position→relative aquí, pero height:100% sigue resolviendo 320px */}
@@ -228,19 +270,6 @@ export function DeanDashboardPage() {
   const totalRiskPages = Math.max(1, Math.ceil(riskStudents.length / RISK_PAGE_SIZE));
   const pagedRiskStudents = riskStudents.slice(riskPage * RISK_PAGE_SIZE, (riskPage + 1) * RISK_PAGE_SIZE);
 
-  const chartData = useMemo(
-    () =>
-      locations
-        .filter((l) => l.status === 'active')
-        .map((l) => ({
-          name: l.name.length > 20 ? l.name.slice(0, 18) + '…' : l.name,
-          fullName: l.name,
-          value: l.averageCompliance,
-        })),
-    [locations],
-  );
-
-  const barColor = (v: number) => (v > 75 ? '#16a34a' : v >= 50 ? '#f59e0b' : '#dc2626');
   const activeSharedDeviceAlerts = sharedDeviceAlerts.filter((alert) => !resolvedAlertIds.has(alert.id));
   const latestSharedDeviceAlert = activeSharedDeviceAlerts[0];
 
@@ -301,33 +330,7 @@ export function DeanDashboardPage() {
         <StatCard title="Sedes Activas" value={globalStats.activeLocations} subtitle="lugares con prácticas este semestre" icon={Building2} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* T-07.2: Cumplimiento por sede */}
-        <Card className="overflow-hidden border-brand-100 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <CardTitle className="flex items-center gap-2 text-white">
-              <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
-              Cumplimiento por Sede
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-64 sm:h-80 pt-4">
-            {chartData.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center pt-16">Sin datos de sedes activas</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number, _n, entry: any) => [`${v}%`, entry.payload.fullName]} />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                    {chartData.map((item) => <Cell key={item.fullName} fill={barColor(item.value)} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* T-19.3: Lista paginada de alumnos en riesgo */}
         <Card className="overflow-hidden border-brand-100 shadow-sm">
           <CardHeader className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex flex-row items-center justify-between pb-3">

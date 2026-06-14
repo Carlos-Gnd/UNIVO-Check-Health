@@ -10,9 +10,11 @@ import { type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
-export const LEGAL_VERSION = '2026-06-05';
+export const LEGAL_VERSION = '2026-06-13';
 
-const CONTACT_EMAIL = 'correoprueba@univo.edu.sv';
+// TODO(UNIVO): reemplazar por el correo y la dirección oficiales del responsable de datos.
+const CONTACT_EMAIL = 'ucheckhealth@gmail.com';
+const RESPONSIBLE_ADDRESS = 'Universidad de Oriente (UNIVO), San Miguel, El Salvador';
 
 function LegalDoc({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
@@ -48,7 +50,7 @@ function LegalDoc({ title, updated, children }: { title: string; updated: string
 
 export function PrivacyPolicyPage() {
   return (
-    <LegalDoc title="Política de Privacidad" updated="5 de junio de 2026">
+    <LegalDoc title="Política de Privacidad" updated="13 de junio de 2026">
       <p>
         Esta política explica qué datos personales trata <strong>UNIVO Check-Health</strong> (la
         “Aplicación”), de la Universidad de Oriente (UNIVO), con qué fin y qué derechos tienes. Al
@@ -56,7 +58,10 @@ export function PrivacyPolicyPage() {
       </p>
 
       <h2>1. Responsable del tratamiento</h2>
-      <p>Universidad de Oriente (UNIVO), Área de Salud. Contacto: {CONTACT_EMAIL}.</p>
+      <p>
+        Universidad de Oriente (UNIVO), Área de Salud. Dirección: {RESPONSIBLE_ADDRESS}.
+        Correo de contacto en materia de datos: {CONTACT_EMAIL}.
+      </p>
 
       <h2>2. Datos que recopilamos</h2>
       <ul>
@@ -82,16 +87,22 @@ export function PrivacyPolicyPage() {
         la normativa universitaria; luego se eliminan o anonimizan.
       </p>
 
-      <h2>6. Destinatarios</h2>
-      <p>
-        Acceden únicamente el personal autorizado (docentes supervisores, coordinación, decanos y
-        representantes de sede) según su rol. La infraestructura se aloja en Supabase (proveedor de
-        base de datos y autenticación).
-      </p>
+      <h2>6. Destinatarios y encargados (terceros)</h2>
+      <p>Acceden únicamente el personal autorizado (docentes supervisores, coordinación, decanos y
+        representantes de sede) según su rol. Para operar, la Aplicación se apoya en los siguientes
+        proveedores, que tratan datos por cuenta de UNIVO:</p>
+      <ul>
+        <li><strong>Supabase:</strong> base de datos, autenticación y almacenamiento de archivos.</li>
+        <li><strong>Google Firebase Cloud Messaging:</strong> envío de notificaciones push.</li>
+        <li><strong>Google (Gmail SMTP):</strong> envío de correos (credenciales, avisos y notificaciones).</li>
+        <li><strong>ip.guide:</strong> geolocalización aproximada de la dirección IP del marcaje, como señal antifraude.</li>
+      </ul>
+      <p>No vendemos ni cedemos tus datos a terceros con fines comerciales o publicitarios.</p>
 
       <h2>7. Tus derechos</h2>
       <p>
-        Puedes solicitar acceso, rectificación o supresión de tus datos escribiendo a {CONTACT_EMAIL}.
+        Puedes solicitar el <strong>acceso, rectificación, supresión, portabilidad</strong> (recibir una
+        copia exportable) u <strong>oposición</strong> al tratamiento de tus datos escribiendo a {CONTACT_EMAIL}.
         Algunos registros académicos (asistencias certificadas) pueden conservarse por obligación
         institucional aun tras una solicitud de borrado.
       </p>
@@ -107,37 +118,56 @@ export function PrivacyPolicyPage() {
 
 export function CookiesPolicyPage() {
   return (
-    <LegalDoc title="Política de Cookies y Almacenamiento" updated="5 de junio de 2026">
+    <LegalDoc title="Política de Cookies y Almacenamiento" updated="13 de junio de 2026">
       <p>
         UNIVO Check-Health <strong>no usa cookies de publicidad ni de seguimiento de terceros</strong>.
         Para funcionar, sí guarda cierta información en tu navegador.
       </p>
 
-      <h2>1. Almacenamiento estrictamente necesario</h2>
+      <h2>1. ¿Qué es una cookie / almacenamiento local?</h2>
+      <p>
+        Una <strong>cookie</strong> es un pequeño archivo que un sitio guarda en tu navegador para
+        recordar información entre páginas o visitas. Tecnologías equivalentes son el
+        <em> localStorage</em> y el <em>sessionStorage</em>, que también almacenan datos en tu navegador.
+        Esta Aplicación usa principalmente almacenamiento del navegador (no cookies publicitarias).
+      </p>
+
+      <h2>2. Almacenamiento estrictamente necesario (propio)</h2>
       <ul>
-        <li><strong>Sesión de autenticación:</strong> Supabase guarda un token de sesión en el almacenamiento local para mantenerte conectado.</li>
+        <li><strong>Sesión de autenticación:</strong> tu token de sesión se guarda en <em>sessionStorage</em>,
+          por lo que la sesión se cierra al cerrar el navegador o la pestaña.</li>
         <li><strong>Identificador de dispositivo y de sesión:</strong> un id local para la “sesión única” y para detectar dispositivos compartidos.</li>
         <li><strong>Preferencias de interfaz:</strong> por ejemplo, si el menú lateral está colapsado.</li>
       </ul>
-
-      <h2>2. ¿Puedo desactivarlo?</h2>
-      <p>
-        Este almacenamiento es necesario para iniciar sesión y marcar asistencia. Si lo bloqueas o
-        borras, tendrás que volver a iniciar sesión y la Aplicación podría no funcionar correctamente.
-      </p>
+      <p>Estos elementos son <strong>propios</strong> (creados por la Aplicación), técnicos y estrictamente
+        necesarios; no se usan para análisis ni publicidad.</p>
 
       <h2>3. Terceros</h2>
       <p>
-        Usamos Supabase (autenticación y datos) y, de forma opcional, notificaciones push. No incrustamos
-        rastreadores publicitarios.
+        La autenticación y el almacenamiento usan <strong>Supabase</strong>, y las notificaciones push usan
+        <strong> Google Firebase</strong>. Estos proveedores pueden establecer almacenamiento técnico
+        necesario para su funcionamiento. No incrustamos rastreadores publicitarios.
       </p>
+
+      <h2>4. Gestión y desactivación</h2>
+      <p>
+        Este almacenamiento es necesario para iniciar sesión y marcar asistencia: si lo bloqueas o borras,
+        tendrás que volver a iniciar sesión y la Aplicación podría no funcionar correctamente. Puedes
+        revisar, bloquear o eliminar cookies y datos de sitio desde la configuración de tu navegador:
+      </p>
+      <ul>
+        <li><strong>Chrome:</strong> Configuración → Privacidad y seguridad → Cookies y datos de sitios.</li>
+        <li><strong>Firefox:</strong> Ajustes → Privacidad &amp; Seguridad → Cookies y datos del sitio.</li>
+        <li><strong>Safari:</strong> Preferencias → Privacidad → Gestionar datos de sitios web.</li>
+        <li><strong>Edge:</strong> Configuración → Cookies y permisos del sitio.</li>
+      </ul>
     </LegalDoc>
   );
 }
 
 export function TermsPage() {
   return (
-    <LegalDoc title="Términos y Condiciones de Uso" updated="5 de junio de 2026">
+    <LegalDoc title="Términos y Condiciones de Uso" updated="13 de junio de 2026">
       <p>
         Al acceder a UNIVO Check-Health aceptas estos términos. Si no estás de acuerdo, no utilices la
         Aplicación.
@@ -162,16 +192,34 @@ export function TermsPage() {
         uso indebido puede acarrear medidas académicas según la normativa de UNIVO.
       </p>
 
-      <h2>4. Disponibilidad</h2>
+      <h2>4. Propiedad intelectual</h2>
+      <p>
+        El código, el diseño, los textos, los logotipos y la marca de UNIVO Check-Health pertenecen al grupo de desarrolladores. No se permite copiar, distribuir, modificar
+        ni explotar estos elementos sin autorización escrita.
+      </p>
+
+      <h2>5. Disponibilidad y limitación de responsabilidad</h2>
       <p>
         Procuramos mantener el servicio disponible, pero puede haber interrupciones por mantenimiento o
         causas ajenas. Ante una falla técnica, sigue el procedimiento alterno que indique tu encargado.
+        La Aplicación se ofrece “tal cual”: en la medida permitida por la ley, los desarrolladores y la Universidad de Oriente (UNIVO) no serán responsables por caídas del servicio, pérdida de datos o daños indirectos derivados de su uso.
       </p>
 
-      <h2>5. Cambios</h2>
+      <h2>6. Terminación del servicio</h2>
+      <p>
+        La Universidad de Oriente (UNIVO) puede suspender o cancelar cuentas que incumplan estos términos o la normativa universitaria, sin perjuicio de conservar los registros académicos exigidos por la institución.
+      </p>
+
+      <h2>7. Cambios</h2>
       <p>
         Podemos actualizar estos términos; cuando lo hagamos, se te pedirá aceptarlos de nuevo al
         ingresar.
+      </p>
+
+      <h2>8. Ley aplicable y jurisdicción</h2>
+      <p>
+        Estos términos se rigen por las leyes de la República de El Salvador. Cualquier controversia se
+        someterá a los tribunales competentes de El Salvador.
       </p>
     </LegalDoc>
   );

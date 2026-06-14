@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { BookOpen, Copy, IdCard, KeyRound, Loader2, Pencil, Puzzle, RefreshCw, ShieldCheck, Trash2, User, UserPlus } from 'lucide-react';
+import { BookOpen, Copy, IdCard, KeyRound, Loader2, Pencil, Puzzle, RefreshCw, Search, ShieldCheck, Trash2, User, UserPlus } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
@@ -22,6 +22,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { toggleUserActive } from '@/modules/dean/services/dean.service';
 import { fetchCareers, type Career } from '@/modules/dean/services/catalog.service';
+import { fetchPendingAccessRequests, markAccessRequest, type AccessRequest } from '@/modules/auth/access.service';
 
 // B-01: las operaciones privilegiadas viven en la Edge Function admin-users.
 // El cliente nunca maneja la service_role key.
@@ -135,6 +136,15 @@ export function UserManagement() {
   const [togglingId, setTogglingId]       = useState<string | null>(null);
   const [resetingId, setResetingId]       = useState<string | null>(null);
 
+  // #20: búsqueda y filtros de la tabla de usuarios.
+  const [search, setSearch]               = useState('');
+  const [roleFilter, setRoleFilter]       = useState('all');
+  const [careerFilter, setCareerFilter]   = useState('all');
+
+  // #19: solicitudes de acceso pendientes (creadas desde el login).
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [processingReqId, setProcessingReqId] = useState<string | null>(null);
+
   const derivedEmail = studentCode ? `${studentCode.toUpperCase()}${UNIVO_DOMAIN}` : '';
 
   const resetCreateForm = () => {
@@ -164,7 +174,55 @@ export function UserManagement() {
     setCampuses((data as CampusOption[]) ?? []);
   };
 
-  useEffect(() => { void loadUsers(); void loadCampuses(); void fetchCareers().then(setCareers); }, []);
+  const loadAccessRequests = async () => {
+    setAccessRequests(await fetchPendingAccessRequests());
+  };
+
+  useEffect(() => { void loadUsers(); void loadCampuses(); void fetchCareers().then(setCareers); void loadAccessRequests(); }, []);
+
+  // #19: aprobar una solicitud crea el usuario (con credenciales temporales que se
+  // envían al correo) y marca la solicitud como aprobada. Rechazar solo la cierra.
+  const handleApproveRequest = async (req: AccessRequest) => {
+    const code = req.studentCode.trim().toUpperCase();
+    const email = `${code}${UNIVO_DOMAIN}`;
+    const tempPassword = generateTempPassword();
+    setProcessingReqId(req.id);
+    const result = await invokeAdmin('create', {
+      email,
+      password: tempPassword,
+      student_code: code,
+      full_name: req.fullName.trim(),
+      role: req.requestedRole,
+      career: req.requestedRole === 'STUDENT' ? req.career : null,
+      academic_level: req.requestedRole === 'STUDENT' ? 1 : null,
+      campus_id: null,
+    });
+    if (!result.ok) {
+      setProcessingReqId(null);
+      toast.error(result.message ?? 'No se pudo crear el usuario.');
+      return;
+    }
+    await markAccessRequest(req.id, 'approved');
+    setProcessingReqId(null);
+    setCreatedCreds({ email, password: tempPassword });
+    void supabase.functions
+      .invoke('send-credentials', { body: { email, password: tempPassword, full_name: req.fullName.trim() } })
+      .then(({ error }) => {
+        if (error) toast.error('Usuario creado, pero no se pudieron enviar las credenciales');
+        else toast.success('Solicitud aprobada y credenciales enviadas');
+      });
+    void loadAccessRequests();
+    void loadUsers();
+  };
+
+  const handleRejectRequest = async (req: AccessRequest) => {
+    setProcessingReqId(req.id);
+    const result = await markAccessRequest(req.id, 'rejected');
+    setProcessingReqId(null);
+    if (!result.ok) { toast.error(result.message ?? 'No se pudo rechazar la solicitud.'); return; }
+    toast.success('Solicitud rechazada');
+    void loadAccessRequests();
+  };
 
   // B6: nombres de carreras y niveles (ciclos) desde la tabla configurable. Las
   // carreras inactivas no se ofrecen en formularios nuevos, pero si un usuario ya
@@ -191,6 +249,19 @@ export function UserManagement() {
   const visibleRoles = ROLES.filter((r) => manageableRoles.includes(r.value));
   // El docente no ve (ni puede operar) cuentas ADMIN ni de otros docentes.
   const visibleUsers = users.filter((u) => manageableRoles.includes((u.role ?? '').toUpperCase()));
+
+  // #20: aplica búsqueda (nombre/carné/correo) + filtros de rol y carrera.
+  const careerFilterOptions = [...new Set(visibleUsers.map((u) => u.career).filter(Boolean))] as string[];
+  const filteredUsers = visibleUsers.filter((u) => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q
+      || (u.full_name ?? '').toLowerCase().includes(q)
+      || (u.student_code ?? '').toLowerCase().includes(q)
+      || (u.email ?? '').toLowerCase().includes(q);
+    const matchesRole = roleFilter === 'all' || (u.role ?? '').toUpperCase() === roleFilter;
+    const matchesCareer = careerFilter === 'all' || (u.career ?? '') === careerFilter;
+    return matchesSearch && matchesRole && matchesCareer;
+  });
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -328,12 +399,80 @@ export function UserManagement() {
         )}
       />
 
+      {/* #19: solicitudes de acceso pendientes (creadas desde el login) */}
+      {accessRequests.length > 0 && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm">
+          <div className="flex items-center gap-2 px-6 py-4 border-b border-amber-100">
+            <UserPlus className="w-4 h-4 text-amber-700" />
+            <h2 className="text-base font-semibold text-amber-900">Solicitudes de acceso pendientes</h2>
+            <Badge className="bg-amber-200 text-amber-800">{accessRequests.length}</Badge>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {accessRequests.map((r) => {
+              // #19: el docente solo puede aprobar los roles que admin-users le deja
+              // crear (STUDENT/COORDINATOR). Para los demás, solo el decano aprueba.
+              const canApprove = manageableRoles.includes((r.requestedRole ?? '').toUpperCase());
+              return (
+              <div key={r.id} className="flex flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{r.fullName} <span className="font-mono text-xs text-gray-500">{r.studentCode}</span></p>
+                  <p className="text-xs text-gray-600">{roleLabel(r.requestedRole)}{r.career ? ` · ${r.career}` : ''}{r.reason ? ` — ${r.reason}` : ''}</p>
+                  {!canApprove && (
+                    <p className="text-xs text-amber-700 mt-0.5">Este rol solo lo puede aprobar el decano.</p>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" disabled={processingReqId === r.id || !canApprove} title={!canApprove ? 'Tu rol no puede crear este tipo de usuario.' : undefined} onClick={() => void handleApproveRequest(r)} className="bg-green-700 hover:bg-green-800 text-white">
+                    {processingReqId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Aprobar'}
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={processingReqId === r.id} onClick={() => void handleRejectRequest(r)} className="text-red-700 border-red-200 hover:bg-red-50">
+                    Rechazar
+                  </Button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Usuarios registrados</h2>
           <Button variant="outline" size="sm" onClick={loadUsers} disabled={isLoadingUsers}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />Actualizar
           </Button>
+        </div>
+        {/* #20: buscador + filtros por rol y carrera */}
+        <div className="flex flex-col gap-3 px-6 py-3 border-b border-gray-100 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, carné o correo…"
+              className="pl-9"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label="Filtrar por rol"
+            className="h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-700/25"
+          >
+            <option value="all">Todos los roles</option>
+            {visibleRoles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <select
+            value={careerFilter}
+            onChange={(e) => setCareerFilter(e.target.value)}
+            aria-label="Filtrar por carrera"
+            className="h-10 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-700/25"
+          >
+            <option value="all">Todas las carreras</option>
+            {careerFilterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <span className="text-xs text-gray-400 whitespace-nowrap">{filteredUsers.length} de {visibleUsers.length}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-sm">
@@ -352,10 +491,12 @@ export function UserManagement() {
             <tbody className="divide-y divide-gray-50">
               {isLoadingUsers ? (
                 <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
-              ) : visibleUsers.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Sin usuarios registrados</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                  {visibleUsers.length === 0 ? 'Sin usuarios registrados' : 'Ningún usuario coincide con la búsqueda o los filtros'}
+                </td></tr>
               ) : (
-                visibleUsers.map((u) => (
+                filteredUsers.map((u) => (
                   <tr key={u.id} className={`hover:bg-brand-50 transition-colors ${!u.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.full_name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.student_code}</td>

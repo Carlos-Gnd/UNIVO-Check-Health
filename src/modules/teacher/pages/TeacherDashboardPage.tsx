@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StudentLiveMap } from '@/shared/components/StudentLiveMap';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
-import { fetchTeacherActiveSnapshot, fetchTeacherRoster, CURRENT_PERIOD, type TeacherStudent } from '../services/teacher.service';
+import { fetchTeacherActiveSnapshot, fetchTeacherRoster, decideAssignmentGoal, CURRENT_PERIOD, type TeacherStudent } from '../services/teacher.service';
 import { signGroupReport } from '../services/report.service';
+
+const DAY_ABBR = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 export function TeacherDashboardPage() {
   const [isSigning, setIsSigning] = useState(false);
@@ -17,6 +19,17 @@ export function TeacherDashboardPage() {
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [campusFilter, setCampusFilter] = useState('all');
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+
+  // #18: el docente marca si el alumno aprobó o reprobó la meta del ciclo.
+  const handleGoalDecision = async (assignmentId: string, decision: 'APROBADO' | 'REPROBADO') => {
+    setDecidingId(assignmentId);
+    const res = await decideAssignmentGoal(assignmentId, decision);
+    setDecidingId(null);
+    if (!res.ok) { toast.error(res.message ?? 'No se pudo registrar la decisión.'); return; }
+    setRoster((prev) => prev.map((s) => (s.assignmentId === assignmentId ? { ...s, goalDecision: decision } : s)));
+    toast.success(decision === 'APROBADO' ? 'Meta marcada como aprobada.' : 'Meta marcada como reprobada.');
+  };
 
   useEffect(() => {
     void fetchTeacherRoster().then((r) => { setRoster(r); setLoadingRoster(false); });
@@ -126,9 +139,44 @@ export function TeacherDashboardPage() {
                 </div>
                 <div className="divide-y divide-slate-50">
                   {g.students.map((s) => (
-                    <div key={`${s.studentId}-${g.subjectName}`} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-slate-700 truncate">{s.fullName}</span>
-                      <span className="text-xs text-slate-400 font-mono shrink-0">{s.studentCode}</span>
+                    <div key={`${s.studentId}-${g.subjectName}`} className="py-1.5 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-700 truncate">{s.fullName}</span>
+                        <span className="text-xs text-slate-400 font-mono shrink-0">{s.studentCode}</span>
+                      </div>
+                      {s.schedule.length > 0 && (
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          {s.schedule.map((slot) => (
+                            <span key={slot.weekday} className="rounded bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-500">
+                              {DAY_ABBR[slot.weekday]} {slot.from}–{slot.to}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] text-slate-500">Meta del ciclo:</span>
+                        {s.goalDecision === 'APROBADO' && <Badge className="bg-green-100 text-green-700">Aprobada</Badge>}
+                        {s.goalDecision === 'REPROBADO' && <Badge className="bg-red-100 text-red-700">Reprobada</Badge>}
+                        {!s.goalDecision && <span className="text-[11px] text-slate-400">Sin decidir</span>}
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm" variant="outline"
+                            className="h-6 px-2 text-[11px] text-green-700 border-green-200 hover:bg-green-50"
+                            disabled={decidingId === s.assignmentId || s.goalDecision === 'APROBADO'}
+                            onClick={() => void handleGoalDecision(s.assignmentId, 'APROBADO')}
+                          >
+                            {decidingId === s.assignmentId ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Aprobar'}
+                          </Button>
+                          <Button
+                            size="sm" variant="outline"
+                            className="h-6 px-2 text-[11px] text-red-700 border-red-200 hover:bg-red-50"
+                            disabled={decidingId === s.assignmentId || s.goalDecision === 'REPROBADO'}
+                            onClick={() => void handleGoalDecision(s.assignmentId, 'REPROBADO')}
+                          >
+                            Reprobar
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

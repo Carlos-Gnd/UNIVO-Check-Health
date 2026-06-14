@@ -142,15 +142,25 @@ export function StudentQrScannerPage() {
     })();
   }, []);
 
-  // S4-01.4: enumerar cámaras disponibles (solo en contexto seguro). Si la última
-  // usada ya no existe, se cae a la primera (trasera en móviles por orden del SO).
+  // S4-01.4 / bug #15: enumerar cámaras y seleccionar por defecto la PRINCIPAL
+  // (trasera/environment), no la primera de la lista (que en muchos móviles es la
+  // frontal). Heurística por etiqueta; si las etiquetas vienen vacías (permiso aún
+  // no concedido), se deja la selección vacía para que el escáner arranque con
+  // facingMode:'environment'. El selector manual queda como respaldo.
   useEffect(() => {
     if (!isSecure || mode !== 'camera') return;
     Html5Qrcode.getCameras()
       .then((devices) => {
         const list = devices.map((d) => ({ id: d.id, label: d.label || 'Cámara' }));
         setCameras(list);
-        setSelectedCamera((prev) => (prev && list.some((c) => c.id === prev) ? prev : (list[0]?.id ?? '')));
+        setSelectedCamera((prev) => {
+          if (prev && list.some((c) => c.id === prev)) return prev;
+          const back = list.find((c) => /back|rear|trasera|posterior|environment/i.test(c.label));
+          if (back) return back.id;
+          // Sin etiquetas (sin permiso): vacío → start() usa facingMode:'environment'.
+          const hasLabels = list.some((c) => c.label && c.label !== 'Cámara');
+          return hasLabels ? (list[list.length - 1]?.id ?? '') : '';
+        });
       })
       .catch(() => { /* sin permiso aún o sin cámaras; el inicio del escáner lo reporta */ });
   }, [isSecure, mode]);

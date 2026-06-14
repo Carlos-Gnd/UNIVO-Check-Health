@@ -38,6 +38,7 @@ import { useState, useEffect, useRef, Suspense, type FormEvent } from 'react';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
 import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
@@ -63,6 +64,19 @@ function mapAppRole(rawRole: string | null | undefined): AppRole {
   }
 }
 
+// Avatar del usuario en el navbar (bug #2): muestra la foto de perfil real
+// (users.photo_url) y cae al ícono genérico si no hay foto o falla la carga.
+function ProfileAvatar({ photoUrl, name, className }: { photoUrl: string | null; name: string; className: string }) {
+  return (
+    <Avatar className={`${className} shrink-0 border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700`}>
+      {photoUrl && <AvatarImage src={photoUrl} alt={name} className="object-cover" />}
+      <AvatarFallback className="bg-transparent text-brand-700">
+        <UserCircle className="h-5 w-5" />
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
@@ -82,6 +96,7 @@ export function MainLayout() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<AppRole>('Encargado');
   const [displayName, setDisplayName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isResolvingRole, setIsResolvingRole] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(true);
@@ -95,11 +110,12 @@ export function MainLayout() {
     setIsResolvingRole(true);
     const { data } = await supabase
       .from('users')
-      .select('role, full_name')
+      .select('role, full_name, photo_url')
       .eq('id', userId)
       .single();
     setCurrentRole(mapAppRole(data?.role));
     setDisplayName(data?.full_name ?? fallbackEmail);
+    setAvatarUrl((data?.photo_url as string | null) ?? null);
     setIsResolvingRole(false);
 
     // must_change_password se consulta aparte: si la columna aún no existe
@@ -144,6 +160,7 @@ export function MainLayout() {
           setCurrentUser(null);
           setCurrentRole('Encargado');
           setDisplayName('');
+          setAvatarUrl(null);
           setMustChangePassword(false);
           setLegalAccepted(true);
           setNeedsPermissions(false);
@@ -178,6 +195,28 @@ export function MainLayout() {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [currentUser]);
+
+  // #1: cierre por inactividad. Tras IDLE_LIMIT_MS sin interacción del usuario, la
+  // sesión se cierra automáticamente. Cualquier actividad reinicia el contador.
+  useEffect(() => {
+    if (!currentUser) return;
+    const IDLE_LIMIT_MS = 30 * 60 * 1000; // 30 minutos
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void supabase.auth.signOut();
+        toast.info('Tu sesión se cerró por inactividad.');
+      }, IDLE_LIMIT_MS);
+    };
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
     };
   }, [currentUser]);
 
@@ -241,6 +280,7 @@ export function MainLayout() {
     : currentRole === 'Representante'
       ? [
           { name: 'Estudiantes en mi sede', href: '/hospital/live', icon: Hospital },
+          { name: 'Materias en mi sede', href: '/hospital/subjects', icon: BookOpen },
           { name: 'Reportes de Conducta', href: '/hospital/incidents', icon: AlertTriangle },
         ]
       : [
@@ -370,7 +410,10 @@ export function MainLayout() {
                     <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Ingresa tu contraseña" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 pr-11 bg-white/90 border-white/20 text-brand-900 placeholder:text-slate-400 focus-visible:ring-gold-400" required />
                     <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-0 px-3 text-brand-400 hover:text-gold-500" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
                   </div>
-                  <div className="text-right"><Link to="/auth/recovery" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿Olvidaste tu contraseña?</Link></div>
+                  <div className="flex items-center justify-between">
+                    <Link to="/auth/request-access" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿No tienes cuenta? Solicita acceso</Link>
+                    <Link to="/auth/recovery" className="text-xs font-medium text-gold-400/80 hover:text-gold-300">¿Olvidaste tu contraseña?</Link>
+                  </div>
                 </div>
                 <Button type="submit" disabled={isLoading} className="w-full h-12 mt-2 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 hover:from-brand-500 hover:to-brand-700 text-white font-semibold tracking-wide border border-gold-400/20 shadow-[0_4px_14px_rgba(10,17,40,0.5)]">{isLoading ? 'Verificando...' : 'Iniciar sesión'}</Button>
               </form>
@@ -468,9 +511,7 @@ export function MainLayout() {
             {isSidebarCollapsed ? (
               <div className="flex justify-center w-full">
                 <Link to="/profile" title={displayName || currentUser.email} className="flex w-11 h-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024] shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
-                    <UserCircle className="h-5 w-5" />
-                  </div>
+                  <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-8 w-8" />
                 </Link>
               </div>
             ) : (
@@ -479,9 +520,7 @@ export function MainLayout() {
                   <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
                   <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
                 </div>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
-                  <UserCircle className="h-5 w-5" />
-                </div>
+                <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-9 w-9" />
               </Link>
             )}
             <Button
