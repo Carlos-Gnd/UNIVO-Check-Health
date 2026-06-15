@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     p_current_lat: lat,
     p_current_lng: lng,
   });
-  if (validationError) return fail('Error al validar ubicacion.');
+  if (validationError) return fail(`Error al validar ubicacion: ${validationError.message ?? 'desconocido'}`);
   if (!validationData?.[0]?.is_allowed) {
     return fail(validationData?.[0]?.message ?? 'Ubicacion fuera del area permitida.');
   }
@@ -191,7 +191,9 @@ Deno.serve(async (req: Request) => {
     .select('id')
     .single();
 
-  if (insertError || !attendance) return fail('Error al registrar la asistencia.');
+  if (insertError || !attendance) {
+    return fail(`Error al registrar la asistencia: ${insertError?.message ?? 'desconocido'}`);
+  }
 
   return json({
     ok: true,
