@@ -23,7 +23,7 @@ export interface Attendance {
   securitySeal?: string;
   checkOutSecuritySeal?: string;
   workedHours?: number;
-  reviewStatus?: 'clear' | 'pending_review' | 'flagged';
+  reviewStatus?: 'PENDIENTE' | 'VALIDADO' | 'OBSERVADO';
   suspiciousReason?: string;
   deviceId?: string;
   deviceFingerprint?: string;

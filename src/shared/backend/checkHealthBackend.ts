@@ -406,6 +406,21 @@ export const getActiveStudentsSnapshot = async (): Promise<ActiveStudentRecord[]
   });
 };
 
+// Validación manual de una asistencia observada (OBSERVADO → VALIDADO). La RLS
+// `attendances_coordinator_update` la restringe a ADMIN/COORDINATOR server-side.
+// El `.eq('review_status', 'OBSERVADO')` la hace idempotente: solo valida observadas.
+export const validateAttendance = async (
+  attendanceId: string,
+): Promise<{ ok: boolean; message?: string }> => {
+  const { error } = await supabase
+    .from('attendances')
+    .update({ review_status: 'VALIDADO' })
+    .eq('id', attendanceId)
+    .eq('review_status', 'OBSERVADO');
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+};
+
 export const getStudentHoursProgress = async (
   studentId: string,
 ): Promise<{ completedHours: number; requiredHours: number }> => {

@@ -131,7 +131,7 @@ function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
     date: a.date,
     checkInTime: a.check_in ? new Date(a.check_in).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' }) : '',
     sedeName: a.campuses?.name ?? sedeName,
-    status: a.status === 'absent' ? 'absent' : a.review_status === 'flagged' ? 'review' : 'valid',
+    status: a.status === 'absent' ? 'absent' : a.review_status === 'OBSERVADO' ? 'review' : 'valid',
   }));
 
   return {

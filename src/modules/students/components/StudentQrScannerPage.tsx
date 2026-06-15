@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { CheckCircle2, Clock, Keyboard, Loader2, QrCode, XCircle } from 'lucide-react';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import { supabase } from '@/shared/backend/supabaseClient';
@@ -650,15 +651,24 @@ export function StudentQrScannerPage() {
             </div>
           )}
 
-          {/* ── Éxito ── */}
-          {state === 'success' && (
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <CheckCircle2 className="w-12 h-12 text-green-500" />
-              <Badge className="bg-green-100 text-green-700 text-sm px-3 py-1">Registro exitoso</Badge>
-              <p className="text-sm text-gray-600">{message}</p>
-              <Button variant="outline" onClick={resetAll}>Continuar</Button>
-            </div>
-          )}
+          {/* ── Éxito (#2): ventana modal de confirmación ── */}
+          <Dialog open={state === 'success'} onOpenChange={(o) => { if (!o) resetAll(); }}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="sr-only">Registro exitoso</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-3 py-2 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-9 h-9 text-green-600" />
+                </div>
+                <p className="text-lg font-semibold text-gray-900">
+                  {message.toLowerCase().includes('salida') ? '¡Salida registrada!' : '¡Has marcado asistencia exitosamente!'}
+                </p>
+                <p className="text-sm text-gray-600">{message}</p>
+                <Button className="w-full bg-brand-700 hover:bg-brand-800 text-white" onClick={resetAll}>Continuar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* ── Error (cámara) ── */}
           {state === 'error' && mode === 'camera' && (
