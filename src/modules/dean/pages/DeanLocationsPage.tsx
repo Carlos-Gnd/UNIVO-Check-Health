@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Building2, CalendarDays, Clock, Compass, Download, FileText, Loader2, MapPin, MapPinned, Pencil, Phone, Plus, QrCode, Radio, Search, Stethoscope, Timer, Trash2 } from 'lucide-react';
+import { AlertTriangle, Building2, CalendarDays, Clock, Compass, Download, FileText, Loader2, MapPin, MapPinned, Pencil, Phone, Plus, QrCode, Radio, Search, Stethoscope, Timer, Trash2 } from 'lucide-react';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import type { Location } from '@/modules/dean/types';
 import { createCampus, updateCampus, deleteCampus, toggleCampusActive, type CampusFormData } from '@/modules/dean/services/dean.service';
@@ -41,6 +41,7 @@ export function DeanLocationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Location | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteBlocked, setDeleteBlocked] = useState(false);
   const [qrModal, setQrModal] = useState<QrModal | null>(null);
   const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -126,10 +127,25 @@ export function DeanLocationsPage() {
     const result = await deleteCampus(deleteTarget.id);
     setIsDeleting(false);
     if (!result.ok) {
+      // Si la sede tiene historial (FK), no es error fatal: el diálogo muta para
+      // ofrecer desactivarla en su lugar.
+      if (result.blocked) { setDeleteBlocked(true); return; }
       toast.error(result.message ?? 'No se pudo eliminar la sede');
       return;
     }
     toast.success('Sede eliminada');
+    setDeleteTarget(null);
+    void loadData();
+  };
+
+  // Desactivar la sede desde el diálogo de eliminación bloqueada (conserva el historial).
+  const handleDeactivateFromDialog = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    const result = await toggleCampusActive(deleteTarget.id, false);
+    setIsDeleting(false);
+    if (!result.ok) { toast.error(result.message ?? 'No se pudo desactivar la sede'); return; }
+    toast.success(`${deleteTarget.name} desactivada`);
     setDeleteTarget(null);
     void loadData();
   };
@@ -347,7 +363,7 @@ export function DeanLocationsPage() {
                     <Button variant="outline" size="sm" onClick={() => openEdit(l)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteTarget(l)}>
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setDeleteBlocked(false); setDeleteTarget(l); }}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </>
@@ -464,20 +480,45 @@ export function DeanLocationsPage() {
       </Dialog>
 
       {/* Confirmación de eliminación */}
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteBlocked(false); } }}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-red-600" />Eliminar sede</DialogTitle></DialogHeader>
-          <p className="text-sm text-gray-700">
-            ¿Seguro que deseas eliminar <strong>{deleteTarget?.name}</strong>?
-            Esta acción no se puede deshacer.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancelar</Button>
-            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-              Eliminar
-            </Button>
-          </div>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {deleteBlocked
+                ? <><AlertTriangle className="h-5 w-5 text-amber-600" />No se puede eliminar</>
+                : <><Trash2 className="h-5 w-5 text-red-600" />Eliminar sede</>}
+            </DialogTitle>
+          </DialogHeader>
+          {deleteBlocked ? (
+            <>
+              <p className="text-sm text-gray-700">
+                <strong>{deleteTarget?.name}</strong> tiene asistencias o asignaciones registradas, por lo que
+                no puede eliminarse (el historial es inmutable). Puedes <strong>desactivarla</strong> para
+                ocultarla sin perder los registros.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteBlocked(false); }} disabled={isDeleting}>Cancelar</Button>
+                <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleDeactivateFromDialog} disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                  Desactivar sede
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-700">
+                ¿Seguro que deseas eliminar <strong>{deleteTarget?.name}</strong>?
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancelar</Button>
+                <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                  Eliminar
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

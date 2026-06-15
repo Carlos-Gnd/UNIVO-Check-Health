@@ -407,8 +407,19 @@ export async function updateCampus(id: string, form: CampusFormData): Promise<{ 
   return { ok: true };
 }
 
-export async function deleteCampus(id: string): Promise<{ ok: boolean; message?: string }> {
+export async function deleteCampus(id: string): Promise<{ ok: boolean; message?: string; blocked?: boolean }> {
   const { error } = await supabase.from('campuses').delete().eq('id', id);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    // 23503 = foreign_key_violation: la sede tiene asistencias/asignaciones que la
+    // referencian. El historial es inmutable, así que no se borra: se desactiva.
+    if (error.code === '23503') {
+      return {
+        ok: false,
+        blocked: true,
+        message: 'Esta sede tiene asistencias o asignaciones registradas, por lo que no puede eliminarse (el historial es inmutable). Desactívala para ocultarla sin perder los registros.',
+      };
+    }
+    return { ok: false, message: error.message };
+  }
   return { ok: true };
 }
