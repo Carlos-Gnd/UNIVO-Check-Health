@@ -15,6 +15,7 @@ import {
   registerStudentCheckOut,
   getStudentHoursProgress,
   checkLocationVsPractice,
+  validateAttendance,
 } from '@/shared/backend/checkHealthBackend';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Student } from '@/modules/students/types';
@@ -314,6 +315,7 @@ function AttendanceHistory({ students, practices }: { students: Student[]; pract
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Salida</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Horas</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -326,12 +328,29 @@ function AttendanceHistory({ students, practices }: { students: Student[]; pract
                       <td className="px-3 py-2">{r.workedHours != null ? `${r.workedHours.toFixed(1)}h` : '—'}</td>
                       <td className="px-3 py-2">
                         <Badge className={
-                          r.reviewStatus === 'flagged' ? 'bg-amber-100 text-amber-700'
+                          r.reviewStatus === 'OBSERVADO' ? 'bg-amber-100 text-amber-700'
+                          : r.reviewStatus === 'VALIDADO' ? 'bg-green-100 text-green-700'
                           : r.status === 'present' ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-600'
                         }>
-                          {r.reviewStatus === 'flagged' ? 'En revisión' : r.status === 'present' ? 'Presente' : r.status}
+                          {r.reviewStatus === 'OBSERVADO' ? 'En revisión' : r.reviewStatus === 'VALIDADO' ? 'Validada' : r.status === 'present' ? 'Presente' : r.status}
                         </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.reviewStatus === 'OBSERVADO' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-700 border-green-200 hover:bg-green-50"
+                            onClick={async () => {
+                              const res = await validateAttendance(r.id);
+                              if (res.ok) { toast.success('Asistencia validada'); void load(); }
+                              else toast.error(res.message ?? 'No se pudo validar la asistencia.');
+                            }}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />Validar
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
