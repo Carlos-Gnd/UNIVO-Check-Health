@@ -56,49 +56,59 @@ begin
 end;
 $$;
 
-create or replace function app.validate_checkin_area(
-  p_campus_id uuid,
-  p_current_lat numeric,
-  p_current_lng numeric
-)
-returns table(is_allowed boolean, message text, distance_meters numeric, radius_meters integer)
-language plpgsql
-as $$
-declare
-  v_campus app.campuses;
-  v_distance numeric;
-  v_current_time time := (now() at time zone 'America/El_Salvador')::time;
-  v_inside_radius boolean;
-  v_inside_window boolean;
+-- Schema local app.* (solo si existe; en la nube `app` no existe y este create
+-- abortaba la migración).
+do $do$
 begin
-  select * into v_campus from app.campuses where id = p_campus_id;
-  if v_campus.id is null then
-    raise exception 'Campus not found';
+  if exists (select 1 from information_schema.schemata where schema_name = 'app') then
+    execute $appfn$
+      create or replace function app.validate_checkin_area(
+        p_campus_id uuid,
+        p_current_lat numeric,
+        p_current_lng numeric
+      )
+      returns table(is_allowed boolean, message text, distance_meters numeric, radius_meters integer)
+      language plpgsql
+      as $body$
+      declare
+        v_campus app.campuses;
+        v_distance numeric;
+        v_current_time time := (now() at time zone 'America/El_Salvador')::time;
+        v_inside_radius boolean;
+        v_inside_window boolean;
+      begin
+        select * into v_campus from app.campuses where id = p_campus_id;
+        if v_campus.id is null then
+          raise exception 'Campus not found';
+        end if;
+
+        v_distance := app.haversine_meters(p_current_lat, p_current_lng, v_campus.latitude, v_campus.longitude);
+        v_inside_radius := v_distance <= v_campus.radius_meters;
+        v_inside_window :=
+          v_campus.check_in_from is null
+          or v_campus.check_in_to is null
+          or (
+            case
+              when v_campus.check_in_from <= v_campus.check_in_to then
+                v_current_time between v_campus.check_in_from and v_campus.check_in_to
+              else
+                v_current_time >= v_campus.check_in_from or v_current_time <= v_campus.check_in_to
+            end
+          );
+
+        return query
+        select
+          v_inside_radius and v_inside_window,
+          case
+            when not v_inside_window then 'Fuera de horario'
+            when v_inside_radius then 'Location validated for check-in.'
+            else format('Out of campus range by %.2f meters.', (v_distance - v_campus.radius_meters)::numeric)
+          end,
+          round(v_distance, 2),
+          v_campus.radius_meters;
+      end;
+      $body$;
+    $appfn$;
   end if;
-
-  v_distance := app.haversine_meters(p_current_lat, p_current_lng, v_campus.latitude, v_campus.longitude);
-  v_inside_radius := v_distance <= v_campus.radius_meters;
-  v_inside_window :=
-    v_campus.check_in_from is null
-    or v_campus.check_in_to is null
-    or (
-      case
-        when v_campus.check_in_from <= v_campus.check_in_to then
-          v_current_time between v_campus.check_in_from and v_campus.check_in_to
-        else
-          v_current_time >= v_campus.check_in_from or v_current_time <= v_campus.check_in_to
-      end
-    );
-
-  return query
-  select
-    v_inside_radius and v_inside_window,
-    case
-      when not v_inside_window then 'Fuera de horario'
-      when v_inside_radius then 'Location validated for check-in.'
-      else format('Out of campus range by %.2f meters.', (v_distance - v_campus.radius_meters)::numeric)
-    end,
-    round(v_distance, 2),
-    v_campus.radius_meters;
-end;
-$$;
+end
+$do$;
