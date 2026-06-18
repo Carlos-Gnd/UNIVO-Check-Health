@@ -40,3 +40,28 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://placeholder.supabase.co
           VITE_SUPABASE_ANON_KEY: placeholder
+
+  # Aplica TODAS las migraciones sobre una base de datos LIMPIA. Esto atrapa
+  # automáticamente los bugs de integridad que nos costaron horas: migraciones con
+  # DDL `app.*` sin guardia, columnas/funciones que quedan sin crear, overloads
+  # ambiguos, etc. Si una migración falla en limpio, el CI falla y NO se mergea.
+  migrations:
+    name: Migrations · clean DB apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase stack (aplica migraciones + seed al arrancar)
+        run: supabase start
+
+      - name: Re-aplicar migraciones en BD limpia (sin seed)
+        run: supabase db reset --no-seed
+
+      - name: Stop
+        if: always()
+        run: supabase stop
