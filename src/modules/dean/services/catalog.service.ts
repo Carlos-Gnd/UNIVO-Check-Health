@@ -44,7 +44,12 @@ export async function upsertCareer(form: { id?: string; name: string; totalCycle
 
 export async function deleteCareer(id: string): Promise<Result> {
   const { error } = await supabase.from('careers').delete().eq('id', id);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    if ((error as { code?: string }).code === '23503') {
+      return { ok: false, message: 'No se puede eliminar: hay alumnos o materias asociados a esta carrera. Edítala y desactívala ("activa" en off) para ocultarla sin perder los datos.' };
+    }
+    return { ok: false, message: error.message };
+  }
   return { ok: true };
 }
 
@@ -87,6 +92,11 @@ export async function upsertSubject(form: {
 
 export async function deleteSubject(id: string): Promise<Result> {
   const { error } = await supabase.from('subjects').delete().eq('id', id);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    if ((error as { code?: string }).code === '23503') {
+      return { ok: false, message: 'No se puede eliminar: hay asignaciones o asistencias que usan esta materia. Edítala y desactívala ("activa" en off) para ocultarla sin perder los datos.' };
+    }
+    return { ok: false, message: error.message };
+  }
   return { ok: true };
 }
