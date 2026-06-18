@@ -45,6 +45,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts'],
+    // Vitest corre los unit tests (src/__tests__); los E2E de Playwright viven en
+    // e2e/ y se ejecutan con `pnpm e2e`, no con vitest.
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

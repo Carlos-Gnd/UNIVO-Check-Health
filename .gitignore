@@ -35,4 +35,9 @@ Thumbs.db
 # Vite cache
 .vite/
 
+# Playwright (E2E)
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 CLAUDE.md
