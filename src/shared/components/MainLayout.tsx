@@ -510,7 +510,7 @@ export function MainLayout() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-surface to-white">
       <header className="bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-gold-500/20 shadow-[0_2px_20px_rgba(26,45,107,0.3)] sticky top-0 z-50 backdrop-blur">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white border border-gold-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-sm"><img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-8 h-8 object-contain" /></div>
@@ -521,7 +521,7 @@ export function MainLayout() {
         </div>
       </header>
 
-      <div className="max-w-[1800px] mx-auto flex w-full">
+      <div className="flex w-full">
         <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 border-r border-brand-900/70 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(10,17,40,0.22)] transition-[width] duration-200`}>
           <div className={`flex p-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
             <button
