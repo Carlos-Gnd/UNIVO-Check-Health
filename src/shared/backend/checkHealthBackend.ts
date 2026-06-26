@@ -325,19 +325,6 @@ export const registerStudentCheckOut = async (params: {
     return { ok: false, message: 'La salida debe registrarse desde el mismo dispositivo usado para la entrada.' };
   }
 
-  const { data: validationData, error: validationError } = await supabase.rpc('validate_checkin_area', {
-    p_campus_id: attendance.campus_id,
-    p_current_lat: params.location.latitude,
-    p_current_lng: params.location.longitude,
-  });
-
-  if (validationError || !validationData || !validationData[0]?.is_allowed) {
-    return {
-      ok: false,
-      message: validationData?.[0]?.message ?? 'Ubicación fuera del área permitida.',
-    };
-  }
-
   const now = new Date();
   const workedHours = Number(
     ((now.getTime() - new Date(attendance.check_in as string).getTime()) / (1000 * 60 * 60)).toFixed(2),
@@ -536,4 +523,3 @@ export const checkLocationVsPractice = async (
     center: { latitude: campus.latitude, longitude: campus.longitude },
   };
 };
-
