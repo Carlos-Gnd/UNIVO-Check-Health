@@ -97,6 +97,8 @@ export function StudentQrScannerPage() {
   // B1: entrada activa sin salida → la página pasa a modo "registrar salida" (auto-checkout por QR).
   const [openAttendance, setOpenAttendance] = useState<{ id: string; campusId: string } | null>(null);
   const isCheckout = openAttendance !== null;
+  // Resumen de horas/minutos trabajados, mostrado en la pantalla de éxito al marcar salida.
+  const [checkoutSummary, setCheckoutSummary] = useState<{ hours: number; minutes: number } | null>(null);
 
   // Modo manual
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -340,28 +342,36 @@ export function StudentQrScannerPage() {
     body: Record<string, unknown>,
     campusIdForCountdown?: string,
   ) => {
-    const { data, error } = await supabase.functions.invoke('validate-qr-checkin', { body });
-    if (error || !data?.ok) {
-      if (data?.requires_subject_choice && Array.isArray(data.assignments)) {
-        setSubjectChoices(data.assignments as SubjectChoice[]);
-        setPendingValidation({ body, campusIdForCountdown });
-        setSelectedSubject('');
-        setMessage(data.message ?? 'Selecciona la materia para registrar la entrada.');
+    try {
+      const { data, error } = await supabase.functions.invoke('validate-qr-checkin', { body });
+      if (error || !data?.ok) {
+        if (data?.requires_subject_choice && Array.isArray(data.assignments)) {
+          setSubjectChoices(data.assignments as SubjectChoice[]);
+          setPendingValidation({ body, campusIdForCountdown });
+          setSelectedSubject('');
+          setMessage(data.message ?? 'Selecciona la materia para registrar la entrada.');
+          setState('error');
+          return false;
+        }
+        const msg: string = data?.message ?? error?.message ?? 'Error al validar el check-in.';
+        if ((msg.toLowerCase().includes('horario') || msg.toLowerCase().includes('ventana')) && campusIdForCountdown) {
+          const started = await tryStartCountdown(campusIdForCountdown);
+          if (started) return true; // countdown activo
+        }
+        setMessage(msg);
         setState('error');
         return false;
       }
-      const msg: string = data?.message ?? error?.message ?? 'Error al validar el check-in.';
-      if ((msg.toLowerCase().includes('horario') || msg.toLowerCase().includes('ventana')) && campusIdForCountdown) {
-        const started = await tryStartCountdown(campusIdForCountdown);
-        if (started) return true; // countdown activo
-      }
-      setMessage(msg);
+      setMessage(data.message ?? 'Entrada registrada con hora oficial del servidor.');
+      setState('success');
+      return true;
+    } catch {
+      // Sin esto, un error de red (offline, función caída) dejaba la pantalla
+      // en "Validando..." para siempre sin avisar al usuario.
+      setMessage('No se pudo conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.');
       setState('error');
       return false;
     }
-    setMessage(data.message ?? 'Entrada registrada con hora oficial del servidor.');
-    setState('success');
-    return true;
   };
 
   // B1: registra la SALIDA reutilizando la validación de geofence/hora del servidor.
@@ -372,18 +382,30 @@ export function StudentQrScannerPage() {
       setState('error');
       return;
     }
-    const result = await registerStudentCheckOut({
-      attendanceId: openAttendance.id,
-      location: { latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy },
-      deviceFingerprint: getDeviceFingerprint(),
-      deviceInfo: buildDeviceInfo(coords),
-    });
-    if (result.ok) {
-      setMessage(result.message ?? 'Salida registrada con hora oficial del servidor.');
-      setState('success');
-      setOpenAttendance(null);
-    } else {
-      setMessage(result.message ?? 'No se pudo registrar la salida.');
+    try {
+      const result = await registerStudentCheckOut({
+        attendanceId: openAttendance.id,
+        location: { latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy },
+        deviceFingerprint: getDeviceFingerprint(),
+        deviceInfo: buildDeviceInfo(coords),
+      });
+      if (result.ok) {
+        const worked = result.attendance?.workedHours ?? null;
+        setCheckoutSummary(
+          worked != null
+            ? { hours: Math.floor(worked), minutes: Math.round((worked - Math.floor(worked)) * 60) }
+            : null,
+        );
+        setMessage(result.message ?? 'Salida registrada con hora oficial del servidor.');
+        setState('success');
+        setOpenAttendance(null);
+      } else {
+        setMessage(result.message ?? 'No se pudo registrar la salida.');
+        setState('error');
+      }
+    } catch {
+      // Mismo caso que arriba: un fallo de red no debe dejar la pantalla congelada.
+      setMessage('No se pudo conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.');
       setState('error');
     }
   };
@@ -492,6 +514,7 @@ export function StudentQrScannerPage() {
     setSubjectChoices([]);
     setPendingValidation(null);
     setSelectedSubject('');
+    setCheckoutSummary(null);
     processingRef.current = false;
   };
 
@@ -651,24 +674,23 @@ export function StudentQrScannerPage() {
             </div>
           )}
 
-          {/* ── Éxito (#2): ventana modal de confirmación ── */}
-          <Dialog open={state === 'success'} onOpenChange={(o) => { if (!o) resetAll(); }}>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle className="sr-only">Registro exitoso</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center gap-3 py-2 text-center">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-9 h-9 text-green-600" />
+          {/* ── Éxito ── */}
+          {state === 'success' && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <CheckCircle2 className="w-12 h-12 text-green-500" />
+              <Badge className="bg-green-100 text-green-700 text-sm px-3 py-1">Registro exitoso</Badge>
+              <p className="text-sm text-gray-600">{message}</p>
+              {checkoutSummary && (
+                <div className="rounded-xl bg-green-50 border border-green-200 px-6 py-3">
+                  <p className="text-xs text-green-600 uppercase tracking-widest mb-1">Tiempo trabajado hoy</p>
+                  <p className="text-2xl font-mono font-bold text-green-700">
+                    {checkoutSummary.hours}h {checkoutSummary.minutes}min
+                  </p>
                 </div>
-                <p className="text-lg font-semibold text-gray-900">
-                  {message.toLowerCase().includes('salida') ? '¡Salida registrada!' : '¡Has marcado asistencia exitosamente!'}
-                </p>
-                <p className="text-sm text-gray-600">{message}</p>
-                <Button className="w-full bg-brand-700 hover:bg-brand-800 text-white" onClick={resetAll}>Continuar</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              )}
+              <Button variant="outline" onClick={resetAll}>Continuar</Button>
+            </div>
+          )}
 
           {/* ── Error (cámara) ── */}
           {state === 'error' && mode === 'camera' && (
