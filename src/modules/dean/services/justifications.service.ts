@@ -25,6 +25,11 @@ export type PendingJustification = {
   isAbsence: boolean;
 };
 
+export type PendingJustificationsResult = {
+  rows: PendingJustification[];
+  error: string | null;
+};
+
 type JustificationRow = {
   id: string;
   attendance_id: string | null;
@@ -99,7 +104,7 @@ async function mapPendingJustification(row: JustificationRow): Promise<PendingJu
   };
 }
 
-export async function fetchPendingJustifications(): Promise<PendingJustification[]> {
+export async function fetchPendingJustificationsResult(): Promise<PendingJustificationsResult> {
   const { data, error } = await supabase
     .from('justifications')
     .select(`
@@ -127,10 +132,18 @@ export async function fetchPendingJustifications(): Promise<PendingJustification
 
   if (error || !data) {
     if (error) console.error('Error loading pending justifications', error);
-    return [];
+    return { rows: [], error: error?.message ?? 'No se pudieron cargar las solicitudes pendientes.' };
   }
 
-  return Promise.all((data as unknown as JustificationRow[]).map(mapPendingJustification));
+  return {
+    rows: await Promise.all((data as unknown as JustificationRow[]).map(mapPendingJustification)),
+    error: null,
+  };
+}
+
+export async function fetchPendingJustifications(): Promise<PendingJustification[]> {
+  const result = await fetchPendingJustificationsResult();
+  return result.rows;
 }
 
 export async function reviewJustification(params: {

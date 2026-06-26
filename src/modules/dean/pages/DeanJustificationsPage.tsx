@@ -13,7 +13,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { HelpTooltip } from '@/shared/components/HelpTooltip';
 import {
-  fetchPendingJustifications,
+  fetchPendingJustificationsResult,
   confirmHospitalPresenceAfterTechFailure,
   fetchPresenceConfirmationOptions,
   reviewJustification,
@@ -48,8 +48,12 @@ export function DeanJustificationsPage() {
 
   const loadRows = async () => {
     setIsLoading(true);
-    setRows(await fetchPendingJustifications());
+    const result = await fetchPendingJustificationsResult();
+    setRows(result.rows);
     setIsLoading(false);
+    if (result.error) {
+      toast.error(`No se pudieron cargar las justificaciones: ${result.error}`);
+    }
   };
 
   useEffect(() => {
