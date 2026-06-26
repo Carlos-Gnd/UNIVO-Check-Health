@@ -1,9 +1,11 @@
-// Fase 2: procesa un item de notification_outbox → FCM HTTP v1 push + Gmail email
-// Invocado por el trigger fn_dispatch_outbox_item vía pg_net.
+// Fase 2: procesa un item de notification_outbox → FCM HTTP v1 push + Gmail SMTP email
+// Invocado por el trigger fn_dispatch_outbox_item vía pg_net.http_post.
+// Autenticación: header x-dispatch-secret debe coincidir con DISPATCH_WEBHOOK_SECRET.
 // Secrets requeridos en Supabase:
-//   DISPATCH_WEBHOOK_SECRET  — secreto compartido con el trigger SQL
-//   FCM_SERVICE_ACCOUNT_JSON — JSON de cuenta de servicio de Firebase (minificado, 1 línea)
-//   GMAIL_USER / GMAIL_APP_PASSWORD — credenciales SMTP (ver _shared/mailer.ts)
+//   DISPATCH_WEBHOOK_SECRET  — secreto compartido con el trigger SQL (fn_dispatch_outbox_item)
+//   FCM_SERVICE_ACCOUNT_JSON — JSON de cuenta de servicio Firebase Admin (minificado, 1 línea)
+//   GMAIL_USER               — dirección Gmail usada como remitente SMTP
+//   GMAIL_APP_PASSWORD       — contraseña de aplicación Gmail (16 chars, requiere 2FA)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -57,6 +59,7 @@ async function getGoogleOAuthToken(sa: ServiceAccount): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:   `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+    signal: AbortSignal.timeout(8000),
   });
 
   const data = await res.json() as { access_token: string };
@@ -67,31 +70,33 @@ async function sendFcmPush(token: string, title: string, body: string): Promise<
   const saJson = Deno.env.get('FCM_SERVICE_ACCOUNT_JSON');
   if (!saJson || !token) return;
 
-  try {
-    const sa = JSON.parse(saJson) as ServiceAccount;
-    const accessToken = await getGoogleOAuthToken(sa);
+  const sa = JSON.parse(saJson) as ServiceAccount;
+  const accessToken = await getGoogleOAuthToken(sa);
 
-    await fetch(
-      `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
-      {
-        method:  'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({
-          message: {
-            token,
-            notification: { title, body },
-            webpush: {
-              notification: { icon: '/favicon.ico', badge: '/favicon.ico' },
-            },
-          },
-        }),
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
+    {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type':  'application/json',
       },
-    );
-  } catch {
-    // Silencioso; el email sigue entregándose aunque falle el push
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: { title, body },
+          webpush: {
+            notification: { icon: '/favicon.ico', badge: '/favicon.ico' },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(8000),
+    },
+  );
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText);
+    throw new Error(`FCM error ${res.status}: ${errText}`);
   }
 }
 
@@ -305,10 +310,22 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (tokenRow?.token) {
-      await sendFcmPush(tokenRow.token as string, template.title, template.pushBody(payload));
-      results.push('push_sent');
+      try {
+        await sendFcmPush(tokenRow.token as string, template.title, template.pushBody(payload));
+        results.push('push_sent');
+      } catch {
+        results.push('push_failed');
+        await admin
+          .from('notification_outbox')
+          .update({ status: 'failed' })
+          .eq('id', item.id);
+      }
     } else {
       results.push('push_no_token');
+      await admin
+        .from('notification_outbox')
+        .update({ status: 'failed' })
+        .eq('id', item.id);
     }
   } else if (item.channel === 'email') {
     const subject = template.emailSubject(payload);
