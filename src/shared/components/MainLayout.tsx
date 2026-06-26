@@ -422,7 +422,7 @@ export function MainLayout() {
               </div>
               <div>
                 <h1 className="text-sm sm:text-base font-bold tracking-wide leading-tight text-white">UNIVO Check-Health</h1>
-                <p className="text-xs tracking-[0.16em] uppercase text-gold-300">Área de Salud</p>
+                <p className="text-xs tracking-[0.16em] uppercase text-gold-300">Facultad de Ciencias de la Salud</p>
               </div>
             </div>
           </div>

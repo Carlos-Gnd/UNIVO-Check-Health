@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { format } from 'date-fns';
-import { ArrowUpDown, Download, Loader2 } from 'lucide-react';
+import { ArrowUpDown, CheckCircle2, Download, Loader2 } from 'lucide-react';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
+import { validateAttendance } from '@/shared/backend/checkHealthBackend';
 import type { DeanStudent } from '@/modules/dean/types';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -79,6 +80,22 @@ export function DeanStudentsPage() {
   const toggleSort = (field: keyof DeanStudent) => {
     if (sortBy === field) setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(field); setSortDir('asc'); }
+  };
+
+  // Validar una asistencia observada desde el detalle del alumno (#review_status).
+  // Optimista en el modal + recarga en segundo plano del store.
+  const handleValidateAttendance = async (attendanceId: string) => {
+    const res = await validateAttendance(attendanceId);
+    if (!res.ok) { toast.error(res.message ?? 'No se pudo validar la asistencia.'); return; }
+    toast.success('Asistencia validada');
+    if (selectedStudent) {
+      setSelectedStudent({
+        ...selectedStudent,
+        attendances: selectedStudent.attendances.map((a) =>
+          a.id === attendanceId ? { ...a, status: 'valid' } : a),
+      });
+    }
+    void loadData();
   };
 
   if (isLoading) {
@@ -227,7 +244,7 @@ export function DeanStudentsPage() {
         </div>
       </div>
 
-      <StudentDetailModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
+      <StudentDetailModal student={selectedStudent} onClose={() => setSelectedStudent(null)} onValidate={handleValidateAttendance} />
     </div>
   );
 }
@@ -254,7 +271,7 @@ function StatusBadge({ status }: { status: DeanStudent['status'] }) {
   return <Badge className="bg-amber-100 text-amber-700">En progreso</Badge>;
 }
 
-function StudentDetailModal({ student, onClose }: { student: DeanStudent | null; onClose: () => void }) {
+function StudentDetailModal({ student, onClose, onValidate }: { student: DeanStudent | null; onClose: () => void; onValidate: (attendanceId: string) => void }) {
   const monthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const attendanceMap = new Map(student?.attendances.map((a) => [Number(a.date.slice(-2)), a.status]));
 
@@ -321,15 +338,27 @@ function StudentDetailModal({ student, onClose }: { student: DeanStudent | null;
                 ) : (
                   <div className="space-y-2">
                     {student.attendances.slice(0, 10).map((a) => (
-                      <div key={a.id} className="flex items-center justify-between rounded border px-3 py-2">
+                      <div key={a.id} className="flex items-center justify-between gap-2 rounded border px-3 py-2">
                         <span>{format(new Date(a.date), 'dd/MM/yyyy')} {a.checkInTime} — {a.sedeName}</span>
-                        <Badge className={
-                          a.status === 'valid' ? 'bg-green-100 text-green-700'
-                          : a.status === 'review' ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700'
-                        }>
-                          {a.status === 'valid' ? 'Válida' : a.status === 'review' ? 'En revisión' : 'Falta'}
-                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge className={
+                            a.status === 'valid' ? 'bg-green-100 text-green-700'
+                            : a.status === 'review' ? 'bg-amber-100 text-amber-700'
+                            : 'bg-red-100 text-red-700'
+                          }>
+                            {a.status === 'valid' ? 'Válida' : a.status === 'review' ? 'En revisión' : 'Falta'}
+                          </Badge>
+                          {a.status === 'review' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-green-700 border-green-200 hover:bg-green-50"
+                              onClick={() => onValidate(a.id)}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1" />Validar
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

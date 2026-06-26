@@ -7,6 +7,10 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const ACCURACY_MAX_METERS = 100;
 
+// Solo expone el detalle crudo de Postgres al cliente si CHECKIN_DEBUG=true (para
+// depurar). Por defecto, mensajes genéricos (no filtrar internals al usuario final).
+const DEBUG = Deno.env.get('CHECKIN_DEBUG') === 'true';
+
 type RequestBody = {
   qr_token?: string;
   short_code?: string;
@@ -114,7 +118,11 @@ Deno.serve(async (req: Request) => {
     p_current_lat: lat,
     p_current_lng: lng,
   });
-  if (validationError) return fail('Error al validar ubicacion.');
+  if (validationError) {
+    return fail(DEBUG
+      ? `Error al validar ubicacion: ${validationError.message ?? 'desconocido'}`
+      : 'No se pudo validar tu ubicacion. Intenta de nuevo en un momento.');
+  }
   if (!validationData?.[0]?.is_allowed) {
     return fail(validationData?.[0]?.message ?? 'Ubicacion fuera del area permitida.');
   }
@@ -191,7 +199,11 @@ Deno.serve(async (req: Request) => {
     .select('id')
     .single();
 
-  if (insertError || !attendance) return fail('Error al registrar la asistencia.');
+  if (insertError || !attendance) {
+    return fail(DEBUG
+      ? `Error al registrar la asistencia: ${insertError?.message ?? 'desconocido'}`
+      : 'No se pudo registrar la asistencia. Intenta de nuevo.');
+  }
 
   return json({
     ok: true,

@@ -73,10 +73,12 @@ describe('fetchTeacherRoster', () => {
     expect(roster[0]).toEqual({
       studentId: 's1', fullName: 'Ana López', studentCode: 'U1', career: 'Enfermería',
       campusId: 'c1', campusName: 'Rosales', subjectId: 'sub1', subjectName: 'ENF101 · Práctica I',
+      goalDecision: null, schedule: [],
     });
     expect(roster[1]).toEqual({
       studentId: 's2', fullName: 'Sin nombre', studentCode: '', career: '—',
       campusId: null, campusName: 'Sin sede', subjectId: null, subjectName: 'Sin materia',
+      goalDecision: null, schedule: [],
     });
   });
 
