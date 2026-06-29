@@ -19,7 +19,10 @@ export default defineConfig({
     locale: 'es-SV',
     // El check-in valida GPS dentro del radio de la sede: se mockea la ubicación.
     // Coordenadas del seed "Hospital Nacional Rosales" (ajústalas a tu sede de prueba).
-    geolocation: { latitude: 13.7013, longitude: -89.2045 },
+    geolocation: {
+      latitude: Number(process.env.E2E_LAT ?? '13.7013'),
+      longitude: Number(process.env.E2E_LNG ?? '-89.2045'),
+    },
     permissions: ['geolocation'],
   },
   // Si se prueba contra una URL remota (E2E_BASE_URL), no se levanta el dev server local.

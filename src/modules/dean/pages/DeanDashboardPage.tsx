@@ -40,12 +40,15 @@ function LiveMap({
   const markersLayer = useRef<any>(null);
   const campusLayer = useRef<any>(null);
   const leafletModule = useRef<any>(null);
+  const mapIsMounted = useRef(true);
   const [visibleCampusCount, setVisibleCampusCount] = useState(0);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   // Refs para evitar stale closures en callbacks async
   const campusFilterRef = useRef(campusFilter);
   campusFilterRef.current = campusFilter;
+
+  useEffect(() => () => { mapIsMounted.current = false; }, []);
 
   // #14: divIcon por CSS. El icono por defecto de Leaflet depende de imágenes que
   // Vite no empaqueta, por lo que los marcadores de alumno salían "invisibles".
@@ -68,6 +71,7 @@ function LiveMap({
       .from('campuses')
       .select('id, name, latitude, longitude, radius_meters')
       .eq('is_active', true);
+    if (!mapIsMounted.current || !campusLayer.current) return;
     campusLayer.current.clearLayers();
     const visibleCampuses = (data ?? []).filter((c: any) =>
       campusFilterRef.current === 'all' || c.id === campusFilterRef.current,
@@ -92,7 +96,7 @@ function LiveMap({
       if (campusFilterRef.current !== 'all' && s.practiceId !== campusFilterRef.current) return false;
       return true;
     });
-    if (!markersLayer.current) return;
+    if (!mapIsMounted.current || !markersLayer.current) return;
     markersLayer.current.clearLayers();
     filtered.forEach((s) => {
       if (!s.lastLocation) return;

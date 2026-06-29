@@ -41,3 +41,13 @@ Thumbs.db
 /playwright/.cache/
 
 CLAUDE.md
+
+# Certificados y claves privadas
+*.pem
+*.pk8*
+
+# Supabase MCP (configuración por desarrollador)
+.mcp.json
+
+# Binario de Supabase CLI
+supabase-go

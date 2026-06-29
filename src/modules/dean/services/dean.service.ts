@@ -2,7 +2,7 @@ import { supabase } from '@/shared/backend/supabaseClient';
 import type { DeanAttendance, DeanGlobalStats, DeanStudent, Location } from '../types';
 import { canonicalRole } from '@/shared/utils/roles';
 
-const GOAL_HOURS = 240;
+const DEFAULT_GOAL_HOURS = 240;
 const SHARED_DEVICE_ALERT_ACTION = 'SHARED_DEVICE_ACTIVE_CONFLICT';
 const DEFAULT_RISK_THRESHOLD = 60;
 
@@ -87,6 +87,16 @@ async function fetchRiskThreshold(): Promise<number> {
   return Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_RISK_THRESHOLD;
 }
 
+async function fetchGoalHours(): Promise<number> {
+  const { data } = await supabase
+    .from('system_config')
+    .select('value')
+    .eq('key', 'required_practice_hours')
+    .single();
+  const v = Number(data?.value);
+  return Number.isFinite(v) && v > 0 ? v : DEFAULT_GOAL_HOURS;
+}
+
 async function fetchCampusScope(): Promise<CampusScope> {
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth.user?.id ?? null;
@@ -116,10 +126,10 @@ async function fetchCampusScope(): Promise<CampusScope> {
   };
 }
 
-function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
+function mapStudentRow(row: UserRow, riskThreshold: number, goalHours = DEFAULT_GOAL_HOURS): DeanStudent {
   const completedHours = row.attendances.reduce((s, a) => s + (a.worked_hours ?? 0), 0);
   const absences = row.attendances.filter((a) => a.status === 'absent').length;
-  const pct = Math.min(100, Math.round((completedHours / GOAL_HOURS) * 100));
+  const pct = Math.min(100, Math.round((completedHours / goalHours) * 100));
 
   const latest = [...row.attendances].sort((a, b) => b.date.localeCompare(a.date))[0];
   const sedeId = latest?.campus_id ?? '';
@@ -145,7 +155,7 @@ function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
     teacherName: '—',
     coordinatorName: '—',
     completedHours: Math.round(completedHours * 10) / 10,
-    goalHours: GOAL_HOURS,
+    goalHours,
     compliancePercentage: pct,
     absences,
     status: pct > 85 ? 'completed' : pct >= riskThreshold ? 'in-progress' : 'at-risk',
@@ -154,8 +164,9 @@ function mapStudentRow(row: UserRow, riskThreshold: number): DeanStudent {
 }
 
 export async function fetchDeanStudents(): Promise<DeanStudent[]> {
-  const [riskThreshold, studentsResult] = await Promise.all([
+  const [riskThreshold, goalHours, studentsResult] = await Promise.all([
     fetchRiskThreshold(),
+    fetchGoalHours(),
     supabase
       .from('users')
       .select(`
@@ -163,11 +174,13 @@ export async function fetchDeanStudents(): Promise<DeanStudent[]> {
         attendances(id, date, check_in, check_out, status, worked_hours, review_status, campus_id,
           campuses(name, supervisor_name))
       `)
-      .eq('role', 'STUDENT'),
+      .eq('role', 'STUDENT')
+      .order('date', { foreignTable: 'attendances', ascending: false })
+      .limit(50, { foreignTable: 'attendances' }),
   ]);
 
   if (studentsResult.error || !studentsResult.data) return [];
-  return (studentsResult.data as unknown as UserRow[]).map((row) => mapStudentRow(row, riskThreshold));
+  return (studentsResult.data as unknown as UserRow[]).map((row) => mapStudentRow(row, riskThreshold, goalHours));
 }
 
 export async function fetchDeanLocations(scope?: CampusScope): Promise<Location[]> {
