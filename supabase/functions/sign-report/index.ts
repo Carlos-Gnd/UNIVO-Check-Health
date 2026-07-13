@@ -14,7 +14,7 @@
 //   openssl pkcs8 -topk8 -nocrypt -in key.pem -out key.pk8.pem   # PKCS#8 para Web Crypto
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import {
   SYSTEM_REPORT_SIGNER_ID,
   SYSTEM_REPORT_SIGNER_NAME,
@@ -24,14 +24,13 @@ import {
   certFingerprint,
 } from '../_shared/reportSeal.ts';
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = getCorsHeaders(req);
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return json({ error: 'No autorizado' }, 401);
