@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import * as jose from 'https://esm.sh/jose@5';
 import QRCode from 'npm:qrcode';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { deriveShortCode } from '../_shared/qr_utils.ts';
 
 function normalizeRole(raw: string | null | undefined): string {
@@ -13,12 +13,13 @@ function normalizeRole(raw: string | null | undefined): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = getCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'No autorizado' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -39,14 +40,14 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
       });
     }
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
     const role = normalizeRole(userData?.role);
     if (!['ADMIN', 'COORDINADOR', 'DOCENTE'].includes(role)) {
       return new Response(JSON.stringify({ error: 'No tienes permiso para generar el QR de la sede.' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...cors, 'Content-Type': 'application/json' },
       });
     }
     requester = { id: user.id, role };
@@ -55,7 +56,7 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => ({})) as { campus_id?: string };
   if (!body.campus_id) {
     return new Response(JSON.stringify({ error: 'campus_id requerido' }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -71,7 +72,7 @@ Deno.serve(async (req: Request) => {
 
     if (!assignment) {
       return new Response(JSON.stringify({ error: 'Solo puedes generar el QR de tus sedes asignadas.' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...cors, 'Content-Type': 'application/json' },
       });
     }
   }
@@ -79,7 +80,7 @@ Deno.serve(async (req: Request) => {
   const qrSecret = Deno.env.get('QR_JWT_SECRET');
   if (!qrSecret) {
     return new Response(JSON.stringify({ error: 'QR_JWT_SECRET no configurado' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -117,6 +118,6 @@ Deno.serve(async (req: Request) => {
 
   return new Response(
     JSON.stringify({ token, short_code: shortCode, qr_data_url: qrDataUrl, static: true }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    { headers: { ...cors, 'Content-Type': 'application/json' } },
   );
 });

@@ -2,17 +2,16 @@
 // Solo ADMIN. Lo invoca UserManagement tras crear el usuario (T-50.2, integración de René).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendMail, wrapHtml } from '../_shared/mailer.ts';
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = getCorsHeaders(req);
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status, headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
   const authHeader = req.headers.get('Authorization');
