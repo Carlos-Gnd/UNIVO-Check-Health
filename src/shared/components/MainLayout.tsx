@@ -519,7 +519,7 @@ export function MainLayout() {
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 to="/profile"
-                className="flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-white/5 pl-2 sm:pl-3 pr-1 sm:pr-1.5 py-1 sm:py-1.5 transition-colors hover:bg-white/10"
+                className="flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-white/5 p-1.5 sm:py-1.5 sm:pl-3 sm:pr-1.5 transition-colors hover:bg-white/10"
               >
                 <div className="hidden sm:block text-right leading-tight">
                   <p className="max-w-[160px] lg:max-w-[220px] truncate text-sm font-semibold text-white">{displayName || currentUser.email}</p>
@@ -656,9 +656,12 @@ export function MainLayout() {
           </nav>
         </aside>
 
-        {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto [&::-webkit-scrollbar]:hidden">
-            <nav className="p-3 space-y-1">
+        <div
+          className={`lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto [&::-webkit-scrollbar]:hidden transition-all duration-300 ease-out ${
+            isMobileMenuOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
+          }`}
+        >
+          <nav className="p-3 space-y-1">
               {/* Dashboard móvil */}
               {dashboardItem && (() => {
                 const Icon = dashboardItem.icon;
@@ -738,8 +741,7 @@ export function MainLayout() {
                 </Button>
               </div>
             </nav>
-          </div>
-        )}
+        </div>
 
         <main className="flex-1 min-w-0 overflow-x-hidden">
           <div className="p-4 sm:p-6 lg:p-8">
