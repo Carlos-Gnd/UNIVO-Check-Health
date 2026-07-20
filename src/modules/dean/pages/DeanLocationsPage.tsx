@@ -185,7 +185,7 @@ export function DeanLocationsPage() {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const brand = '#1a2d6b';
+    const brand = '#102141';
     ctx.textAlign = 'center';
 
     const wrap = (text: string, maxWidth: number): string[] => {
