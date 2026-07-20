@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendMail, wrapHtml, type MailResult } from '../_shared/mailer.ts';
 
 const OTP_TTL_MINUTES = 10;
@@ -9,13 +9,6 @@ const MAX_REQUESTS_PER_WINDOW = 3;
 type RequestBody =
   | { action?: 'request'; email?: string; answer?: string }
   | { action?: 'verify'; email?: string; code?: string };
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 function normalizeEmail(email: string | undefined): string {
   return (email ?? '').trim().toLowerCase();
@@ -71,7 +64,13 @@ async function sendOtpEmail(to: string | string[], code: string): Promise<MailRe
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = getCorsHeaders(req);
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'Metodo no permitido' }, 405);
 
   try {

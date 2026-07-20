@@ -8,7 +8,7 @@
 //   GMAIL_APP_PASSWORD       — contraseña de aplicación Gmail (16 chars, requiere 2FA)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendMail, wrapHtml } from '../_shared/mailer.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -246,7 +246,8 @@ const TEMPLATES: Record<string, {
 // Handler principal
 // ─────────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = getCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   // El secreto compartido viaja en x-dispatch-secret (no en Authorization, que lleva
   // la anon key para pasar el gateway de Edge Functions). Se acepta también el formato
@@ -259,7 +260,7 @@ Deno.serve(async (req: Request) => {
   if (!secretOk) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -267,7 +268,7 @@ Deno.serve(async (req: Request) => {
   if (!body.outbox_id) {
     return new Response(JSON.stringify({ error: 'outbox_id requerido' }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -287,14 +288,14 @@ Deno.serve(async (req: Request) => {
 
   if (fetchErr || !item) {
     return new Response(JSON.stringify({ skipped: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
   const template = TEMPLATES[item.type as string];
   if (!template) {
     return new Response(JSON.stringify({ error: `Tipo desconocido: ${item.type}` }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -380,6 +381,6 @@ Deno.serve(async (req: Request) => {
   }
 
   return new Response(JSON.stringify({ ok: true, results }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 });
