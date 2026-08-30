@@ -516,13 +516,34 @@ export function MainLayout() {
               <div className="w-10 h-10 bg-white border border-gold-200 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-sm"><img src={APP_LOGO_SRC} alt="Logo UNIVO Check-Health" className="w-8 h-8 object-contain" /></div>
               <div><h1 className="text-base sm:text-lg leading-tight font-semibold text-white">UNIVO Check-Health</h1><p className="text-xs text-gold-200">Sistema de Asistencias</p></div>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 rounded-md text-white hover:text-gold-200 hover:bg-brand-600">{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 sm:gap-3 rounded-xl border border-white/10 bg-white/5 p-1.5 sm:py-1.5 sm:pl-3 sm:pr-1.5 transition-colors hover:bg-white/10"
+              >
+                <div className="hidden sm:block text-right leading-tight">
+                  <p className="max-w-[160px] lg:max-w-[220px] truncate text-sm font-semibold text-white">{displayName || currentUser.email}</p>
+                  <p className="text-xs font-medium text-gold-300">{currentRole}</p>
+                </div>
+                <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-8 w-8 sm:h-9 sm:w-9" />
+              </Link>
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                size="icon"
+                title="Cerrar sesión"
+                className="hidden lg:inline-flex h-10 w-10 rounded-xl border border-white/10 text-brand-100 hover:bg-white/10 hover:text-white"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 rounded-md text-white hover:text-gold-200 hover:bg-brand-600">{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="flex w-full">
-        <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 border-r border-brand-900/70 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(10,17,40,0.22)] transition-[width] duration-200`}>
+        <aside className={`hidden lg:flex lg:flex-col ${isSidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 overflow-hidden rounded-br-2xl bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 border-r border-brand-900/70 min-h-[calc(100vh-4rem)] sticky top-16 self-start h-[calc(100vh-4rem)] shadow-[8px_0_24px_rgba(10,17,40,0.22)] transition-[width] duration-200`}>
           <div className={`flex p-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
             <button
               onClick={toggleSidebar}
@@ -573,33 +594,35 @@ export function MainLayout() {
                     <span className="flex-1 text-left">{group.name}</span>
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
                   </button>
-                  {open && (
-                    <div className="pl-2 space-y-0.5">
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
-                        const active = isActive(item.href);
-                        return (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
-                              active
-                                ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
-                                : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
-                            }`}
-                          >
-                            <Icon className="w-4 h-4 shrink-0" />
-                            <span className="flex-1">{item.name}</span>
-                            {item.badge != null && item.badge > 0 && (
-                              <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
-                                {item.badge}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
+                  <div className={`grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="pl-2 space-y-0.5 pt-0.5">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const active = isActive(item.href);
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.href}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                                active
+                                  ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                                  : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
+                              }`}
+                            >
+                              <Icon className="w-4 h-4 shrink-0" />
+                              <span className="flex-1">{item.name}</span>
+                              {item.badge != null && item.badge > 0 && (
+                                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -631,36 +654,14 @@ export function MainLayout() {
                 );
               })}
           </nav>
-          <div className="p-4 border-t border-white/10 space-y-3 shrink-0 bg-brand-900/55">
-            {isSidebarCollapsed ? (
-              <div className="flex justify-center w-full">
-                <Link to="/profile" title={displayName || currentUser.email} className="flex w-11 h-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-800 via-brand-900 to-[#071024] shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
-                  <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-8 w-8" />
-                </Link>
-              </div>
-            ) : (
-              <Link to="/profile" className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-800 via-brand-900 to-[#071024] p-3 shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
-                  <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
-                </div>
-                <ProfileAvatar photoUrl={avatarUrl} name={displayName || currentUser.email || ''} className="h-9 w-9" />
-              </Link>
-            )}
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              title="Cerrar sesión"
-              className={`w-full bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
-            >
-              <LogOut className={`w-4 h-4 ${isSidebarCollapsed ? '' : 'mr-2'}`} />{!isSidebarCollapsed && 'Cerrar sesión'}
-            </Button>
-          </div>
         </aside>
 
-        {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto [&::-webkit-scrollbar]:hidden">
-            <nav className="p-3 space-y-1">
+        <div
+          className={`lg:hidden fixed inset-0 top-16 z-[1001] bg-gradient-to-b from-brand-800 via-brand-900 to-brand-800 overflow-y-auto [&::-webkit-scrollbar]:hidden transition-all duration-300 ease-out ${
+            isMobileMenuOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
+          }`}
+        >
+          <nav className="p-3 space-y-1">
               {/* Dashboard móvil */}
               {dashboardItem && (() => {
                 const Icon = dashboardItem.icon;
@@ -701,54 +702,46 @@ export function MainLayout() {
                       <span className="flex-1 text-left">{group.name}</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
                     </button>
-                    {open && (
-                      <div className="pl-2 space-y-0.5">
-                        {group.items.map((item) => {
-                          const Icon = item.icon;
-                          const active = isActive(item.href);
-                          return (
-                            <Link
-                              key={item.name}
-                              to={item.href}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
-                                active
-                                  ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
-                                  : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
-                              }`}
-                            >
-                              <Icon className="w-4 h-4 shrink-0" />
-                              <span className="flex-1">{item.name}</span>
-                              {item.badge != null && item.badge > 0 && (
-                                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
-                                  {item.badge}
-                                </span>
-                              )}
-                            </Link>
-                          );
-                        })}
+                    <div className={`grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="pl-2 space-y-0.5 pt-0.5">
+                          {group.items.map((item) => {
+                            const Icon = item.icon;
+                            const active = isActive(item.href);
+                            return (
+                              <Link
+                                key={item.name}
+                                to={item.href}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                                  active
+                                    ? 'bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 text-gold-300 font-semibold border-l-4 border-gold-400 pl-2 shadow-[0_2px_12px_rgba(10,17,40,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+                                    : 'border-l-4 border-transparent text-brand-100/75 hover:bg-white/10 hover:text-white pl-2'
+                                }`}
+                              >
+                                <Icon className="w-4 h-4 shrink-0" />
+                                <span className="flex-1">{item.name}</span>
+                                {item.badge != null && item.badge > 0 && (
+                                  <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand-900">
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md border-l-4 border-gold-500 bg-gradient-to-r from-brand-800 via-brand-900 to-[#071024] p-3 shadow-[0_2px_12px_rgba(10,17,40,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-300 ease-out hover:from-brand-700">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate">{displayName || currentUser.email}</p>
-                    <p className="text-xs text-gold-300 font-semibold mt-0.5">{currentRole}</p>
-                  </div>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-gold-300 bg-gradient-to-br from-brand-50 to-gold-100 text-brand-700">
-                    <UserCircle className="h-5 w-5" />
-                  </div>
-                </Link>
                 <Button onClick={handleLogout} variant="ghost" className="w-full justify-start bg-brand-800/55 text-brand-50 hover:bg-brand-700 hover:text-white border border-white/10">
                   <LogOut className="w-4 h-4 mr-2" />Cerrar sesión
                 </Button>
               </div>
             </nav>
-          </div>
-        )}
+        </div>
 
         <main className="flex-1 min-w-0 overflow-x-hidden">
           <div className="p-4 sm:p-6 lg:p-8">

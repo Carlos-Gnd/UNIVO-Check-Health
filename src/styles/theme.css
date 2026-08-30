@@ -2,17 +2,17 @@
 
 /* ─── Layer 1: Primitives ─────────────────────────────────────────────────── */
 :root {
-  /* Navy scale — primary brand color derived from #1a2d6b */
-  --ch-navy-50:  #f0f3fa;
-  --ch-navy-100: #dde3f5;
-  --ch-navy-200: #b3c1ea;
-  --ch-navy-300: #7a93d8;
-  --ch-navy-400: #4d68c0;
-  --ch-navy-500: #2e48a4;
-  --ch-navy-600: #243487;
-  --ch-navy-700: #1a2d6b;
-  --ch-navy-800: #111c42;
-  --ch-navy-900: #0a1128;
+  /* Navy scale — azul oscuro / azul-negro, afinado con el tono del fondo del login */
+  --ch-navy-50:  #eff3fb;
+  --ch-navy-100: #d6e0f5;
+  --ch-navy-200: #a9bfea;
+  --ch-navy-300: #7497dc;
+  --ch-navy-400: #3b6cce;
+  --ch-navy-500: #274e9b;
+  --ch-navy-600: #1b356a;
+  --ch-navy-700: #102141;
+  --ch-navy-800: #0b162d;
+  --ch-navy-900: #070e1d;
 
   /* Gold scale — accent color derived from #F5A623 */
   --ch-gold-50:  #fff8ed;
