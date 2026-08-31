@@ -127,38 +127,13 @@ export function Dashboard() {
     };
 
     void loadDashboardData();
-    const intervalId = window.setInterval(() => void loadDashboardData(), 30000);
-    // T-07.5: los indicadores del ciclo se recalculan cada 5 minutos
-    const cycleIntervalId = window.setInterval(async () => {
-      const [students, practices, attendance] = await Promise.all([
-        getStudents(),
-        getPractices(),
-        getAttendance(),
-      ]);
-      const studentRates = students.map((s) => {
-        const sa = attendance.filter((a) => a.studentId === s.id);
-        const present = sa.filter((a) => a.status === 'present' || a.status === 'late').length;
-        const r = sa.length > 0 ? Math.round((present / sa.length) * 100) : 0;
-        return { id: s.id, name: s.name, rate: r };
-      });
-      const atRisk = studentRates.filter((s) => s.rate < 75).sort((a, b) => a.rate - b.rate);
-      const practiceIncidents = practices.map((p) => {
-        const pa = attendance.filter((a) => a.practiceId === p.id && (a.status === 'absent' || a.status === 'late'));
-        return { name: p.name.length > 30 ? p.name.slice(0, 30) + '…' : p.name, incidents: pa.length };
-      }).filter((p) => p.incidents > 0).sort((a, b) => b.incidents - a.incidents);
-      const overallCompliance = studentRates.length > 0
-        ? Math.round(studentRates.reduce((acc, s) => acc + s.rate, 0) / studentRates.length)
-        : 0;
-      setCycleIndicators({
-        overallCompliance,
-        atRiskStudents: atRisk,
-        practicesWithIncidents: practiceIncidents,
-        lastUpdated: format(new Date(), 'HH:mm'),
-      });
-    }, 300000);
+    // R1-03: un solo ciclo de 60s para todo el dashboard (stats + indicadores T-07.5 +
+    // estudiantes activos). No es un mapa en vivo, así que no necesita 30s; el cálculo de
+    // indicadores reutiliza los datos ya traídos en este mismo ciclo en vez de repetir
+    // getStudents()/getPractices()/getAttendance() en un segundo timer aparte.
+    const intervalId = window.setInterval(() => void loadDashboardData(), 60000);
     return () => {
       window.clearInterval(intervalId);
-      window.clearInterval(cycleIntervalId);
     };
   }, []);
 
@@ -281,7 +256,7 @@ export function Dashboard() {
             Indicadores Clave del Ciclo
           </h3>
           <span className="text-xs text-gray-400">
-            Actualizado a las {cycleIndicators.lastUpdated} · cada 5 min
+            Actualizado a las {cycleIndicators.lastUpdated} · cada 60 s
           </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -509,7 +484,7 @@ export function Dashboard() {
                 </Badge>
               </CardTitle>
               <CardDescription className="text-brand-200">
-                Jornadas en curso · actualiza cada 30 segundos
+                Jornadas en curso · actualiza cada 60 segundos
               </CardDescription>
             </div>
             {/* Filtros — afectan mapa e indicadores simultáneamente */}
@@ -665,7 +640,7 @@ export function Dashboard() {
             <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
             Estudiantes Activos
           </CardTitle>
-          <CardDescription className="text-brand-200">Consulta backend actualizada cada 30 segundos</CardDescription>
+          <CardDescription className="text-brand-200">Consulta backend actualizada cada 60 segundos</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
