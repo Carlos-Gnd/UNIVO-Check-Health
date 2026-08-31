@@ -52,6 +52,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -61,6 +73,19 @@ jobs:
 
       - name: Re-aplicar migraciones en BD limpia (sin seed)
         run: supabase db reset --no-seed
+
+      # Ataca el propio stack recién levantado con una sesión de alumno real y
+      # confirma que HU-S01 (escalada de rol) y HU-S02 (forjar asistencias) siguen
+      # bloqueadas — ver 20260831004457_fix_column_level_protection_users_attendances.sql.
+      # Las claves de acá son las demo fijas de Supabase para stacks locales
+      # (siempre las mismas, no son secretos), no las de producción.
+      - name: Tests de RLS de seguridad (HU-S01/S02)
+        run: pnpm exec vitest run src/__tests__/rlsSecurity.test.ts
+        env:
+          CI_RLS_INTEGRATION: 'true'
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
 
       - name: Stop
         if: always()
