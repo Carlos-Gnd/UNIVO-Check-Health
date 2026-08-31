@@ -30,12 +30,18 @@ export function StudentLiveMap({
   realtime = true,
   showCampusFilter = false,
   campusOptions,
+  campusFilter: controlledCampusFilter,
+  onCampusFilterChange,
 }: {
   fetchSnapshot: () => Promise<LiveMapStudent[]>;
   title?: string;
   realtime?: boolean;
   showCampusFilter?: boolean;
   campusOptions?: LiveMapCampusOption[];
+  // Filtro controlado (ej. persistido en la URL, como en DeanDashboardPage). Si no se
+  // pasan estas dos props, el filtro se maneja con estado interno (comportamiento previo).
+  campusFilter?: string;
+  onCampusFilterChange?: (value: string) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletInstance = useRef<any>(null);
@@ -49,7 +55,9 @@ export function StudentLiveMap({
   fetchRef.current = fetchSnapshot;
 
   const [visibleCampusCount, setVisibleCampusCount] = useState(0);
-  const [campusFilter, setCampusFilter] = useState('all');
+  const [internalCampusFilter, setInternalCampusFilter] = useState('all');
+  const campusFilter = controlledCampusFilter ?? internalCampusFilter;
+  const setCampusFilter = onCampusFilterChange ?? setInternalCampusFilter;
   const [mapCampusOptions, setMapCampusOptions] = useState<LiveMapCampusOption[]>([]);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   campusFilterRef.current = campusFilter;
