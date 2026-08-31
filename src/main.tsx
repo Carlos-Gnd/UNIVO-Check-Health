@@ -2,7 +2,11 @@
   import { createRoot } from "react-dom/client";
   import App from "./app/App.tsx";
   import { ErrorBoundary } from "./shared/components/ErrorBoundary.tsx";
+  import { initSentry } from "./shared/utils/sentry.ts";
   import "./styles/index.css";
+
+  // R1-06: no-op si VITE_SENTRY_DSN no está configurada todavía.
+  initSentry();
 
   createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
