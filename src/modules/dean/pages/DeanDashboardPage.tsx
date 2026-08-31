@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Users } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { useDeanStore } from '@/modules/dean/store/useDeanStore';
 import { getActiveStudentsSnapshot } from '@/shared/backend/checkHealthBackend';
-import { supabase } from '@/shared/backend/supabaseClient';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { StudentLiveMap } from '@/shared/components/StudentLiveMap';
 import { fetchSharedDeviceAlerts, type SharedDeviceAlert } from '../services/dean.service';
 
 const RESOLVED_SHARED_DEVICE_ALERTS_KEY = 'checkhealth_resolved_shared_device_alerts';
@@ -25,201 +24,6 @@ const readResolvedSharedDeviceAlerts = () => {
 const writeResolvedSharedDeviceAlerts = (ids: Set<string>) => {
   localStorage.setItem(RESOLVED_SHARED_DEVICE_ALERTS_KEY, JSON.stringify([...ids]));
 };
-
-function LiveMap({
-  campusFilter,
-  campusOptions,
-  onCampusChange,
-}: {
-  campusFilter: string;
-  campusOptions: { id: string; name: string }[];
-  onCampusChange: (v: string) => void;
-}) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const leafletInstance = useRef<any>(null);
-  const markersLayer = useRef<any>(null);
-  const campusLayer = useRef<any>(null);
-  const leafletModule = useRef<any>(null);
-  const mapIsMounted = useRef(true);
-  const [visibleCampusCount, setVisibleCampusCount] = useState(0);
-  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
-
-  // Refs para evitar stale closures en callbacks async
-  const campusFilterRef = useRef(campusFilter);
-  campusFilterRef.current = campusFilter;
-
-  useEffect(() => () => { mapIsMounted.current = false; }, []);
-
-  // #14: divIcon por CSS. El icono por defecto de Leaflet depende de imágenes que
-  // Vite no empaqueta, por lo que los marcadores de alumno salían "invisibles".
-  const studentIcon = (L: any) => L.divIcon({
-    className: '',
-    html: '<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35)"></div>',
-    iconSize: [16, 16], iconAnchor: [8, 8],
-  });
-  const campusIcon = (L: any) => L.divIcon({
-    className: '',
-    html: '<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#f5a623;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:13px">🏥</div>',
-    iconSize: [24, 24], iconAnchor: [12, 12],
-  });
-
-  // #13: dibuja los pines de las sedes (marcador + círculo de geocerca). Antes el
-  // mapa solo pintaba alumnos, así que las sedes nunca aparecían. Se dibuja una vez.
-  const drawCampuses = async (L: any) => {
-    if (!campusLayer.current) return;
-    const { data } = await supabase
-      .from('campuses')
-      .select('id, name, latitude, longitude, radius_meters')
-      .eq('is_active', true);
-    if (!mapIsMounted.current || !campusLayer.current) return;
-    campusLayer.current.clearLayers();
-    const visibleCampuses = (data ?? []).filter((c: any) =>
-      campusFilterRef.current === 'all' || c.id === campusFilterRef.current,
-    );
-    setVisibleCampusCount(visibleCampuses.length);
-    visibleCampuses.forEach((c: any) => {
-      if (c.latitude == null || c.longitude == null) return;
-      const lat = Number(c.latitude); const lng = Number(c.longitude);
-      L.marker([lat, lng], { icon: campusIcon(L) })
-        .bindPopup(`<b style="font-size:13px">${c.name}</b><br/><span style="font-size:11px;color:#6b7280">Sede de práctica</span>`)
-        .addTo(campusLayer.current);
-      if (c.radius_meters) {
-        L.circle([lat, lng], { radius: c.radius_meters, color: '#f5a623', weight: 1, fillColor: '#f5a623', fillOpacity: 0.08 })
-          .addTo(campusLayer.current);
-      }
-    });
-  };
-
-  const refreshMarkers = async (L: any) => {
-    const all = await getActiveStudentsSnapshot();
-    const filtered = all.filter((s) => {
-      if (campusFilterRef.current !== 'all' && s.practiceId !== campusFilterRef.current) return false;
-      return true;
-    });
-    if (!mapIsMounted.current || !markersLayer.current) return;
-    markersLayer.current.clearLayers();
-    filtered.forEach((s) => {
-      if (!s.lastLocation) return;
-      L.marker([s.lastLocation.latitude, s.lastLocation.longitude], { icon: studentIcon(L) })
-        .bindPopup(
-          `<b style="font-size:13px">${s.studentName}</b>` +
-          (s.carnet ? `<br/><span style="font-size:11px;color:#6b7280">${s.carnet}</span>` : '') +
-          `<br/><span style="font-size:11px">${s.siteName}</span>` +
-          `<br/><span style="font-size:11px;color:#2563eb">${s.hoursToday.toFixed(1)} h hoy</span>`,
-        )
-        .addTo(markersLayer.current);
-    });
-  };
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    let isMounted = true;
-    import('leaflet').then((L) => {
-      if (!isMounted || !mapRef.current || leafletInstance.current) return;
-      leafletModule.current = L;
-      const map = L.map(mapRef.current, { zoomControl: true }).setView([13.7942, -88.8965], 8);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-      }).addTo(map);
-      campusLayer.current = L.layerGroup().addTo(map);
-      markersLayer.current = L.layerGroup().addTo(map);
-      leafletInstance.current = map;
-      void drawCampuses(L);
-      void refreshMarkers(L);
-      interval = setInterval(() => void refreshMarkers(L), 30000);
-    });
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-      leafletInstance.current?.remove();
-      leafletInstance.current = null;
-      markersLayer.current = null;
-      campusLayer.current = null;
-      leafletModule.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
-
-    const refreshFromRealtime = () => {
-      if (refreshTimeout) clearTimeout(refreshTimeout);
-      refreshTimeout = setTimeout(() => {
-        if (leafletModule.current) void refreshMarkers(leafletModule.current);
-      }, 300);
-    };
-
-    const channel = supabase
-      .channel('dean-live-map-attendances')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendances' },
-        refreshFromRealtime,
-      )
-      .subscribe((status) => {
-        setIsRealtimeConnected(status === 'SUBSCRIBED');
-      });
-
-    return () => {
-      if (refreshTimeout) clearTimeout(refreshTimeout);
-      setIsRealtimeConnected(false);
-      void supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Re-renderizar marcadores cuando cambian los filtros
-  useEffect(() => {
-    if (!leafletModule.current) return;
-    void drawCampuses(leafletModule.current);
-    void refreshMarkers(leafletModule.current);
-  }, [campusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <Card className="overflow-hidden border-brand-100 shadow-sm">
-      <CardHeader className="space-y-3 bg-gradient-to-r from-brand-700 via-brand-800 to-brand-900 border-b border-brand-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        {/* Fila 1: título + badges de estado */}
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <CardTitle className="flex items-center gap-2 min-w-0 text-white">
-            <div className="w-1 h-5 rounded-full bg-gold-400 shrink-0" />
-            <MapPin className="w-4 h-4 shrink-0 text-gold-300" />
-            <span className="truncate">Estudiantes activos en tiempo real</span>
-          </CardTitle>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge className={isRealtimeConnected ? 'bg-green-500/20 text-green-200 border border-green-400/30' : 'bg-white/10 text-brand-200 border border-white/20'}>
-              {isRealtimeConnected ? 'Realtime' : 'Actualizando'}
-            </Badge>
-            <Badge className="bg-gold-500/20 text-gold-200 border border-gold-400/30">
-              {visibleCampusCount} {visibleCampusCount === 1 ? 'sede' : 'sedes'}
-            </Badge>
-          </div>
-        </div>
-        {/* Fila 2: filtros — apilados en móvil, en fila en sm+ */}
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Select value={campusFilter} onValueChange={onCampusChange}>
-            <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white/10 border-white/20 text-white hover:bg-white/15">
-              <SelectValue placeholder="Todas las sedes" />
-            </SelectTrigger>
-            <SelectContent className="z-[1000]">
-              <SelectItem value="all">Todas las sedes</SelectItem>
-              {campusOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="flex items-center gap-4 px-4 py-2 text-xs text-gray-500 border-b">
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-white shadow" />Estudiante activo</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded bg-gold-500 border border-white" />Sede (con su radio permitido)</span>
-        </div>
-        {/* Wrapper fijo: Leaflet no puede modificar este div — define dimensiones y clip */}
-        <div style={{ position: 'relative', width: '100%', height: '320px', overflow: 'hidden', borderRadius: '0 0 0.5rem 0.5rem' }}>
-          {/* mapRef: Leaflet overrides position→relative aquí, pero height:100% sigue resolviendo 320px */}
-          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function DeanDashboardPage() {
   const navigate = useNavigate();
@@ -424,10 +228,12 @@ export function DeanDashboardPage() {
       </Card>
 
       {/* Mapa Realtime con filtros integrados en la tarjeta */}
-      <LiveMap
-        campusFilter={campusFilter}
+      <StudentLiveMap
+        fetchSnapshot={getActiveStudentsSnapshot}
+        showCampusFilter
         campusOptions={campusOptions}
-        onCampusChange={(v) => setMapFilter('campus', v)}
+        campusFilter={campusFilter}
+        onCampusFilterChange={(v) => setMapFilter('campus', v)}
       />
     </div>
   );
