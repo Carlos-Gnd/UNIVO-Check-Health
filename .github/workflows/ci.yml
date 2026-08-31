@@ -26,6 +26,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # C1-05: reporta dependencias vulnerables en cada PR sin bloquear el merge
+      # todavía — hoy (2026-08-31) hay altos conocidos en react-router y xlsx que
+      # René está resolviendo (R1-01/R1-02 en Tareas_Rene.md). Pasar a bloqueante
+      # (quitar `continue-on-error`) en cuanto esos dos estén mergeados y
+      # `pnpm audit --prod` salga limpio de altos/críticos.
+      - name: Auditoría de dependencias vulnerables (no bloqueante por ahora)
+        run: pnpm audit --prod
+        continue-on-error: true
+
       - name: Lint
         run: pnpm exec tsc --noEmit
 
@@ -74,12 +83,12 @@ jobs:
       - name: Re-aplicar migraciones en BD limpia (sin seed)
         run: supabase db reset --no-seed
 
-      # Ataca el propio stack recién levantado con una sesión de alumno real y
-      # confirma que HU-S01 (escalada de rol) y HU-S02 (forjar asistencias) siguen
-      # bloqueadas — ver 20260831004457_fix_column_level_protection_users_attendances.sql.
-      # Las claves de acá son las demo fijas de Supabase para stacks locales
-      # (siempre las mismas, no son secretos), no las de producción.
-      - name: Tests de RLS de seguridad (HU-S01/S02)
+      # Ataca el propio stack recién levantado con sesiones de alumno reales:
+      # escalada de rol, forjar asistencias, exposición de system_config, lectura
+      # de perfiles ajenos (HU-Q01, arnés de RLS — ver rlsSecurity.test.ts). Las
+      # claves de acá son las demo fijas de Supabase para stacks locales (siempre
+      # las mismas, no son secretos), no las de producción.
+      - name: Tests de RLS de seguridad
         run: pnpm exec vitest run src/__tests__/rlsSecurity.test.ts
         env:
           CI_RLS_INTEGRATION: 'true'
