@@ -1,12 +1,14 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 import { supabase } from '@/shared/backend/supabaseClient';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean; message: string };
 
 // Captura errores de render de React para que un fallo en una pantalla no deje la app
-// en blanco. Registra el error en audit_log (best-effort) como monitoreo gratuito y
-// muestra una pantalla de recuperación. No reemplaza a un Sentry, pero da visibilidad.
+// en blanco. Reporta a Sentry (R1-06; no-op si VITE_SENTRY_DSN no está configurada),
+// registra en audit_log (best-effort) como respaldo, y muestra una pantalla de
+// recuperación.
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, message: '' };
 
@@ -17,6 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('UI ErrorBoundary:', error, info.componentStack);
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack } } });
     void supabase.auth.getUser().then(({ data }) => {
       void supabase.from('audit_log').insert({
         action: 'UI_ERROR',
