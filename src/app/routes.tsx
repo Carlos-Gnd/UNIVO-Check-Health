@@ -2,16 +2,21 @@ import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { MainLayout } from '@/shared/components/MainLayout';
 import { NotFound } from '@/shared/components/NotFound';
+import { RouteError } from '@/shared/components/RouteError';
 import { RoleGuard } from '@/shared/components/RoleGuard';
 import { RecoveryPage } from '@/modules/auth/RecoveryPage';
 import { RequestAccessPage } from '@/modules/auth/RequestAccessPage';
 import { PrivacyPolicyPage, CookiesPolicyPage, TermsPage } from '@/modules/legal/legalContent';
+import { importWithReload } from '@/shared/utils/lazyImportWithReload';
 
 // Carga diferida de páginas: cada ruta se divide en su propio chunk y solo se
 // descarga al navegar a ella (reduce el bundle inicial). Las páginas son exports
 // nombrados, así que se resuelven con este helper. El <Suspense> está en MainLayout.
+// importWithReload maneja el caso de un chunk que ya no existe tras un deploy nuevo
+// (ver lazyImportWithReload.ts) — recarga una vez en vez de romper con el error
+// genérico de React Router.
 function lazyPage<T extends Record<string, ComponentType<any>>>(factory: () => Promise<T>, name: keyof T) {
-  return lazy(async () => ({ default: (await factory())[name] }));
+  return lazy(async () => ({ default: (await importWithReload(factory))[name] }));
 }
 
 const Dashboard = lazyPage(() => import('@/modules/dashboard/components/Dashboard'), 'Dashboard');
@@ -176,14 +181,15 @@ const HospitalSubjectsRoute = () => (
 );
 
 export const router = createBrowserRouter([
-  { path: '/auth/recovery', Component: RecoveryPage },
-  { path: '/auth/request-access', Component: RequestAccessPage },
-  { path: '/legal/privacy', Component: PrivacyPolicyPage },
-  { path: '/legal/cookies', Component: CookiesPolicyPage },
-  { path: '/legal/terms', Component: TermsPage },
+  { path: '/auth/recovery', Component: RecoveryPage, errorElement: <RouteError /> },
+  { path: '/auth/request-access', Component: RequestAccessPage, errorElement: <RouteError /> },
+  { path: '/legal/privacy', Component: PrivacyPolicyPage, errorElement: <RouteError /> },
+  { path: '/legal/cookies', Component: CookiesPolicyPage, errorElement: <RouteError /> },
+  { path: '/legal/terms', Component: TermsPage, errorElement: <RouteError /> },
   {
     path: '/',
     Component: MainLayout,
+    errorElement: <RouteError />,
     children: [
       { index: true, Component: Dashboard },
       { path: 'checkin', Component: CheckIn },
