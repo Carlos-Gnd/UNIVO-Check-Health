@@ -99,3 +99,44 @@ jobs:
       - name: Stop
         if: always()
         run: supabase stop
+
+  # Encontrado el 2026-09-04: 4 migraciones (2 críticas de seguridad entre ellas)
+  # llevaban mergeadas a main desde hace días sin que nadie las desplegara a la
+  # base real — el job "migrations" de arriba solo prueba contra una BD efímera,
+  # nunca toca producción, así que el gap pasó totalmente desapercibido. Este job
+  # corre solo en push a main y falla (en rojo, visible en Actions) si hay
+  # migraciones locales que el proyecto real todavía no tiene aplicadas.
+  check-deployed-migrations:
+    name: Alerta · migraciones sin desplegar a producción
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Verificar que no haya migraciones locales sin aplicar en remoto
+        run: |
+          set -euo pipefail
+          supabase login --token "$SUPABASE_ACCESS_TOKEN"
+          supabase link --project-ref hhddnhofyilsdaltzpeh
+          # El comando imprime "Connecting to remote database..." antes del JSON —
+          # tail -n1 se queda solo con la última línea (el payload real). Si el
+          # formato cambiara y esto dejara de ser JSON válido, jq falla fuerte
+          # (set -e) en vez de devolver vacío en silencio y dar un falso "OK".
+          PAYLOAD=$(supabase migration list --linked | tail -n1)
+          echo "$PAYLOAD" | jq -e '.migrations' > /dev/null
+          PENDING=$(echo "$PAYLOAD" | jq -r '.migrations[] | select(.remote == "") | .local')
+          if [ -n "$PENDING" ]; then
+            echo "::error::Hay migraciones en main que NO están aplicadas en producción:"
+            echo "$PENDING" | while read -r m; do echo "::error::  - $m"; done
+            echo ""
+            echo "Aplicar con: supabase db push --linked (revisar antes con --dry-run)"
+            exit 1
+          fi
+          echo "Todas las migraciones de main ya están aplicadas en producción."
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
