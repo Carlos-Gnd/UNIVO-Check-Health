@@ -42,9 +42,17 @@ import { Button } from './ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '@/shared/backend/supabaseClient';
-import { claimSession, checkSession, clearLocalSession } from '@/shared/utils/singleSession';
+import {
+  claimSession,
+  checkSession,
+  clearLocalSession,
+  findOtherActiveSession,
+  getOrCreateLocalSessionId,
+  type OtherActiveSession,
+} from '@/shared/utils/singleSession';
 import { toInstitutionalEmail, UNIVO_DOMAIN } from '@/shared/utils/email';
 import { ForcePasswordChange } from '@/modules/auth/ForcePasswordChange';
+import { ActiveSessionConflict } from '@/modules/auth/ActiveSessionConflict';
 import { LegalConsent } from '@/modules/legal/LegalConsent';
 import { LEGAL_VERSION } from '@/modules/legal/legalContent';
 import { PermissionsSetup, PERMISSIONS_KEY, permissionsAlreadyGranted } from '@/modules/auth/PermissionsSetup';
@@ -103,6 +111,8 @@ export function MainLayout() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(true);
   const [needsPermissions, setNeedsPermissions] = useState(false);
+  const [isCheckingSessionConflict, setIsCheckingSessionConflict] = useState(false);
+  const [pendingOtherSession, setPendingOtherSession] = useState<OtherActiveSession | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({});
   const sessionIdRef = useRef<string | null>(null);
@@ -141,24 +151,52 @@ export function MainLayout() {
     setLegalAccepted(legalErr ? true : legal?.accepted_legal_version === LEGAL_VERSION);
   };
 
+  // Continúa el login normal (permisos + rol) una vez resuelta la sesión —
+  // sea porque no había conflicto, o porque el usuario confirmó cerrar la otra.
+  const proceedAfterSession = (user: User) => {
+    // B8: solo pedir permisos si no se preguntó antes Y el navegador no los
+    // tiene ya concedidos (evita re-preguntar tras deploys o limpieza de cache).
+    if (localStorage.getItem(PERMISSIONS_KEY) === '1') {
+      setNeedsPermissions(false);
+    } else {
+      setNeedsPermissions(true);
+      void permissionsAlreadyGranted().then((granted) => {
+        if (granted) { localStorage.setItem(PERMISSIONS_KEY, '1'); setNeedsPermissions(false); }
+      });
+    }
+    void resolveRole(user.id, user.email ?? '');
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
-          setCurrentUser(session.user);
-          // B8: solo pedir permisos si no se preguntó antes Y el navegador no los
-          // tiene ya concedidos (evita re-preguntar tras deploys o limpieza de cache).
-          if (localStorage.getItem(PERMISSIONS_KEY) === '1') {
-            setNeedsPermissions(false);
-          } else {
-            setNeedsPermissions(true);
-            void permissionsAlreadyGranted().then((granted) => {
-              if (granted) { localStorage.setItem(PERMISSIONS_KEY, '1'); setNeedsPermissions(false); }
-            });
+          const user = session.user;
+          setCurrentUser(user);
+
+          const { sessionId, isNewDevice } = getOrCreateLocalSessionId(user.id);
+          sessionIdRef.current = sessionId;
+
+          if (!isNewDevice) {
+            // Misma sesión de siempre reconectando (recarga, volver a la pestaña)
+            // — sin diálogo, como hasta ahora.
+            void claimSession(sessionId);
+            proceedAfterSession(user);
+            return;
           }
-          void resolveRole(session.user.id, session.user.email ?? '');
-          // Sesión única: reclama (o reusa) el id de sesión para este usuario.
-          void claimSession(session.user.id).then((id) => { sessionIdRef.current = id; });
+
+          // Dispositivo/navegador nuevo para este usuario: antes de reclamar la
+          // sesión (lo que cerraría cualquier otra), preguntar si ya hay una activa.
+          setIsCheckingSessionConflict(true);
+          void findOtherActiveSession().then((other) => {
+            setIsCheckingSessionConflict(false);
+            if (other) {
+              setPendingOtherSession(other);
+            } else {
+              void claimSession(sessionId);
+              proceedAfterSession(user);
+            }
+          });
         } else {
           setCurrentUser(null);
           setCurrentRole('Encargado');
@@ -168,6 +206,8 @@ export function MainLayout() {
           setLegalAccepted(true);
           setNeedsPermissions(false);
           setIsResolvingRole(false);
+          setIsCheckingSessionConflict(false);
+          setPendingOtherSession(null);
           sessionIdRef.current = null;
           clearLocalSession();
         }
@@ -176,6 +216,21 @@ export function MainLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const handleConfirmCloseOtherSession = async () => {
+    const sid = sessionIdRef.current;
+    if (sid) await claimSession(sid);
+    setPendingOtherSession(null);
+    if (currentUser) proceedAfterSession(currentUser);
+  };
+
+  const handleCancelSessionConflict = async () => {
+    setPendingOtherSession(null);
+    clearLocalSession();
+    sessionIdRef.current = null;
+    await supabase.auth.signOut();
+    toast.info('Inicio de sesión cancelado.');
+  };
+
   // Sesión única: si otro dispositivo inició sesión después, este cliente se cierra.
   useEffect(() => {
     if (!currentUser) return;
@@ -183,7 +238,7 @@ export function MainLayout() {
     const verify = async () => {
       const sid = sessionIdRef.current;
       if (!sid) return;
-      const result = await checkSession(currentUser.id, sid);
+      const result = await checkSession(sid);
       if (!cancelled && result === 'revoked') {
         toast.error('Tu sesión se cerró porque iniciaste sesión en otro dispositivo.');
         await supabase.auth.signOut();
@@ -485,6 +540,21 @@ export function MainLayout() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Sesión única: si al iniciar sesión en un dispositivo nuevo ya había otra
+  // activa, preguntar antes de cerrarla (en vez de cerrarla en silencio).
+  if (isCheckingSessionConflict) {
+    return <LoadingScreen />;
+  }
+  if (pendingOtherSession) {
+    return (
+      <ActiveSessionConflict
+        session={pendingOtherSession}
+        onConfirm={handleConfirmCloseOtherSession}
+        onCancel={handleCancelSessionConflict}
+      />
     );
   }
 
